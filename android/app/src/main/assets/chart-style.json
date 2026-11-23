@@ -1,0 +1,145 @@
+{
+  "version": 8,
+  "name": "ChompChamp chart",
+  "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+  "sources": {
+    "chart": {
+      "type": "vector",
+      "url": "{{CHART_URL}}",
+      "attribution": "Depth: © Geoscience Australia (AusBathyTopo). Zones: WA DPIRD, DBCA (CC BY-SA 4.0), Parks Australia. NOT FOR NAVIGATION."
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": { "background-color": "#f5f9fd" }
+    },
+    {
+      "id": "depth-fill",
+      "type": "fill",
+      "source": "chart",
+      "source-layer": "depth",
+      "paint": {
+        "fill-color": [
+          "step", ["get", "dmin"],
+          "#73b0e6",
+          5, "#93c4ee",
+          10, "#b3d6f3",
+          20, "#cfe5f7",
+          50, "#e3f0fa",
+          100, "#f0f6fc",
+          200, "#f8fbfe"
+        ],
+        "fill-antialias": false
+      }
+    },
+    {
+      "id": "zones-park-fill",
+      "type": "fill",
+      "source": "chart",
+      "source-layer": "zones",
+      "filter": ["==", ["get", "zone_class"], "park"],
+      "paint": { "fill-color": "#2e7d32", "fill-opacity": 0.06 }
+    },
+    {
+      "id": "zones-restricted-fill",
+      "type": "fill",
+      "source": "chart",
+      "source-layer": "zones",
+      "filter": ["==", ["get", "zone_class"], "restricted"],
+      "paint": { "fill-color": "#ef6c00", "fill-opacity": 0.15 }
+    },
+    {
+      "id": "zones-notake-fill",
+      "type": "fill",
+      "source": "chart",
+      "source-layer": "zones",
+      "filter": ["==", ["get", "zone_class"], "notake"],
+      "paint": { "fill-color": "#d32f2f", "fill-opacity": 0.22 }
+    },
+    {
+      "id": "contour",
+      "type": "line",
+      "source": "chart",
+      "source-layer": "contour",
+      "paint": {
+        "line-color": "#4f86c0",
+        "line-opacity": 0.8,
+        "line-width": [
+          "case",
+          ["in", ["get", "depth"], ["literal", [10, 20, 50, 100, 200, 500, 1000]]], 1.4,
+          0.6
+        ]
+      }
+    },
+    {
+      "id": "land",
+      "type": "fill",
+      "source": "chart",
+      "source-layer": "land",
+      "paint": { "fill-color": "#efe2bd", "fill-outline-color": "#8c7a4f" }
+    },
+    {
+      "id": "zones-park-line",
+      "type": "line",
+      "source": "chart",
+      "source-layer": "zones",
+      "filter": ["==", ["get", "zone_class"], "park"],
+      "paint": { "line-color": "#2e7d32", "line-width": 1, "line-dasharray": [4, 3] }
+    },
+    {
+      "id": "zones-restricted-line",
+      "type": "line",
+      "source": "chart",
+      "source-layer": "zones",
+      "filter": ["==", ["get", "zone_class"], "restricted"],
+      "paint": { "line-color": "#ef6c00", "line-width": 1.2 }
+    },
+    {
+      "id": "zones-notake-line",
+      "type": "line",
+      "source": "chart",
+      "source-layer": "zones",
+      "filter": ["==", ["get", "zone_class"], "notake"],
+      "paint": { "line-color": "#c62828", "line-width": 2 }
+    },
+    {
+      "id": "contour-label",
+      "type": "symbol",
+      "source": "chart",
+      "source-layer": "contour",
+      "minzoom": 9,
+      "layout": {
+        "symbol-placement": "line",
+        "text-field": ["to-string", ["get", "depth"]],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": 11,
+        "symbol-spacing": 350
+      },
+      "paint": {
+        "text-color": "#2c5d91",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.5
+      }
+    },
+    {
+      "id": "zones-notake-label",
+      "type": "symbol",
+      "source": "chart",
+      "source-layer": "zones",
+      "minzoom": 11,
+      "filter": ["==", ["get", "zone_class"], "notake"],
+      "layout": {
+        "text-field": "NO FISHING",
+        "text-font": ["Noto Sans Regular"],
+        "text-size": 11
+      },
+      "paint": {
+        "text-color": "#b71c1c",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 1.5
+      }
+    }
+  ]
+}

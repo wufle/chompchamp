@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">ChompChamp</string>
+    <string name="disclaimer_title">Not for navigation</string>
+    <string name="disclaimer_body">ChompChamp is built from free public data (Geoscience Australia depth models, WA DPIRD fishing closures, DBCA and Parks Australia marine park boundaries). It is NOT an official nautical chart and must not be used for navigation.\n\nDepths are from a 250 m national model and can be badly wrong near reefs, bars and shorelines. Fishing zone boundaries may be incomplete or out of date. Always check current rules with DPIRD and Parks Australia, carry official charts, and keep a proper lookout.</string>
+    <string name="disclaimer_accept">I understand</string>
+    <string name="no_chart">No chart loaded. Tap + to import a wa.pmtiles file.</string>
+    <string name="importing">Importing chart…</string>
+    <string name="import_done">Chart imported</string>
+    <string name="import_failed">Import failed: %1$s</string>
+    <string name="no_fishing_banner">⚠ NO FISHING ZONE\n%1$s</string>
+    <string name="restricted_banner">Restricted area\n%1$s</string>
+    <string name="location_needed">Location permission is needed to show your boat.</string>
+</resources>
