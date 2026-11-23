@@ -2,6 +2,7 @@ package au.chompchamp
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
@@ -18,6 +19,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
@@ -50,6 +53,12 @@ class MainActivity : AppCompatActivity(), LocationListener {
             uri?.let { importChartFile(it) }
         }
 
+    // Fallback picker for devices where ACTION_OPEN_DOCUMENT isn't available.
+    private val importChartFallback =
+        registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            uri?.let { importChartFile(it) }
+        }
+
     private val requestLocation =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
             if (grants.values.any { it }) {
@@ -70,10 +79,16 @@ class MainActivity : AppCompatActivity(), LocationListener {
         zoneBanner = findViewById(R.id.zoneBanner)
         mapView.onCreate(savedInstanceState)
 
-        findViewById<FloatingActionButton>(R.id.btnLocate).setOnClickListener { followBoat() }
-        findViewById<FloatingActionButton>(R.id.btnImport).setOnClickListener {
-            importChart.launch(arrayOf("*/*"))
+        // targetSdk 35 forces edge-to-edge on Android 15+: keep controls clear of
+        // the status/navigation bars or taps on them go to the system instead.
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.overlay)) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
         }
+
+        findViewById<FloatingActionButton>(R.id.btnLocate).setOnClickListener { followBoat() }
+        findViewById<FloatingActionButton>(R.id.btnImport).setOnClickListener { openChartPicker() }
 
         mapView.getMapAsync { m ->
             map = m
@@ -86,6 +101,42 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
 
         showDisclaimerIfNeeded()
+        handleIncomingIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIncomingIntent(intent)
+    }
+
+    /** "Open with ChompChamp" / "Share to ChompChamp" from a file manager or browser. */
+    private fun handleIncomingIntent(intent: Intent?) {
+        val uri: Uri? = when (intent?.action) {
+            Intent.ACTION_VIEW -> intent.data
+            Intent.ACTION_SEND -> if (android.os.Build.VERSION.SDK_INT >= 33) {
+                intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+            } else {
+                @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_STREAM)
+            }
+            else -> null
+        }
+        if (uri != null) {
+            intent?.action = null // don't re-import on rotation
+            importChartFile(uri)
+        }
+    }
+
+    private fun openChartPicker() {
+        Toast.makeText(this, R.string.opening_picker, Toast.LENGTH_SHORT).show()
+        try {
+            importChart.launch(arrayOf("*/*"))
+        } catch (e: Exception) {
+            try {
+                importChartFallback.launch("*/*")
+            } catch (e2: Exception) {
+                Toast.makeText(this, getString(R.string.import_failed, e2.message ?: e2.javaClass.simpleName), Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     // ---- Chart style -------------------------------------------------------
@@ -113,6 +164,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
                     tmp.outputStream().use { input.copyTo(it, 1 shl 20) }
                 }
                 require(tmp.length() > 0) { "file is empty" }
+                val magic = ByteArray(7).also { b -> tmp.inputStream().use { it.read(b) } }
+                if (String(magic, Charsets.US_ASCII) != "PMTiles") {
+                    tmp.delete()
+                    error("that isn't a .pmtiles chart file")
+                }
                 if (!tmp.renameTo(chartFile)) error("could not save chart")
             }
             runOnUiThread {

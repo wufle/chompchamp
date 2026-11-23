@@ -9,51 +9,58 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <TextView
-        android:id="@+id/navText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|start"
-        android:layout_margin="12dp"
-        android:background="#CC102030"
-        android:fontFamily="monospace"
-        android:padding="10dp"
-        android:text="SOG --.- kn\nCOG ---°\nNo GPS fix"
-        android:textColor="#FFFFFF"
-        android:textSize="15sp" />
-
-    <TextView
-        android:id="@+id/zoneBanner"
+    <!-- Overlay controls; padded by system-bar insets in MainActivity (Android 15 edge-to-edge). -->
+    <FrameLayout
+        android:id="@+id/overlay"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:layout_marginStart="12dp"
-        android:layout_marginEnd="88dp"
-        android:layout_marginBottom="24dp"
-        android:background="#E6C62828"
-        android:gravity="center"
-        android:padding="12dp"
-        android:textColor="#FFFFFF"
-        android:textSize="17sp"
-        android:textStyle="bold"
-        android:visibility="gone" />
+        android:layout_height="match_parent">
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/btnImport"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|end"
-        android:layout_margin="16dp"
-        android:contentDescription="Import chart"
-        android:src="@android:drawable/ic_menu_add"
-        app:fabSize="mini" />
+        <TextView
+            android:id="@+id/navText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:layout_margin="12dp"
+            android:background="#CC102030"
+            android:fontFamily="monospace"
+            android:padding="10dp"
+            android:text="SOG --.- kn\nCOG ---°\nNo GPS fix"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp" />
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/btnLocate"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
-        android:contentDescription="Follow boat"
-        android:src="@android:drawable/ic_menu_mylocation" />
+        <TextView
+            android:id="@+id/zoneBanner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="88dp"
+            android:layout_marginBottom="24dp"
+            android:background="#E6C62828"
+            android:gravity="center"
+            android:padding="12dp"
+            android:textColor="#FFFFFF"
+            android:textSize="17sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/btnImport"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|end"
+            android:layout_margin="16dp"
+            android:contentDescription="Import chart"
+            android:src="@android:drawable/ic_menu_add"
+            app:fabSize="mini" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/btnLocate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_margin="16dp"
+            android:contentDescription="Follow boat"
+            android:src="@android:drawable/ic_menu_mylocation" />
+    </FrameLayout>
 </FrameLayout>
