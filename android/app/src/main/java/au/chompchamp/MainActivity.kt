@@ -11,6 +11,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.widget.TextView
@@ -44,6 +45,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private var map: MapLibreMap? = null
     private var locationActive = false
     private var currentZone: String? = null
+    private var barInsets = androidx.core.graphics.Insets.NONE
     private val io = Executors.newSingleThreadExecutor()
 
     private val chartFile: File by lazy { File(filesDir, "charts/wa.pmtiles") }
@@ -84,6 +86,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.overlay)) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
             v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            barInsets = bars
+            applyMapUiMargins()
             insets
         }
 
@@ -92,6 +96,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
         mapView.getMapAsync { m ->
             map = m
+            applyMapUiMargins()
             m.cameraPosition = CameraPosition.Builder()
                 .target(LatLng(-32.0, 115.6)) // Perth / Rottnest
                 .zoom(8.0)
@@ -137,6 +142,18 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 Toast.makeText(this, getString(R.string.import_failed, e2.message ?: e2.javaClass.simpleName), Toast.LENGTH_LONG).show()
             }
         }
+    }
+
+    /** Keep MapLibre's compass, logo and attribution clear of our buttons and the system bars. */
+    private fun applyMapUiMargins() {
+        val ui = map?.uiSettings ?: return
+        val dp = resources.displayMetrics.density
+        val pad = (16 * dp).toInt()
+        ui.compassGravity = Gravity.TOP or Gravity.END
+        // Sit below the top-right + button (mini FAB 40dp + 16dp margins).
+        ui.setCompassMargins(0, barInsets.top + (72 * dp).toInt(), barInsets.right + pad, 0)
+        ui.setLogoMargins(barInsets.left + pad, 0, 0, barInsets.bottom + pad)
+        ui.setAttributionMargins(barInsets.left + (100 * dp).toInt(), 0, 0, barInsets.bottom + pad)
     }
 
     // ---- Chart style -------------------------------------------------------
