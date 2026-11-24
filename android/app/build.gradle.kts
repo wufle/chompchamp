@@ -3,6 +3,10 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// Release signing key comes from CI secrets (see README "Signing"). Every build must use the
+// same key or Android refuses to install an update over the existing app.
+val keystorePath: String? = System.getenv("ANDROID_KEYSTORE_PATH")
+
 android {
     namespace = "au.chompchamp"
     compileSdk = 35
@@ -11,13 +15,30 @@ android {
         applicationId = "au.chompchamp"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "0.3.1"
+        versionCode = 7
+        versionName = "0.4.0"
+    }
+
+    signingConfigs {
+        if (keystorePath != null) {
+            create("release") {
+                storeFile = file(keystorePath)
+                storeType = "pkcs12"
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: "chompchamp"
+                keyPassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
+        }
+        debug {
+            // Sign debug builds with the same key when available, so either can update the other.
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }
     compileOptions {

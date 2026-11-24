@@ -34,8 +34,9 @@ pipeline/    Scripts that build the offline chart file (wa.pmtiles) from public 
 
 1. **Chart data:** Actions → *Build WA chart data* → *Run workflow*. When it finishes, a
    new Release appears with `wa.pmtiles` attached. Download it to your phone.
-2. **App:** Actions → *Android build* → latest run → download the `chompchamp-debug-apk`
-   artifact, unzip it and install `app-debug.apk` (allow "install unknown apps").
+2. **App:** Actions → *Android build* → latest run → download the `chompchamp-apk`
+   artifact, unzip it and install `chompchamp-<version>.apk` (allow "install unknown apps").
+   New versions install over the old one and keep your routes, marks and settings.
 3. Open the app, accept the disclaimer, tap **+** and pick `wa.pmtiles`.
 
 ## Building locally
@@ -56,6 +57,20 @@ Offline 5 m reef relief pack (needs `pip install pillow pmtiles`):
 `python3 pipeline/scripts/build_relief.py pipeline/out/wa-relief.pmtiles`, or run the
 *Build WA reef relief pack* workflow. Import it in the app the same way as the chart. To just refresh fishing zones:
 `python3 pipeline/scripts/fetch_zones.py pipeline/build/zones.geojson`.
+
+## Signing
+
+Every APK must be signed with the same key, or Android refuses to install it over the
+existing app. CI reads the key from three repository secrets:
+
+| Secret | Value |
+|---|---|
+| `ANDROID_KEYSTORE_B64` | base64 of a PKCS12 keystore |
+| `ANDROID_KEYSTORE_PASSWORD` | its password (store and key) |
+| `ANDROID_KEY_ALIAS` | key alias (`chompchamp`) |
+
+Keep a backup of the keystore outside the repo. If it's lost, every phone has to uninstall
+and reinstall (losing routes and marks).
 
 ## Data sources
 
