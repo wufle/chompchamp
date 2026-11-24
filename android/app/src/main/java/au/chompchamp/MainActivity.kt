@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.PointF
 import android.graphics.RectF
 import android.location.Location
@@ -22,8 +23,10 @@ import android.view.WindowManager
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import androidx.appcompat.widget.PopupMenu
+import androidx.appcompat.widget.TooltipCompat
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -261,19 +264,24 @@ class MainActivity : AppCompatActivity(), LocationListener {
         overlays.setTrack(visibleTrack())
     }
 
+    /** A round action button in the bottom row. Long-press shows [label]. */
+    private class ModeAction(val icon: Int, val label: String, val active: Boolean = false, val onTap: () -> Unit)
+
     private fun refreshModePanel() {
-        val buttons: List<Pair<String, () -> Unit>>
+        val actions: List<ModeAction>
         val summary: String
         when (mode) {
             AppMode.CHART -> { modePanel.visibility = View.GONE; return }
             AppMode.ROUTE -> {
                 summary = routeSummary()
-                buttons = listOf(
-                    "Undo" to { undoWaypoint() },
-                    "Clear" to { confirm("Clear the route?") { plan.waypoints.clear(); planChanged() } },
-                    "Routes" to { showRoutesMenu(modeButtons) },
-                    "Check" to { checkRoute() },
-                    "Go ▶" to { startNavigation(plan) },
+                actions = listOf(
+                    ModeAction(R.drawable.ic_undo, "Undo last waypoint") { undoWaypoint() },
+                    ModeAction(R.drawable.ic_delete, "Clear route") {
+                        confirm("Clear the route?") { plan.waypoints.clear(); planChanged() }
+                    },
+                    ModeAction(R.drawable.ic_folder, "Saved routes") { showRoutesMenu(modeButtons) },
+                    ModeAction(R.drawable.ic_check, "Check route") { checkRoute() },
+                    ModeAction(R.drawable.ic_play, "Start navigating") { startNavigation(plan) },
                 )
             }
             AppMode.NAVIGATE -> {
@@ -283,10 +291,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
                     "→ ${t.name.ifBlank { "WP ${navigator.activeIndex + 1}" }}  (${navigator.activeIndex + 1} of ${navigator.route?.waypoints?.size})" +
                         (n?.let { "\n${Geo.fmtNm(it.dtwNm)} nm · ${Geo.fmtBearing(it.bearing)} · ${Geo.fmtNm(it.remainNm)} nm to go" } ?: "")
                 } else "No active route"
-                buttons = listOf(
-                    "◀ Prev" to { if (navigator.previous(lastPos())) navChanged() },
-                    "Skip ▶" to { if (navigator.skip()) navChanged() },
-                    "Stop" to { confirm("Stop navigating?") { stopNavigation() } },
+                actions = listOf(
+                    ModeAction(R.drawable.ic_skip_prev, "Previous waypoint") { if (navigator.previous(lastPos())) navChanged() },
+                    ModeAction(R.drawable.ic_stop, "Stop navigating") { confirm("Stop navigating?") { stopNavigation() } },
+                    ModeAction(R.drawable.ic_skip_next, "Skip to next waypoint") { if (navigator.skip()) navChanged() },
                 )
             }
             AppMode.FISH -> {
@@ -295,37 +303,63 @@ class MainActivity : AppCompatActivity(), LocationListener {
                     "Drift ${String.format(Locale.US, "%.1f", it.first)} kn → ${Geo.fmtBearing(it.second)}  " +
                         "(line shows ${settings.driftProjectMin.toInt()} min)"
                 } ?: "Measuring drift…") + (anchor?.let { "\nAnchor alarm ON · ${settings.anchorRadiusM.toInt()} m" } ?: "")
-                buttons = listOf(
-                    "★ Mark" to { addMarkAtBoat() },
-                    (if (anchor == null) "⚓ Anchor" else "⚓ Off") to { toggleAnchor() },
-                    "Reset drift" to { drift.reset(); refreshModePanel() },
-                    "Marks" to { showMarksList() },
+                actions = listOf(
+                    ModeAction(R.drawable.ic_star, "Mark this spot") { addMarkAtBoat() },
+                    ModeAction(R.drawable.ic_anchor, if (anchor == null) "Set anchor alarm" else "Turn anchor alarm off",
+                        active = anchor != null) { toggleAnchor() },
+                    ModeAction(R.drawable.ic_refresh, "Reset drift") { drift.reset(); refreshModePanel() },
+                    ModeAction(R.drawable.ic_list, "My marks") { showMarksList() },
                 )
             }
         }
         modePanel.visibility = View.VISIBLE
         modeSummary.text = summary
-        if (modeButtons.childCount != buttons.size || modeButtons.tag != mode) {
+
+        // Same size as the layers and position buttons; wraps to a second row if they don't fit.
+        val dp = resources.displayMetrics.density
+        val size = controlSizePx()
+        val gap = (8 * dp).toInt()
+        val avail = resources.displayMetrics.widthPixels - barInsets.left - barInsets.right - 2 * (size + (20 * dp).toInt())
+        val perRow = ((avail + gap) / (size + gap)).coerceIn(1, actions.size)
+        val key = "$mode/${actions.size}/$size/$perRow"
+        if (modeButtons.tag != key) {
             modeButtons.removeAllViews()
-            modeButtons.tag = mode
-            for ((label, _) in buttons) {
-                modeButtons.addView(MaterialButton(this, null,
-                    com.google.android.material.R.attr.borderlessButtonStyle).apply {
-                    text = label
-                    setTextColor(look.accent)
-                    textSize = 12.5f * look.controlScale
-                    minWidth = 0
-                    minimumWidth = 0
-                    setPadding(8, 0, 8, 0)
-                }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            modeButtons.tag = key
+            actions.indices.chunked(perRow).forEach { idx ->
+                val row = LinearLayout(this).apply { gravity = Gravity.CENTER }
+                idx.forEachIndexed { k, _ ->
+                    row.addView(ImageButton(this), LinearLayout.LayoutParams(size, size).apply {
+                        if (k > 0) marginStart = gap
+                    })
+                }
+                modeButtons.addView(row, LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = gap })
             }
         }
-        buttons.forEachIndexed { i, (label, action) ->
-            (modeButtons.getChildAt(i) as MaterialButton).apply {
-                text = label
-                setOnClickListener { action() }
+        actions.forEachIndexed { i, a ->
+            val b = (modeButtons.getChildAt(i / perRow) as LinearLayout).getChildAt(i % perRow) as ImageButton
+            b.setOnClickListener { a.onTap() }
+            // Called on every GPS fix: only touch the look when it changes.
+            val state = "${a.icon}/${a.label}/${a.active}/${look.controlAlpha}"
+            if (b.tag != state) {
+                b.tag = state
+                b.setImageResource(a.icon)
+                b.contentDescription = a.label
+                TooltipCompat.setTooltipText(b, a.label)
+                styleCircle(b, a.active)
             }
         }
+    }
+
+    /** Shared look of every round button. [active] = switched on (accent fill, dark icon). */
+    private fun styleCircle(b: ImageButton, active: Boolean = false) {
+        val a = look.controlAlpha
+        b.scaleType = ImageView.ScaleType.CENTER_INSIDE
+        b.background = if (active) look.circleBg(1f, look.accent) else look.circleBg(a)
+        b.imageTintList = if (active) ColorStateList.valueOf(look.surface) else null
+        b.imageAlpha = if (active) 255 else (255 * (0.55f + 0.45f * a)).toInt()
+        val pad = (10 * resources.displayMetrics.density * look.controlScale).toInt()
+        b.setPadding(pad, pad, pad, pad)
     }
 
     // =========================================================================
@@ -1087,10 +1121,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val size = controlSizePx()
         for (b in controlButtons) {
             b.layoutParams = b.layoutParams.apply { width = size; height = size }
-            b.background = look.circleBg(bgAlpha)
-            b.imageAlpha = (255 * (0.55f + 0.45f * bgAlpha)).toInt()
-            val pad = (10 * dp * scale).toInt()
-            b.setPadding(pad, pad, pad, pad)
+            styleCircle(b)
         }
         modeButton.apply {
             minHeight = size
@@ -1098,7 +1129,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             setTextColor(look.onSurface)
             background = look.surfaceBg(bgAlpha, 22f * scale)
         }
-        modePanel.background = look.surfaceBg(bgAlpha, 14f)
+        modeSummary.background = look.surfaceBg(bgAlpha, 14f)
         modeSummary.textSize = 13f * scale
         (modePanel.layoutParams as FrameLayout.LayoutParams).apply {
             marginStart = size + (20 * dp).toInt()

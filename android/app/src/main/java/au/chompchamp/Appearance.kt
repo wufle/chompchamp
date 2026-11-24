@@ -50,9 +50,9 @@ class Appearance(private val ctx: Context, private val prefs: SharedPreferences)
             if (dashedOutline) setStroke((2 * dp).roundToInt(), accent, 6 * dp, 4 * dp)
         }
 
-    fun circleBg(alpha: Float) = GradientDrawable().apply {
+    fun circleBg(alpha: Float, color: Int = surface) = GradientDrawable().apply {
         shape = GradientDrawable.OVAL
-        setColor(ColorUtils.setAlphaComponent(surface, (alpha.coerceIn(0f, 1f) * 255).roundToInt()))
+        setColor(ColorUtils.setAlphaComponent(color, (alpha.coerceIn(0f, 1f) * 255).roundToInt()))
     }
 
     // ---- Settings panel ----------------------------------------------------------------
