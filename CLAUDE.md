@@ -91,6 +91,10 @@ headless Chromium (available locally) before calling it done. Bump `web/VERSION`
 4. `clip_metro.py`: cuts the metro box out of the statewide layers.
 5. `build_tiles.sh`: tippecanoe and tile-join into `out/wa.pmtiles` (layers: depth, land, water, contour, zones).
 
+6. `check_points.py` + `check_chart.mjs`: sample the source grid in every depth band and compare with the finished
+   chart, failing the build on a mismatch. (Once, everything over 1000 m deep shipped as land.) Always check a chart
+   against the source grid, not just against itself.
+
 `fetch_hazards.py` and `build_relief.py` run separately; the first refreshes the bundled asset.
 
 Heights are mean sea level (AusBathyTopo) or AHD (DoT), not low-tide chart datum.

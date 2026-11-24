@@ -13,3 +13,7 @@ PY=${PY:-python3}
 "$PY" scripts/build_metro.py "$WORK/wa_dem_smooth.tif" "$WORK"
 "$PY" scripts/clip_metro.py "$WORK"
 bash scripts/build_tiles.sh
+
+# Compare the finished chart with the source grid; fails the build if they disagree.
+"$PY" scripts/check_points.py "$WORK/wa_dem.tif" "$WORK/check_points.json"
+node scripts/check_chart.mjs "$OUT/wa.pmtiles" "$WORK/check_points.json"

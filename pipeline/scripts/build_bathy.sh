@@ -58,9 +58,10 @@ BANDS="-12000 -1000 -500 -300 -200 -150 -100 -80 -60 -50 -40 -30 -25 -20 -15 -10
 rm -f "$WORK/bands.gpkg"
 # shellcheck disable=SC2086
 gdal_contour -q -p -amin emin -amax emax -fl $BANDS "$DEM" "$WORK/bands.gpkg"
+# gdal_contour leaves emin = 0 on the deepest band, so test emax as well or deep ocean becomes land.
 ogr2ogr -f GeoJSONSeq "$WORK/depth.geojsonl" "$WORK/bands.gpkg" -dialect sqlite \
-  -sql "SELECT geom, CAST(ROUND(-emax) AS INTEGER) AS dmin, CAST(ROUND(-emin) AS INTEGER) AS dmax FROM contour WHERE emax <= 0"
+  -sql "SELECT geom, CAST(ROUND(-emax) AS INTEGER) AS dmin, CASE WHEN emax <= -1000 THEN 12000 ELSE CAST(ROUND(-emin) AS INTEGER) END AS dmax FROM contour WHERE emax <= 0"
 ogr2ogr -f GeoJSONSeq "$WORK/land.geojsonl" "$WORK/bands.gpkg" -dialect sqlite \
-  -sql "SELECT geom FROM contour WHERE emin >= 0"
+  -sql "SELECT geom FROM contour WHERE emin >= 0 AND emax > 0"
 
 ls -la "$WORK"/*.geojsonl
