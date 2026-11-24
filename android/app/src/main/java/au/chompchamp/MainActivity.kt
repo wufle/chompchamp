@@ -14,6 +14,8 @@ import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.text.InputType
+import android.text.method.LinkMovementMethod
+import android.text.util.Linkify
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
@@ -21,6 +23,7 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.PopupMenu
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -144,6 +147,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
         findViewById<View>(R.id.btnDoneEditing).setOnClickListener { setEditing(false) }
         modeButton.setOnClickListener { showModePicker(it) }
+        // Tap the alert banner for full zone details (with links to the legal orders).
+        zoneBanner.setOnClickListener {
+            lastFix?.let { showZoneInfo(LatLng(it.latitude, it.longitude), always = true) }
+        }
 
         mapView.getMapAsync { m ->
             map = m
@@ -580,7 +587,21 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 f.getStringProperty("link"),
             ).joinToString("\n")
         }
-        AlertDialog.Builder(this).setTitle("Zones here").setMessage(body)
+        showLinkDialog("Zones here", body)
+    }
+
+    /** Message dialog whose URLs are tappable (open in the browser / PDF viewer). */
+    private fun showLinkDialog(title: String, body: String) {
+        val pad = (24 * resources.displayMetrics.density).toInt()
+        val text = TextView(this).apply {
+            setText(body)
+            textSize = 15f
+            setPadding(pad, pad / 2, pad, 0)
+            Linkify.addLinks(this, Linkify.WEB_URLS)
+            movementMethod = LinkMovementMethod.getInstance()
+        }
+        AlertDialog.Builder(this).setTitle(title)
+            .setView(ScrollView(this).apply { addView(text) })
             .setPositiveButton(android.R.string.ok, null).show()
     }
 
