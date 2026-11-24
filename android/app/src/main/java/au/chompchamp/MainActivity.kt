@@ -65,6 +65,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private lateinit var editBar: View
     private lateinit var modeButton: TextView
     private lateinit var look: Appearance
+    private lateinit var panel: SettingsPanel
     private lateinit var controlButtons: List<ImageButton>
     private lateinit var modePanel: View
     private lateinit var modeSummary: TextView
@@ -137,6 +138,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         mapView = findViewById(R.id.mapView)
         zoneBanner = findViewById(R.id.zoneBanner)
         look = Appearance(this, prefs)
+        panel = SettingsPanel(findViewById(R.id.panelHost), look)
         fields = DataFieldsOverlay(findViewById<FrameLayout>(R.id.fieldsContainer), prefs, look) { f -> fieldOptions(f) }
         editBar = findViewById(R.id.editBar)
         modeButton = findViewById(R.id.btnMode)
@@ -160,8 +162,19 @@ class MainActivity : AppCompatActivity(), LocationListener {
         findViewById<View>(R.id.btnLocate).setOnClickListener { followBoat() }
         findViewById<View>(R.id.btnMenu).setOnClickListener { showMenu(it) }
         findViewById<View>(R.id.btnLayers).setOnClickListener {
-            layers.showSheet(this, map?.style?.takeIf { chartFile.exists() })
+            if (panel.isOpen) panel.hide() else showLayersPanel()
         }
+        layers.onReset = { showLayersPanel() }
+        // Back closes the settings panel / layout editor before leaving the app.
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                when {
+                    panel.isOpen -> panel.hide()
+                    fields.editing -> setEditing(false)
+                    else -> { isEnabled = false; onBackPressedDispatcher.onBackPressed(); isEnabled = true }
+                }
+            }
+        })
         findViewById<View>(R.id.btnDoneEditing).setOnClickListener { setEditing(false) }
         modeButton.setOnClickListener { showModePicker(it) }
         applyAppearance()
@@ -632,7 +645,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             "Charts & relief data…" to { showChartManager() },
             "Data fields for ${mode.label} mode…" to { showFieldsDialog() },
             "Edit layout (${mode.label})" to { setEditing(true) },
-            "Appearance (size & transparency)…" to { look.showSheet { applyAppearance() } },
+            "Appearance (size & transparency)…" to { showAppearancePanel() },
             "Reset ${mode.label} layout" to {
                 fields.resetLayout(); Toast.makeText(this, R.string.layout_reset_done, Toast.LENGTH_SHORT).show()
             },
@@ -824,6 +837,18 @@ class MainActivity : AppCompatActivity(), LocationListener {
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
+    }
+
+    private fun showLayersPanel() {
+        panel.show("Map layers", { rows ->
+            layers.fillPanel(rows, map?.style?.takeIf { chartFile.exists() })
+        })
+    }
+
+    private fun showAppearancePanel() {
+        panel.show("Appearance", { rows ->
+            look.fillPanel(rows, onChanged = { applyAppearance() }, onReset = { showAppearancePanel() })
+        })
     }
 
     /** Tapping a field in Edit layout: size or hide just that field. */

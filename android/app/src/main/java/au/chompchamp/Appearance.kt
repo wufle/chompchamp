@@ -3,14 +3,8 @@ package au.chompchamp
 import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.drawable.GradientDrawable
-import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
-import com.google.android.material.bottomsheet.BottomSheetDialog
-import com.google.android.material.button.MaterialButton
-import com.google.android.material.slider.Slider
 import kotlin.math.roundToInt
 
 /**
@@ -61,71 +55,40 @@ class Appearance(private val ctx: Context, private val prefs: SharedPreferences)
         setColor(ColorUtils.setAlphaComponent(surface, (alpha.coerceIn(0f, 1f) * 255).roundToInt()))
     }
 
-    // ---- Settings sheet -----------------------------------------------------------
+    // ---- Settings panel ----------------------------------------------------------------
 
-    fun showSheet(onChanged: () -> Unit) {
-        val dialog = BottomSheetDialog(ctx)
-        val pad = (20 * dp).toInt()
-        val list = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(pad, pad, pad, pad)
-        }
-        list.addView(TextView(ctx).apply {
-            text = "Appearance"
-            textSize = 20f
-            setPadding(0, 0, 0, (4 * dp).toInt())
-        })
-        list.addView(TextView(ctx).apply {
-            text = "Tip: in Edit layout, tap a single data field to resize or hide just that one."
-            textSize = 13f
-            alpha = 0.7f
-            setPadding(0, 0, 0, (8 * dp).toInt())
-        })
-        val sliders = mutableListOf<Pair<Knob, Slider>>()
-        for (k in knobs) {
-            val label = TextView(ctx).apply { textSize = 15f; setPadding(0, (8 * dp).toInt(), 0, 0) }
-            fun setLabel(v: Float) { label.text = "${k.title}: ${(v * 100).roundToInt()}%" }
-            setLabel(get(k.key))
-            // Slider works in whole percents (avoids float step-size errors).
-            val slider = Slider(ctx).apply {
-                valueFrom = pct(k.from)
-                valueTo = pct(k.to)
-                stepSize = 5f
-                value = snap(get(k.key), k)
-                setLabelFormatter { "${it.roundToInt()}%" }
-                addOnChangeListener { _, v, fromUser ->
-                    setLabel(v / 100f)
-                    if (fromUser) {
-                        prefs.edit().putFloat("ui_${k.key}", v / 100f).apply()
+    /** Fill the docked settings panel; [onChanged] re-applies the look live. */
+    fun fillPanel(rows: SettingsPanel.Rows, onChanged: () -> Unit, onReset: () -> Unit) {
+        val groups = listOf(
+            "Data fields" to listOf(knobs[0] to "Size", knobs[1] to "Background"),
+            "Buttons & panels" to listOf(knobs[2] to "Size", knobs[3] to "Opacity"),
+        )
+        for ((title, items) in groups) {
+            rows.section(title)
+            for ((k, label) in items) {
+                rows.sliderRow(
+                    label = label,
+                    percent = pct(get(k.key)).roundToInt(),
+                    percentFrom = pct(k.from).roundToInt(),
+                    percentTo = pct(k.to).roundToInt(),
+                    onPercent = { p ->
+                        prefs.edit().putFloat("ui_${k.key}", p / 100f).apply()
                         onChanged()
-                    }
-                }
+                    },
+                )
             }
-            sliders.add(k to slider)
-            list.addView(label)
-            list.addView(slider)
         }
-        list.addView(MaterialButton(ctx, null, com.google.android.material.R.attr.borderlessButtonStyle).apply {
-            text = "Reset to defaults"
-            setOnClickListener {
-                val e = prefs.edit()
-                knobs.forEach { e.remove("ui_${it.key}") }
-                e.apply()
-                sliders.forEach { (k, s) -> s.value = snap(k.default, k) }
-                onChanged()
-            }
-        })
-        dialog.setContentView(ScrollView(ctx).apply { addView(list) })
-        dialog.show()
+        rows.note("Tip: in Edit layout, tap a single data field to resize or hide just that one.")
+        rows.button("Reset appearance") {
+            val e = prefs.edit()
+            knobs.forEach { e.remove("ui_${it.key}") }
+            e.apply()
+            onChanged()
+            onReset()
+        }
     }
 
     private fun pct(v: Float) = (v * 100).roundToInt().toFloat()
 
-    /** Saved value → nearest valid slider position (percent, multiple of 5 from the start). */
-    private fun snap(v: Float, k: Knob): Float {
-        val from = pct(k.from)
-        val steps = ((pct(v.coerceIn(k.from, k.to)) - from) / 5f).roundToInt()
-        return (from + steps * 5f).coerceIn(from, pct(k.to))
-    }
 
 }

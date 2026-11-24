@@ -5,7 +5,7 @@
     <style name="Theme.ChompChamp" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorPrimary">@color/ui_accent</item>
         <item name="colorOnPrimary">@color/ui_surface</item>
-        <item name="colorPrimaryContainer">#3D3214</item>
+        <item name="colorPrimaryContainer">#1E3A52</item>
         <item name="colorOnPrimaryContainer">@color/ui_accent</item>
         <item name="colorSecondary">@color/ui_accent</item>
         <item name="colorOnSecondary">@color/ui_surface</item>

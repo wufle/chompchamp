@@ -144,5 +144,16 @@
             android:contentDescription="@string/follow_boat"
             android:scaleType="centerInside"
             android:src="@drawable/ic_my_location" />
+        <!-- Non-blocking settings panel (layers, appearance). No scrim, so the map stays
+             visible and changes preview live. Filled in code by SettingsPanel. -->
+        <FrameLayout
+            android:id="@+id/panelHost"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_margin="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:visibility="gone" />
     </FrameLayout>
 </FrameLayout>
