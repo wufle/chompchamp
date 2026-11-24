@@ -66,6 +66,7 @@ class MapLayers(private val prefs: SharedPreferences) {
         ),
         MapOverlay.MARKS to listOf(
             StyleLayer(NavOverlays.MARKS, Kind.CIRCLE, 1f, queried = true),
+            StyleLayer(NavOverlays.MARK_PHOTOS, Kind.SYMBOL, 1f, queried = true),
             StyleLayer("marks-label", Kind.SYMBOL, 1f),
         ),
         MapOverlay.DRIFT to listOf(
@@ -108,7 +109,7 @@ class MapLayers(private val prefs: SharedPreferences) {
                     Kind.FILL -> layer.setProperties(PropertyFactory.fillOpacity(a))
                     Kind.LINE -> layer.setProperties(PropertyFactory.lineOpacity(a))
                     Kind.RASTER -> layer.setProperties(PropertyFactory.rasterOpacity(a))
-                    Kind.SYMBOL -> layer.setProperties(PropertyFactory.textOpacity(a))
+                    Kind.SYMBOL -> layer.setProperties(PropertyFactory.textOpacity(a), PropertyFactory.iconOpacity(a))
                     Kind.CIRCLE -> layer.setProperties(
                         PropertyFactory.circleOpacity(a), PropertyFactory.circleStrokeOpacity(a))
                 }

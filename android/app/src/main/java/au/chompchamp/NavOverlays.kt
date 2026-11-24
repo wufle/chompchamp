@@ -11,6 +11,11 @@ import org.maplibre.android.style.layers.PropertyFactory.circleStrokeColor
 import org.maplibre.android.style.layers.PropertyFactory.circleStrokeWidth
 import org.maplibre.android.style.layers.PropertyFactory.fillColor
 import org.maplibre.android.style.layers.PropertyFactory.fillOpacity
+import org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap
+import org.maplibre.android.style.layers.PropertyFactory.iconAnchor
+import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
+import org.maplibre.android.style.layers.PropertyFactory.iconImage
+import org.maplibre.android.style.layers.PropertyFactory.iconOffset
 import org.maplibre.android.style.layers.PropertyFactory.lineCap
 import org.maplibre.android.style.layers.PropertyFactory.lineColor
 import org.maplibre.android.style.layers.PropertyFactory.lineDasharray
@@ -41,6 +46,7 @@ class NavOverlays {
     companion object {
         const val ROUTE_WPTS = "route-wpts"
         const val MARKS = "marks"
+        const val MARK_PHOTOS = "marks-photo"
         private const val FONT = "Noto Sans Regular"
         private const val MAGENTA = "#d81b60"
     }
@@ -76,6 +82,12 @@ class NavOverlays {
             textAllowOverlap(true), textIgnorePlacement(true)))
         s.addLayer(CircleLayer(MARKS, MARKS).withProperties(
             circleRadius(7f), circleColor("#fdd835"), circleStrokeColor("#4e342e"), circleStrokeWidth(2f)))
+        s.addLayer(SymbolLayer(MARK_PHOTOS, MARKS).withProperties(
+            iconImage(Expression.get("photo")),
+            iconAnchor(Property.ICON_ANCHOR_BOTTOM),
+            iconOffset(arrayOf(0f, -4f)),
+            iconAllowOverlap(true), iconIgnorePlacement(true),
+        ).withFilter(Expression.has("photo")))
         s.addLayer(SymbolLayer("marks-label", MARKS).withProperties(
             textField(Expression.get("name")), textFont(arrayOf(FONT)), textSize(11f),
             textOffset(arrayOf(0f, 1.5f)), textColor("#4e342e"),
@@ -116,12 +128,22 @@ class NavOverlays {
         set("drift-end", listOf(Feature.fromGeometry(pt(to))))
     }
 
-    fun setMarks(marks: List<Mark>) = set(MARKS, marks.map { m ->
-        Feature.fromGeometry(pt(m.pos)).apply {
-            addStringProperty("id", m.id)
-            addStringProperty("name", m.name)
-        }
-    })
+    /** [bubble] supplies the map bubble image for a photo id (null if unavailable). */
+    fun setMarks(marks: List<Mark>, bubble: (String) -> android.graphics.Bitmap? = { null }) {
+        val s = style
+        set(MARKS, marks.map { m ->
+            Feature.fromGeometry(pt(m.pos)).apply {
+                addStringProperty("id", m.id)
+                addStringProperty("name", m.name)
+                val latest = m.photos.lastOrNull()
+                if (latest != null && s != null) {
+                    val imageId = "photo-$latest"
+                    if (s.getImage(imageId) == null) bubble(latest)?.let { s.addImage(imageId, it) }
+                    if (s.getImage(imageId) != null) addStringProperty("photo", imageId)
+                }
+            }
+        })
+    }
 
     fun setAnchor(center: LatLon?, radiusM: Double) {
         if (center == null) { set("anchor", emptyList()); return }

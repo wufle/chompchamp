@@ -47,17 +47,23 @@ data class Mark(
     var name: String,
     val time: Long = System.currentTimeMillis(),
     val depth: String? = null,
+    /** Photo ids (see [Photos]), oldest first. */
+    val photos: MutableList<String> = mutableListOf(),
 ) {
     val pos get() = LatLon(lat, lon)
 
     fun toJson(): JSONObject = JSONObject()
         .put("id", id).put("lat", lat).put("lon", lon).put("name", name).put("time", time)
-        .apply { depth?.let { put("depth", it) } }
+        .apply {
+            depth?.let { put("depth", it) }
+            if (photos.isNotEmpty()) put("photos", JSONArray().apply { photos.forEach { put(it) } })
+        }
 
     companion object {
         fun fromJson(o: JSONObject) = Mark(
             o.getString("id"), o.getDouble("lat"), o.getDouble("lon"), o.optString("name"),
             o.optLong("time"), if (o.has("depth")) o.getString("depth") else null,
+            o.optJSONArray("photos")?.let { a -> MutableList(a.length()) { a.getString(it) } } ?: mutableListOf(),
         )
     }
 }

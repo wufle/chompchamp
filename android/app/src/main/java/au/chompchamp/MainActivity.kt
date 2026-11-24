@@ -34,6 +34,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.snackbar.Snackbar
 import org.json.JSONArray
 import org.json.JSONObject
 import org.maplibre.android.MapLibre
@@ -79,6 +80,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private lateinit var marks: MutableList<Mark>
     private lateinit var plan: Route
     private lateinit var userData: UserData
+    private lateinit var photos: Photos
+    /** Mark waiting for a photo from the camera / gallery. */
+    private var photoTarget: String? = null
+    private var cameraFile: File? = null
     /** What the next "create document" result should contain: (isGpx, parts). */
     private var pendingExport: Pair<Boolean, Set<DataPart>>? = null
 
@@ -110,6 +115,15 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private val importDataFile =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { readImport(it) } }
 
+    private val takePhoto =
+        registerForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
+            val f = cameraFile
+            cameraFile = null
+            if (ok && f != null) attachPhoto(Uri.fromFile(f)) { f.delete() } else f?.delete()
+        }
+    private val pickPhoto =
+        registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let { attachPhoto(it) } }
+
     private val requestLocation =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
             if (grants.values.any { it }) {
@@ -134,6 +148,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         marks = store.marks()
         plan = store.plan()
         userData = UserData(File(filesDir, "data"), store, prefs)
+        photos = Photos(this)
 
         mapView = findViewById(R.id.mapView)
         zoneBanner = findViewById(R.id.zoneBanner)
@@ -240,7 +255,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
         if (!navigator.isActive) overlays.setNavLine(null, null)
         if (mode != AppMode.FISH) overlays.setDrift(null, null)
-        overlays.setMarks(marks)
+        showMarks()
         overlays.setAnchor(anchor, settings.anchorRadiusM)
         overlays.setTrack(visibleTrack())
     }
@@ -501,34 +516,170 @@ class MainActivity : AppCompatActivity(), LocationListener {
         addMark(LatLon(loc.latitude, loc.longitude), estimateDepthAt(LatLng(loc.latitude, loc.longitude)))
     }
 
+    private fun showMarks() = overlays.setMarks(marks) { id -> photos.bubble(id) }
+
     private fun addMark(p: LatLon, depth: String?) {
         val name = "Mark ${marks.size + 1}"
         val mark = Mark(lat = p.lat, lon = p.lon, name = name,
             depth = depth?.takeIf { it != "--" && it != "off screen" })
         marks.add(mark)
         store.saveMarks(marks)
-        overlays.setMarks(marks)
+        showMarks()
         buzz(short = true)
-        Toast.makeText(this, "Saved $name", Toast.LENGTH_SHORT).show()
+        // Quick photo of the catch straight after marking.
+        Snackbar.make(mapView, "Saved $name", Snackbar.LENGTH_LONG)
+            .setAction("📷 Photo") { takePhotoFor(mark) }
+            .setActionTextColor(look.accent)
+            .show()
+    }
+
+    // ---- Mark photos -------------------------------------------------------------------
+
+    private fun takePhotoFor(mark: Mark) {
+        val dir = File(cacheDir, "camera").apply { mkdirs() }
+        val f = File(dir, "${System.currentTimeMillis()}.jpg")
+        val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.files", f)
+        photoTarget = mark.id
+        cameraFile = f
+        try {
+            takePhoto.launch(uri)
+        } catch (e: Exception) {
+            cameraFile = null
+            Toast.makeText(this, "No camera app found", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun pickPhotoFor(mark: Mark) {
+        photoTarget = mark.id
+        pickPhoto.launch(androidx.activity.result.PickVisualMediaRequest(
+            ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
+
+    private fun attachPhoto(uri: Uri, cleanup: () -> Unit = {}) {
+        val markId = photoTarget ?: return
+        photoTarget = null
+        Toast.makeText(this, "Adding photo…", Toast.LENGTH_SHORT).show()
+        io.execute {
+            val result = runCatching { photos.import(uri) }
+            cleanup()
+            runOnUiThread {
+                result.onSuccess { name ->
+                    val mark = marks.firstOrNull { it.id == markId }
+                    if (mark == null) { photos.delete(name); return@onSuccess }
+                    mark.photos.add(name)
+                    store.saveMarks(marks)
+                    showMarks()
+                    markMenu(mark)
+                }.onFailure {
+                    Toast.makeText(this, "Couldn't add photo: ${it.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    /** Full-size photo viewer with previous / next / delete. */
+    private fun showPhoto(mark: Mark, index: Int) {
+        if (mark.photos.isEmpty()) return
+        val i = index.coerceIn(0, mark.photos.lastIndex)
+        val name = mark.photos[i]
+        val maxPx = resources.displayMetrics.widthPixels
+        val image = android.widget.ImageView(this).apply {
+            adjustViewBounds = true
+            scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+            setImageBitmap(photos.loadScaled(name, maxPx))
+        }
+        val taken = SimpleDateFormat("d MMM yyyy HH:mm", Locale.getDefault())
+            .format(Date(photos.file(name).lastModified()))
+        val b = MaterialAlertDialogBuilder(this)
+            .setTitle("${mark.name} · ${i + 1} of ${mark.photos.size}")
+            .setMessage(taken)
+            .setView(image)
+            .setPositiveButton("Close") { _, _ -> markMenu(mark) }
+            .setNeutralButton("Delete") { _, _ ->
+                confirm("Delete this photo?") {
+                    mark.photos.removeAt(i)
+                    photos.delete(name)
+                    store.saveMarks(marks)
+                    showMarks()
+                    if (mark.photos.isNotEmpty()) showPhoto(mark, i) else markMenu(mark)
+                }
+            }
+        if (mark.photos.size > 1) b.setNegativeButton("Next ▶") { _, _ -> showPhoto(mark, (i + 1) % mark.photos.size) }
+        b.show()
     }
 
     private fun markMenu(mark: Mark) {
+        val dp = resources.displayMetrics.density
         val time = SimpleDateFormat("d MMM yyyy HH:mm", Locale.getDefault()).format(Date(mark.time))
         val dist = lastPos()?.let { "\n${Geo.fmtNm(Geo.distanceNm(it, mark.pos))} nm @ ${Geo.fmtBearing(Geo.bearing(it, mark.pos))} from boat" } ?: ""
-        MaterialAlertDialogBuilder(this)
-            .setTitle(mark.name)
-            .setMessage("$time\n${Geo.formatDdm(mark.lat, true)}  ${Geo.formatDdm(mark.lon, false)}" +
-                (mark.depth?.let { "\nDepth (est.): $it m" } ?: "") + dist)
-            .setPositiveButton("Navigate to") { _, _ ->
+        val pad = (24 * dp).toInt()
+        val body = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, (4 * dp).toInt(), pad, 0)
+        }
+        body.addView(TextView(this).apply {
+            text = "$time\n${Geo.formatDdm(mark.lat, true)}  ${Geo.formatDdm(mark.lon, false)}" +
+                (mark.depth?.let { "\nDepth (est.): $it m" } ?: "") + dist
+            textSize = 14f
+            setTextColor(look.muted)
+        })
+        lateinit var dialog: androidx.appcompat.app.AlertDialog
+
+        // Photo strip
+        if (mark.photos.isNotEmpty()) {
+            val strip = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            val size = (72 * dp).toInt()
+            mark.photos.forEachIndexed { i, name ->
+                strip.addView(android.widget.ImageView(this).apply {
+                    scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                    setImageBitmap(photos.loadScaled(name, 256))
+                    background = look.surfaceBg(1f, 8f)
+                    clipToOutline = true
+                    setOnClickListener { dialog.dismiss(); showPhoto(mark, i) }
+                }, LinearLayout.LayoutParams(size, size).apply { marginEnd = (6 * dp).toInt() })
+            }
+            body.addView(android.widget.HorizontalScrollView(this).apply {
+                setPadding(0, (12 * dp).toInt(), 0, 0)
+                addView(strip)
+            })
+        }
+
+        // Actions
+        val actions: List<Pair<String, () -> Unit>> = listOf(
+            "Navigate to" to {
                 startNavigation(Route(name = mark.name, waypoints = mutableListOf(Waypoint(mark.lat, mark.lon, mark.name))))
-            }
-            .setNeutralButton("Rename") { _, _ ->
-                askText("Rename mark", mark.name) { mark.name = it; store.saveMarks(marks); overlays.setMarks(marks) }
-            }
-            .setNegativeButton("Delete") { _, _ ->
-                marks.remove(mark); store.saveMarks(marks); overlays.setMarks(marks)
-            }
-            .show()
+            },
+            "📷  Take photo" to { takePhotoFor(mark) },
+            "🖼  Add photo from gallery" to { pickPhotoFor(mark) },
+            "Rename" to { askText("Rename mark", mark.name) { mark.name = it; store.saveMarks(marks); showMarks() } },
+            "Delete mark" to {
+                confirm("Delete ${mark.name}" + (if (mark.photos.isNotEmpty()) " and its ${mark.photos.size} photo(s)" else "") + "?") {
+                    mark.photos.forEach { photos.delete(it) }
+                    marks.remove(mark); store.saveMarks(marks); showMarks()
+                }
+            },
+        )
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, (8 * dp).toInt(), 0, 0)
+        }
+        for ((label, action) in actions) {
+            list.addView(MaterialButton(this, null, com.google.android.material.R.attr.borderlessButtonStyle).apply {
+                text = label
+                isAllCaps = false
+                textSize = 15f
+                gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                setTextColor(if (label == "Delete mark") look.danger else look.accent)
+                setOnClickListener { dialog.dismiss(); action() }
+            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        }
+        body.addView(list)
+        dialog = MaterialAlertDialogBuilder(this)
+            .setTitle(mark.name)
+            .setView(ScrollView(this).apply { addView(body) })
+            .setNegativeButton("Close", null)
+            .create()
+        dialog.show()
     }
 
     private fun showMarksList() {
@@ -574,7 +725,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun onMapTap(point: LatLng) {
         if (fields.editing) return
         if (mode == AppMode.ROUTE) { routeTap(point); return }
-        hitFeature(point, NavOverlays.MARKS)?.getStringProperty("id")?.let { id ->
+        (hitFeature(point, NavOverlays.MARK_PHOTOS) ?: hitFeature(point, NavOverlays.MARKS))?.getStringProperty("id")?.let { id ->
             marks.firstOrNull { it.id == id }?.let { markMenu(it); return }
         }
         showZoneInfo(point)
