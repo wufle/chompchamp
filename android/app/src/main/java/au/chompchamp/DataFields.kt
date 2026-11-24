@@ -152,6 +152,10 @@ class DataFieldsOverlay(
         group.removeAllViews()
         for ((field, card) in cards) {
             (card.root.parent as? ViewGroup)?.removeView(card.root)
+            // Loose cards are positioned with translation; inside the group that would push
+            // them outside its bounds, where they get clipped (only one stayed visible).
+            card.root.translationX = 0f
+            card.root.translationY = 0f
             card.root.visibility = if (field in visible) View.VISIBLE else View.GONE
         }
         if (grouped) {
