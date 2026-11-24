@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.GridLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import kotlin.math.abs
@@ -86,23 +87,44 @@ class DataFieldsOverlay(
 
     private class Card(val root: LinearLayout, val label: TextView, val value: TextView)
 
+    /** Holds the cards when the user combines them into one panel. */
+    private val group = GridLayout(ctx).apply { visibility = View.GONE }
+
+    /** How the fields are arranged in the current mode. */
+    enum class Grouping(val key: Int, val label: String, val columns: Int) {
+        SEPARATE(0, "Separate cards (drag each one)", 0),
+        COLUMN(1, "One group: single column", 1),
+        GRID2(2, "One group: grid, 2 across", 2),
+        GRID3(3, "One group: grid, 3 across", 3),
+        ROW(99, "One group: single row", 99),
+    }
+
+    var grouping: Grouping
+        get() = prefs.getInt("f.${mode.key}.group", 0).let { k -> Grouping.entries.firstOrNull { it.key == k } }
+            ?: Grouping.SEPARATE
+        set(value) {
+            prefs.edit().putInt("f.${mode.key}.group", value.key).apply()
+            arrange()
+        }
+
     init {
+        val relayout = View.OnLayoutChangeListener { _, l, t, r, b, ol, ot, or, ob ->
+            if (r - l != or - ol || b - t != ob - ot) container.post { placeAll() }
+        }
         for (field in DataField.entries) {
             val card = makeCard(field)
             cards[field] = card
-            container.addView(card.root, FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-            card.root.addOnLayoutChangeListener { _, l, t, r, b, ol, ot, or, ob ->
-                if (r - l != or - ol || b - t != ob - ot) placeAll()
-            }
+            card.root.addOnLayoutChangeListener(relayout)
             set(field, field.placeholder)
         }
-        container.addOnLayoutChangeListener { _, l, t, r, b, ol, ot, or, ob ->
-            if (r - l != or - ol || b - t != ob - ot) placeAll()
-        }
+        container.addView(group, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        group.addOnLayoutChangeListener(relayout)
+        container.addOnLayoutChangeListener(relayout)
         applyVisibility()
-        applyStyle()
     }
+
+    private val grouped get() = grouping != Grouping.SEPARATE
 
     private fun k(field: DataField, what: String) = "f.${mode.key}.${field.key}.$what"
 
@@ -122,10 +144,34 @@ class DataFieldsOverlay(
         applyVisibility()
     }
 
-    private fun applyVisibility() {
+    private fun applyVisibility() = arrange()
+
+    /** Put each visible card either loose on the map or into the group, in list order. */
+    private fun arrange() {
+        val visible = cards.filterKeys { isVisible(it) }
+        group.removeAllViews()
         for ((field, card) in cards) {
-            card.root.visibility = if (isVisible(field)) View.VISIBLE else View.GONE
+            (card.root.parent as? ViewGroup)?.removeView(card.root)
+            card.root.visibility = if (field in visible) View.VISIBLE else View.GONE
         }
+        if (grouped) {
+            val n = visible.size
+            group.columnCount = (if (grouping.columns >= 99) n else grouping.columns).coerceIn(1, maxOf(1, n))
+            for (card in visible.values) {
+                group.addView(card.root, GridLayout.LayoutParams().apply {
+                    // Stretch each column to its widest card so the grid lines up.
+                    columnSpec = GridLayout.spec(GridLayout.UNDEFINED, GridLayout.FILL, 1f)
+                })
+            }
+            group.visibility = if (n > 0) View.VISIBLE else View.GONE
+        } else {
+            group.visibility = View.GONE
+            for (card in visible.values) {
+                container.addView(card.root, FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            }
+        }
+        setEditing(editing)   // re-attach drag handlers and restyle
         container.post { placeAll() }
     }
 
@@ -152,9 +198,12 @@ class DataFieldsOverlay(
             card.value.setShadowLayer(shadow, 0f, 1f, look.surface)
             card.label.setShadowLayer(shadow, 0f, 1f, look.surface)
             card.root.setPadding(p * 2, p, p * 2, p + p / 2)
-            card.root.background = look.surfaceBg(
+            card.root.background = if (grouped) null else look.surfaceBg(
                 if (editing) maxOf(look.fieldAlpha, 0.6f) else look.fieldAlpha, 10f, dashedOutline = editing)
         }
+        group.setPadding(p, p / 2, p, p / 2)
+        group.background = look.surfaceBg(
+            if (editing) maxOf(look.fieldAlpha, 0.6f) else look.fieldAlpha, 12f, dashedOutline = editing)
     }
 
     // ---- Layout editing --------------------------------------------------------
@@ -163,7 +212,8 @@ class DataFieldsOverlay(
     fun setEditing(on: Boolean) {
         editing = on
         for ((field, card) in cards) {
-            card.root.setOnTouchListener(if (on) dragListener(field) else null)
+            // In a group, dragging any card moves the whole group; a tap still edits that field.
+            card.root.setOnTouchListener(if (on) dragListener(field, if (grouped) group else card.root) else null)
         }
         applyStyle()
     }
@@ -171,19 +221,22 @@ class DataFieldsOverlay(
     fun resetLayout() {
         val e = prefs.edit()
         for (field in DataField.entries) e.remove(k(field, "x")).remove(k(field, "y")).remove(k(field, "size"))
+        e.remove("f.${mode.key}.group.x").remove("f.${mode.key}.group.y")
         e.apply()
+        applyStyle()
         placeAll()
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    private fun dragListener(field: DataField): View.OnTouchListener {
+    private fun dragListener(field: DataField, target: View): View.OnTouchListener {
         var dx = 0f
         var dy = 0f
         var downX = 0f
         var downY = 0f
         var dragging = false
         val slop = ViewConfiguration.get(ctx).scaledTouchSlop
-        return View.OnTouchListener { v, e ->
+        return View.OnTouchListener { _, e ->
+            val v = target
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     dx = v.x - e.rawX
@@ -221,7 +274,11 @@ class DataFieldsOverlay(
     private fun savePosition(field: DataField, v: View) {
         val fx = if (freeX(v) > 0) v.x / freeX(v) else 0f
         val fy = if (freeY(v) > 0) v.y / freeY(v) else 0f
-        prefs.edit().putFloat(k(field, "x"), fx).putFloat(k(field, "y"), fy).apply()
+        if (v === group) {
+            prefs.edit().putFloat("f.${mode.key}.group.x", fx).putFloat("f.${mode.key}.group.y", fy).apply()
+        } else {
+            prefs.edit().putFloat(k(field, "x"), fx).putFloat(k(field, "y"), fy).apply()
+        }
     }
 
     /**
@@ -231,6 +288,13 @@ class DataFieldsOverlay(
     private fun placeAll() {
         if (container.width == 0) return
         val top = (12 + 44 * look.controlScale + 8) * dp
+        if (grouped) {
+            val gx = "f.${mode.key}.group.x"
+            val gy = "f.${mode.key}.group.y"
+            group.x = if (prefs.contains(gx)) prefs.getFloat(gx, 0f) * freeX(group) else 0f
+            group.y = if (prefs.contains(gy)) prefs.getFloat(gy, 0f) * freeY(group) else top.coerceAtMost(freeY(group))
+            return
+        }
         val gap = 6 * dp
         var stackX = 0f
         var stackY = top

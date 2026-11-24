@@ -795,6 +795,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val items: List<Pair<String, () -> Unit>> = listOf(
             "Charts & relief data…" to { showChartManager() },
             "Data fields for ${mode.label} mode…" to { showFieldsDialog() },
+            "Group data fields…" to { showGroupingDialog() },
             "Edit layout (${mode.label})" to { setEditing(true) },
             "Appearance (size & transparency)…" to { showAppearancePanel() },
             "Reset ${mode.label} layout" to {
@@ -842,6 +843,20 @@ class MainActivity : AppCompatActivity(), LocationListener {
             }
             .setPositiveButton(android.R.string.ok, null)
             .setNeutralButton(R.string.menu_edit_layout) { _, _ -> setEditing(true) }
+            .setNegativeButton("Group…") { _, _ -> showGroupingDialog() }
+            .show()
+    }
+
+    /** Separate draggable cards, or all fields combined into one neat panel. */
+    private fun showGroupingDialog() {
+        val options = DataFieldsOverlay.Grouping.entries
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Data fields: ${mode.label} mode")
+            .setSingleChoiceItems(options.map { it.label }.toTypedArray(), options.indexOf(fields.grouping)) { d, which ->
+                fields.grouping = options[which]
+                d.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
 
@@ -1062,6 +1077,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun setEditing(on: Boolean) {
         fields.setEditing(on)
         editBar.visibility = if (on) View.VISIBLE else View.GONE
+        // The edit bar sits where the mode pill is.
+        modeButton.visibility = if (on) View.GONE else View.VISIBLE
     }
 
     /** Keep MapLibre's compass and attribution clear of our buttons and the system bars. */
