@@ -47,6 +47,7 @@ import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
+import org.maplibre.android.offline.OfflineManager
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -628,7 +629,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun showMenu(anchorView: View) {
         val popup = PopupMenu(this, anchorView)
         val items: List<Pair<String, () -> Unit>> = listOf(
-            "Import chart / relief file…" to { openChartPicker() },
+            "Charts & relief data…" to { showChartManager() },
             "Data fields for ${mode.label} mode…" to { showFieldsDialog() },
             "Edit layout (${mode.label})" to { setEditing(true) },
             "Appearance (size & transparency)…" to { look.showSheet { applyAppearance() } },
@@ -937,6 +938,66 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
         style.put("layers", out)
         return style.toString()
+    }
+
+    // ---- Chart & relief data manager ------------------------------------------------
+
+    private fun fileInfo(f: File): String {
+        if (!f.exists()) return "not installed"
+        val mb = f.length() / 1_000_000.0
+        val date = SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(f.lastModified()))
+        return String.format(Locale.US, "%.0f MB · imported %s", mb, date)
+    }
+
+    private fun showChartManager() {
+        val items = mutableListOf<Pair<String, () -> Unit>>()
+        items += "Import chart or relief file…" to { openChartPicker() }
+        if (chartFile.exists()) {
+            items += "Remove chart\n   ${fileInfo(chartFile)}" to {
+                confirm("Remove the chart (${fileInfo(chartFile)})?\n\nThe map will be blank until you import a chart again. " +
+                    "Routes, marks and settings are kept.") { removeChartFile(chartFile, "Chart removed") }
+            }
+        }
+        if (reliefFile.exists()) {
+            items += "Remove offline reef relief pack\n   ${fileInfo(reliefFile)}" to {
+                confirm("Remove the offline reef relief pack (${fileInfo(reliefFile)})?\n\n" +
+                    "Reef relief will load from the internet instead (needs a connection).") {
+                    removeChartFile(reliefFile, "Reef relief pack removed (using online relief)")
+                }
+            }
+        }
+        items += "Clear online map cache" to {
+            confirm("Clear cached satellite, online relief and label tiles? They'll download again when needed.") {
+                OfflineManager.getInstance(this).clearAmbientCache(object : OfflineManager.FileSourceCallback {
+                    override fun onSuccess() {
+                        Toast.makeText(this@MainActivity, "Online cache cleared", Toast.LENGTH_SHORT).show()
+                    }
+                    override fun onError(message: String) {
+                        Toast.makeText(this@MainActivity, "Couldn't clear cache: $message", Toast.LENGTH_LONG).show()
+                    }
+                })
+            }
+        }
+        val title = when {
+            !chartFile.exists() -> "Charts · no chart installed"
+            reliefFile.exists() -> "Charts · reef relief offline"
+            else -> "Charts · reef relief online"
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(title)
+            .setItems(items.map { it.first }.toTypedArray()) { _, which -> items[which].second() }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun removeChartFile(f: File, message: String) {
+        if (f.delete() || !f.exists()) {
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+            locationActive = false
+            loadStyle()
+        } else {
+            Toast.makeText(this, "Couldn't remove file", Toast.LENGTH_LONG).show()
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
