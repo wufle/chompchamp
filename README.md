@@ -69,6 +69,8 @@ existing app. CI reads the key from three repository secrets:
 | `ANDROID_KEYSTORE_PASSWORD` | its password (store and key) |
 | `ANDROID_KEY_ALIAS` | key alias (`chompchamp`) |
 
+Create them once with `scripts/create-signing-key.sh` (needs `openssl` and `gh`).
+
 Keep a backup of the keystore outside the repo. If it's lost, every phone has to uninstall
 and reinstall (losing routes and marks).
 
