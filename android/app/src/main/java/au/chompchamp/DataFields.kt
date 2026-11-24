@@ -13,16 +13,51 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import kotlin.math.max
 
-/** A piece of live boat data the user can show, hide and drag around the screen. */
-enum class DataField(val key: String, val label: String, val defaultVisible: Boolean) {
-    SOG("sog", "SOG  kn", true),
-    COG("cog", "COG  °T", true),
-    POSITION("pos", "POSITION", true),
-    DEPTH("depth", "DEPTH  m (est.)", true),
+enum class AppMode(val key: String, val label: String) {
+    CHART("chart", "Chart"),
+    ROUTE("route", "Route"),
+    NAVIGATE("nav", "Navigate"),
+    FISH("fish", "Fish"),
 }
 
 /**
- * Owns the data-field cards drawn over the map.
+ * A piece of live data the user can show, hide and drag around the screen.
+ * [defaultIn] = modes where it's shown until the user changes it.
+ */
+enum class DataField(val key: String, val label: String, vararg val defaultIn: AppMode) {
+    SOG("sog", "SOG  kn", AppMode.CHART, AppMode.NAVIGATE, AppMode.FISH),
+    COG("cog", "COG  °T", AppMode.CHART, AppMode.NAVIGATE),
+    POSITION("pos", "POSITION", AppMode.CHART),
+    DEPTH("depth", "DEPTH  m (est.)", AppMode.CHART, AppMode.NAVIGATE, AppMode.FISH),
+    WPT("wpt", "WAYPOINT", AppMode.NAVIGATE),
+    BRG("brg", "BRG  °T", AppMode.NAVIGATE),
+    DTW("dtw", "DTW  nm", AppMode.NAVIGATE),
+    XTE("xte", "XTE  nm", AppMode.NAVIGATE),
+    VMG("vmg", "VMG  kn"),
+    TTG("ttg", "TTG", AppMode.NAVIGATE),
+    ETA_WPT("eta_wpt", "ETA WPT"),
+    ETA_DEST("eta_dest", "ETA DEST", AppMode.NAVIGATE),
+    REMAIN("remain", "REMAIN  nm"),
+    DRIFT("drift", "DRIFT  kn", AppMode.FISH),
+    DRIFT_DIR("drift_dir", "DRIFT  °T", AppMode.FISH),
+    MARK("mark", "NEAREST MARK", AppMode.FISH),
+    ANCHOR("anchor", "ANCHOR  m"),
+    TRIP("trip", "TRIP  nm"),
+    TIME("time", "TIME"),
+    ;
+
+    val placeholder: String
+        get() = when (this) {
+            SOG, VMG, DRIFT -> "--.-"
+            COG, BRG, DRIFT_DIR -> "---°"
+            POSITION -> "No GPS fix"
+            else -> "--"
+        }
+}
+
+/**
+ * Owns the data-field cards drawn over the map. Each mode has its own set of visible
+ * fields and its own layout.
  *
  * Positions are stored as fractions (0..1) of the free space in the container, so a
  * layout survives rotation and different screen sizes. Cards only take touches while
@@ -36,6 +71,12 @@ class DataFieldsOverlay(
     private val dp = ctx.resources.displayMetrics.density
     private val cards = LinkedHashMap<DataField, Card>()
 
+    var mode: AppMode = AppMode.CHART
+        set(value) {
+            field = value
+            applyVisibility()
+        }
+
     var editing = false
         private set
 
@@ -47,38 +88,33 @@ class DataFieldsOverlay(
             cards[field] = card
             container.addView(card.root, FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-            // Re-clamp whenever the card changes size (e.g. longer value text).
             card.root.addOnLayoutChangeListener { _, l, t, r, b, ol, ot, or, ob ->
                 if (r - l != or - ol || b - t != ob - ot) placeAll()
             }
+            set(field, field.placeholder)
         }
         container.addOnLayoutChangeListener { _, l, t, r, b, ol, ot, or, ob ->
             if (r - l != or - ol || b - t != ob - ot) placeAll()
         }
         applyVisibility()
         applyTextSize()
-        clear()
     }
+
+    private fun k(field: DataField, what: String) = "f.${mode.key}.${field.key}.$what"
 
     // ---- Values ------------------------------------------------------------
 
     fun set(field: DataField, text: String) {
-        cards[field]?.value?.text = text
-    }
-
-    fun clear() {
-        set(DataField.SOG, "--.-")
-        set(DataField.COG, "---°")
-        set(DataField.POSITION, "No GPS fix")
-        set(DataField.DEPTH, "--")
+        val v = cards[field]?.value ?: return
+        if (v.text != text) v.text = text
     }
 
     // ---- Visibility & size ---------------------------------------------------
 
-    fun isVisible(field: DataField) = prefs.getBoolean("field_${field.key}", field.defaultVisible)
+    fun isVisible(field: DataField) = prefs.getBoolean(k(field, "vis"), mode in field.defaultIn)
 
     fun setVisible(field: DataField, visible: Boolean) {
-        prefs.edit().putBoolean("field_${field.key}", visible).apply()
+        prefs.edit().putBoolean(k(field, "vis"), visible).apply()
         applyVisibility()
     }
 
@@ -89,7 +125,7 @@ class DataFieldsOverlay(
         container.post { placeAll() }
     }
 
-    /** 0 = small, 1 = medium, 2 = large */
+    /** 0 = small, 1 = medium, 2 = large (shared by all modes) */
     var textSize: Int
         get() = prefs.getInt("field_text_size", 1)
         set(v) {
@@ -102,7 +138,7 @@ class DataFieldsOverlay(
         val labelSp = floatArrayOf(10f, 11f, 13f)[textSize]
         for ((field, card) in cards) {
             card.label.setTextSize(TypedValue.COMPLEX_UNIT_SP, labelSp)
-            val scale = if (field == DataField.POSITION) 0.6f else 1f
+            val scale = if (field == DataField.POSITION || field == DataField.WPT || field == DataField.MARK) 0.6f else 1f
             card.value.setTextSize(TypedValue.COMPLEX_UNIT_SP, valueSp * scale)
         }
     }
@@ -121,9 +157,7 @@ class DataFieldsOverlay(
 
     fun resetLayout() {
         val e = prefs.edit()
-        for (field in DataField.entries) {
-            e.remove("x_${field.key}").remove("y_${field.key}")
-        }
+        for (field in DataField.entries) e.remove(k(field, "x")).remove(k(field, "y"))
         e.apply()
         placeAll()
     }
@@ -160,23 +194,36 @@ class DataFieldsOverlay(
     private fun savePosition(field: DataField, v: View) {
         val fx = if (freeX(v) > 0) v.x / freeX(v) else 0f
         val fy = if (freeY(v) > 0) v.y / freeY(v) else 0f
-        prefs.edit().putFloat("x_${field.key}", fx).putFloat("y_${field.key}", fy).apply()
+        prefs.edit().putFloat(k(field, "x"), fx).putFloat(k(field, "y"), fy).apply()
     }
 
-    /** Put every card at its saved spot, or stack unsaved ones down the left edge. */
+    /**
+     * Put every card at its saved spot. Cards without one are stacked down the left
+     * edge (below the top button row), wrapping into extra columns if needed.
+     */
     private fun placeAll() {
         if (container.width == 0) return
-        var stackY = 0f
+        val top = 56 * dp
+        val gap = 6 * dp
+        var stackX = 0f
+        var stackY = top
+        var colWidth = 0f
         for ((field, card) in cards) {
             val v = card.root
             if (v.visibility != View.VISIBLE) continue
-            if (prefs.contains("x_${field.key}")) {
-                v.x = prefs.getFloat("x_${field.key}", 0f) * freeX(v)
-                v.y = prefs.getFloat("y_${field.key}", 0f) * freeY(v)
+            if (prefs.contains(k(field, "x"))) {
+                v.x = prefs.getFloat(k(field, "x"), 0f) * freeX(v)
+                v.y = prefs.getFloat(k(field, "y"), 0f) * freeY(v)
             } else {
-                v.x = 0f
+                if (stackY + v.height > container.height - 96 * dp && stackY > top) {
+                    stackX += colWidth + gap
+                    stackY = top
+                    colWidth = 0f
+                }
+                v.x = stackX.coerceAtMost(freeX(v))
                 v.y = stackY.coerceAtMost(freeY(v))
-                stackY += v.height + 6 * dp
+                stackY += v.height + gap
+                colWidth = max(colWidth, v.width.toFloat())
             }
         }
     }

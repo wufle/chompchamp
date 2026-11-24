@@ -8,16 +8,16 @@ mkdir -p "$OUT"
 
 ATTR='Depth © Geoscience Australia (AusBathyTopo). Zones: WA DPIRD, DBCA (CC BY-SA 4.0), Parks Australia. NOT FOR NAVIGATION.'
 
-echo ">> Tiling depth / contours / land (z4-12)"
+echo ">> Tiling depth / contours / land (z4-14)"
 tippecanoe -o "$WORK/base.pmtiles" --force \
-  -Z4 -z12 \
+  -Z4 -z14 \
   -L depth:"$WORK/depth.geojsonl" \
   -L land:"$WORK/land.geojsonl" \
   -L contour:"$WORK/contour.geojsonl" \
   --detect-shared-borders \
   --coalesce-densest-as-needed \
   --extend-zooms-if-still-dropping \
-  --simplification=4 \
+  --simplification=2 \
   --attribution="$ATTR"
 
 echo ">> Tiling fishing zones (z4-14, never dropped)"

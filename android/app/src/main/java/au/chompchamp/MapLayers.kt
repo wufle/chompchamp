@@ -13,6 +13,7 @@ import org.maplibre.android.maps.Style
 /** User-toggleable map overlays. Keys are persisted, so don't rename them. */
 enum class MapOverlay(val key: String, val label: String, val defaultOn: Boolean) {
     SATELLITE("satellite", "Satellite imagery (online)", false),
+    RELIEF("relief", "Reef relief 5 m (WA DoT survey areas)", true),
     DEPTH("depth", "Depth shading", true),
     CONTOURS("contours", "Depth contours", true),
     CONTOUR_LABELS("contour_labels", "Depth labels", true),
@@ -20,6 +21,7 @@ enum class MapOverlay(val key: String, val label: String, val defaultOn: Boolean
     NO_TAKE("notake", "No-fishing zones", true),
     RESTRICTED("restricted", "Restricted areas", true),
     PARKS("parks", "Marine park boundaries", true),
+    TRACK("track", "Track (breadcrumb trail)", true),
 }
 
 class MapLayers(private val prefs: SharedPreferences) {
@@ -40,6 +42,8 @@ class MapLayers(private val prefs: SharedPreferences) {
         val sat = isOn(MapOverlay.SATELLITE)
 
         visible(style, "satellite", sat)
+        visible(style, "relief", isOn(MapOverlay.RELIEF))
+        visible(style, "track-line", isOn(MapOverlay.TRACK))
         opacity(style, "depth-fill", when {
             !isOn(MapOverlay.DEPTH) -> 0f
             sat -> 0.35f

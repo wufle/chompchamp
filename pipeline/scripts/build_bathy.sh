@@ -38,12 +38,17 @@ echo ">> Clipping to WA: $BBOX"
 gdalwarp -overwrite -t_srs EPSG:4326 -te $BBOX -r bilinear \
   -co COMPRESS=DEFLATE -co TILED=YES "$SRC" "$WORK/wa_dem.tif"
 
+echo ">> Smoothing: 2x cubic-spline upsample (cosmetic: removes 250 m stair-steps, adds no real detail)"
+gdal_translate -q -outsize 200% 200% -r cubicspline -co COMPRESS=DEFLATE -co TILED=YES -co BIGTIFF=IF_SAFER \
+  "$WORK/wa_dem.tif" "$WORK/wa_dem_smooth.tif"
+DEM="$WORK/wa_dem_smooth.tif"
+
 echo ">> Depth contour lines"
 # Elevations are positive-up, so depths are negative values.
 LINES="-5000 -4000 -3000 -2000 -1500 -1000 -750 -500 -400 -300 -250 -200 -150 -100 -80 -60 -50 -40 -30 -25 -20 -15 -10 -5 -2"
 rm -f "$WORK/contour_lines.gpkg"
 # shellcheck disable=SC2086
-gdal_contour -q -a elev -fl $LINES "$WORK/wa_dem.tif" "$WORK/contour_lines.gpkg"
+gdal_contour -q -a elev -fl $LINES "$DEM" "$WORK/contour_lines.gpkg"
 ogr2ogr -f GeoJSONSeq "$WORK/contour.geojsonl" "$WORK/contour_lines.gpkg" -dialect sqlite \
   -sql "SELECT geom, CAST(ROUND(-elev) AS INTEGER) AS depth FROM contour"
 
@@ -52,7 +57,7 @@ echo ">> Depth band polygons + land"
 BANDS="-12000 -1000 -500 -300 -200 -150 -100 -80 -60 -50 -40 -30 -25 -20 -15 -10 -8 -5 -3 -2 0 10000"
 rm -f "$WORK/bands.gpkg"
 # shellcheck disable=SC2086
-gdal_contour -q -p -amin emin -amax emax -fl $BANDS "$WORK/wa_dem.tif" "$WORK/bands.gpkg"
+gdal_contour -q -p -amin emin -amax emax -fl $BANDS "$DEM" "$WORK/bands.gpkg"
 ogr2ogr -f GeoJSONSeq "$WORK/depth.geojsonl" "$WORK/bands.gpkg" -dialect sqlite \
   -sql "SELECT geom, CAST(ROUND(-emax) AS INTEGER) AS dmin, CAST(ROUND(-emin) AS INTEGER) AS dmax FROM contour WHERE emax <= 0"
 ogr2ogr -f GeoJSONSeq "$WORK/land.geojsonl" "$WORK/bands.gpkg" -dialect sqlite \

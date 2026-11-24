@@ -8,16 +8,19 @@ A free, offline fishing chartplotter for Android, starting with **Western Austra
 > Fishing zone boundaries may be incomplete or out of date: always check current rules with
 > [DPIRD](https://www.dpird.wa.gov.au/) and [Parks Australia](https://parksaustralia.gov.au/marine/).
 
-## What it does (v0.1)
+## What it does
 
-- Offline chart of WA waters: depth shading, depth contours with labels, land
-- **No-fishing zones** in red (state sanctuary zones, wreck sites, Commonwealth National Park and Sanctuary zones), restricted areas in orange, marine park boundaries in green
-- **Alert when you enter a no-fishing zone** (banner + vibration)
-- Tap a zone to see what it is and a link to the legal order
-- GPS boat position and follow mode
-- **Customisable data fields**: speed (SOG), course (COG), position and estimated depth. Show/hide them, pick a text size, and drag them anywhere on screen (Menu → Edit layout)
-- **Layers menu** (bottom left): toggle depth shading, contours, labels, land, zones, and an online Sentinel-2 satellite layer
-- Keeps the screen on while open
+Four modes (switch with the button at the top of the screen):
+
+- **Chart**: offline chart with depth shading, contours, labels and land. No-fishing zones in red, restricted areas in orange, marine parks in green. Alerts when you enter a no-fishing zone. Tap a zone for details; long-press anywhere for depth, "Navigate here" or "Add mark".
+- **Route**: tap to drop waypoints, tap a waypoint to move, rename or delete it. Shows distance and time at your planning speed. Save, open, reverse and delete routes. **Check** samples every leg for land, water shallower than your safety depth, and no-fishing zones.
+- **Navigate**: steers you waypoint by waypoint with BRG, DTW, XTE, VMG, TTG, ETA to waypoint and destination, and distance remaining. Auto-advances at the arrival radius or when you pass abeam. Prev/Skip/Stop controls.
+- **Fish**: zooms in close, measures drift over a rolling window and draws where you'll be in N minutes. One-tap **Mark** saves the spot with estimated depth. Anchor alarm, nearest-mark distance/bearing, breadcrumb track.
+
+Everything is customisable:
+- **Data fields** per mode: SOG, COG, position, depth, waypoint, BRG, DTW, XTE, VMG, TTG, ETAs, remaining, drift speed/direction, nearest mark, anchor distance, trip log, time. Show/hide them, pick a text size, and drag them anywhere (Menu → Edit layout). Each mode keeps its own layout.
+- **Layers** (bottom left): satellite, 5 m reef relief, depth shading, contours, labels, land, zones, parks, track.
+- **Settings**: arrival radius, planning speed, north-up / course-up, drift window and projection, fish-mode zoom, anchor radius, safety depth.
 
 ## Repo layout
 
@@ -45,7 +48,13 @@ Chart data (needs `python3`, GDAL, `unzip`, `curl`, and tippecanoe 2.17+):
 ./pipeline/build.sh          # -> pipeline/out/wa.pmtiles
 ```
 
-The first run downloads the 2.6 GB AusBathyTopo grid. To just refresh fishing zones:
+The first run downloads the 2.6 GB AusBathyTopo grid. The grid is 250 m; the pipeline smooths it
+(2x cubic-spline upsample) before contouring so lines aren't stair-stepped, which looks better
+but adds no real detail.
+
+Offline 5 m reef relief pack (needs `pip install pillow pmtiles`):
+`python3 pipeline/scripts/build_relief.py pipeline/out/wa-relief.pmtiles`, or run the
+*Build WA reef relief pack* workflow. Import it in the app the same way as the chart. To just refresh fishing zones:
 `python3 pipeline/scripts/fetch_zones.py pipeline/build/zones.geojson`.
 
 ## Data sources
@@ -56,6 +65,7 @@ The first run downloads the 2.6 GB AusBathyTopo grid. To just refresh fishing zo
 | No-fishing / restricted zones | WA DPIRD Fisheries Guide, consolidated notices and orders (DPIRD-061), via [SLIP](https://public-services.slip.wa.gov.au/public/rest/services/SLIP_Public_Services/DPIRD_Fisheries_Guide/MapServer) | WA Government, check SLIP terms |
 | State marine park outlines | WA DBCA Legislated Lands and Waters (DBCA-011) | CC BY-SA 4.0 |
 | Commonwealth marine park zones | Parks Australia, [Australian Marine Parks](https://gis.environment.gov.au/gispubmap/rest/services/ogc_services/Australian_Marine_Parks/FeatureServer) | Commonwealth (likely CC BY 4.0, verify) |
+| Reef relief (5 m, ~30 nearshore areas) | WA Department of Transport bathymetry imagery (DOT-022), via [SLIP](https://public-services.slip.wa.gov.au/public/rest/services/Landgate_Public_Maps/WA_Bathymetry/MapServer) | CC BY 3.0 AU |
 | Satellite (online) | [Sentinel-2 cloudless 2016](https://s2maps.eu) by EOX IT Services GmbH | CC BY 4.0 |
 | Label fonts (online, cached) | [OpenFreeMap](https://openfreemap.org) | OFL |
 
@@ -72,9 +82,10 @@ Known limitation: the depth estimate and no-fishing alerts read the map tiles on
 ## Roadmap
 
 - [ ] Satellite imagery layer (online, with offline cache for chosen areas)
-- [ ] Higher-resolution nearshore depth (AusSeabed multibeam, WA DoT surveys)
+- [ ] Depth numbers from WA DoT surveys (BAG files) and GA's 30 m Northern Australia grid
+- [ ] Zone alerts and depth that work off screen (point-in-polygon against the data, not rendered tiles)
 - [ ] Bundle fonts so labels work fully offline on first launch
-- [ ] Waypoints, tracks and a catch log
+- [ ] Catch log on marks (species, size, photo, bait)
 - [ ] Sea surface temperature and chlorophyll overlays (IMOS)
 - [ ] Tides (WA Department of Transport tide stations) and marine weather
 - [ ] Bag/size limits and seasonal closures by zone
