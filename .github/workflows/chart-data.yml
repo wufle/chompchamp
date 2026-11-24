@@ -71,4 +71,5 @@ jobs:
           SIZE=$(du -h pipeline/out/wa.pmtiles | cut -f1)
           gh release create "$TAG" pipeline/out/wa.pmtiles \
             --title "WA chart $(date -u +%Y-%m-%d)" \
-            --notes "Offline WA chart (${SIZE}). Import in the app via Menu → Import chart file. NOT FOR NAVIGATION."
+            --notes "Offline WA chart (${SIZE}). Import in the app via ☰ → Charts & relief data. NOT FOR NAVIGATION." \
+            --latest=false

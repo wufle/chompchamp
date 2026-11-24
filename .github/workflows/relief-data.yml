@@ -25,9 +25,11 @@ jobs:
           python-version: "3.12"
       - run: pip install pillow pmtiles
       - name: Build wa-relief.pmtiles
+        env:
+          MAXZOOM: ${{ inputs.maxzoom || 15 }}
         run: |
           mkdir -p pipeline/out
-          python -I pipeline/scripts/build_relief.py pipeline/out/wa-relief.pmtiles --maxzoom "${{ inputs.maxzoom || 15 }}"
+          python -I pipeline/scripts/build_relief.py pipeline/out/wa-relief.pmtiles --maxzoom "$MAXZOOM"
       # Releases only on explicit request: never published automatically.
       - uses: actions/upload-artifact@v4
         with:
@@ -44,5 +46,5 @@ jobs:
           SIZE=$(du -h pipeline/out/wa-relief.pmtiles | cut -f1)
           gh release create "$TAG" pipeline/out/wa-relief.pmtiles \
             --title "WA reef relief $(date -u +%Y-%m-%d)" \
-            --notes "Offline 5 m bathymetry imagery from WA Department of Transport (${SIZE}), CC BY 3.0 AU. Import in the app via Menu → Import chart file. NOT FOR NAVIGATION." \
+            --notes "Offline 5 m bathymetry imagery from WA Department of Transport (${SIZE}), CC BY 4.0. Import in the app via ☰ → Charts & relief data. NOT FOR NAVIGATION." \
             --latest=false

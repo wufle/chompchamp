@@ -154,7 +154,7 @@ def fetch_dbca():
             f["geometry"], "park",
             name=p.get("leg_name") or "WA marine park",
             detail=p.get("leg_category"),
-            source="WA DBCA Legislated Lands and Waters (DBCA-011), CC BY-SA 4.0",
+            source="WA DBCA Legislated Lands and Waters (DBCA-011), CC BY-NC 4.0",
             link=None,
         ))
     return out

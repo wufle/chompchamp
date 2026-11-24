@@ -15,7 +15,7 @@ README.md covers features, signing, data sources/licences and zone classificatio
 - **Colours come from `res/values/colors.xml` / `Appearance`.** Soft blue accent; no yellow/amber controls.
 - **Free data only, and it must work offline** once imported. Check the licence and add the source to
   the README table and the style/tile attribution.
-- Signing key lives in `../chompchamp-signing/`, outside the repo. Don't read, move or commit it.
+- The signing key is kept outside the repo. Don't read, move or commit it.
 
 ## Building
 

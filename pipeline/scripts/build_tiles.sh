@@ -6,7 +6,7 @@ WORK=${WORK:-build}
 OUT=${OUT:-out}
 mkdir -p "$OUT"
 
-ATTR='Depth © Geoscience Australia (AusBathyTopo), WA Department of Transport (CC BY 4.0). Coast © OpenStreetMap contributors. Zones: WA DPIRD, DBCA (CC BY-SA 4.0), Parks Australia.'
+ATTR='Depth © Geoscience Australia (AusBathyTopo, incorporating AHO data), WA Department of Transport (CC BY 4.0). Coast © OpenStreetMap contributors. Zones: WA DPIRD, DBCA (CC BY-NC 4.0), Parks Australia.'
 
 echo ">> Tiling depth / contours / land (z4-14)"
 tippecanoe -o "$WORK/base.pmtiles" --force \

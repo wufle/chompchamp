@@ -3,7 +3,7 @@
 
 DoT publishes colour-ramped, hill-shaded 5 m bathymetry (LiDAR / multibeam / laser
 composite surveys) for ~30 nearshore areas as an ArcGIS MapServer, licensed
-CC BY 3.0 AU. This script renders those images into Web-Mercator tiles and writes
+CC BY 4.0. This script renders those images into Web-Mercator tiles and writes
 a WebP PMTiles archive the app can use offline.
 
 Usage: build_relief.py OUTPUT.pmtiles [--maxzoom 15] [--minzoom 10] [--workers 6]
@@ -27,7 +27,7 @@ COVERAGE_LAYER = 1      # "Composite Surfaces - Multibeam LIDAR Laser (DOT-022)"
 IMAGE_GROUP = 2         # "Bathymetry Images" group layer
 HALF = 20037508.342789244
 UA = {"User-Agent": "chompchamp-pipeline/0.2"}
-ATTRIBUTION = "Bathymetry imagery © WA Department of Transport (CC BY 3.0 AU)."
+ATTRIBUTION = "Bathymetry imagery © WA Department of Transport (CC BY 4.0)."
 
 
 def fetch(url, params, retries=5):

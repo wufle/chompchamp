@@ -1195,7 +1195,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             relief.put("url", "pmtiles://file://${reliefFile.absolutePath}")
         } else {
             relief.put("tiles", JSONArray().put(RELIEF_ONLINE)).put("minzoom", 10).put("maxzoom", 18)
-                .put("attribution", "Bathymetry imagery © WA Department of Transport (CC BY 3.0 AU)")
+                .put("attribution", "Bathymetry imagery © WA Department of Transport (CC BY 4.0)")
         }
         style.getJSONObject("sources").put("relief", relief)
         val src = style.getJSONArray("layers")
@@ -1291,7 +1291,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
         if (uri != null) {
             intent?.action = null // don't re-import on rotation
-            importChartFile(uri)
+            // Comes from another app or a web page, so never replace the chart without asking.
+            confirm("Import this file into ChompChamp?\n\nIt replaces the chart or relief pack you have installed. " +
+                "Only continue if you trust where it came from.") { importChartFile(uri) }
         }
     }
 
