@@ -102,7 +102,7 @@
             android:layout_gravity="bottom"
             android:layout_marginStart="68dp"
             android:layout_marginEnd="68dp"
-            android:layout_marginBottom="12dp"
+            android:layout_marginBottom="8dp"
             android:gravity="center_horizontal"
             android:orientation="vertical"
             android:visibility="gone">
@@ -127,25 +127,55 @@
                 android:orientation="vertical" />
         </LinearLayout>
 
-        <ImageButton
-            android:id="@+id/btnLayers"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:layout_gravity="bottom|start"
-            android:layout_margin="12dp"
-            android:contentDescription="@string/layers"
-            android:scaleType="centerInside"
-            android:src="@drawable/ic_layers" />
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginBottom="8dp"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
 
-        <ImageButton
-            android:id="@+id/btnLocate"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            <ImageButton
+                android:id="@+id/btnLayers"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:contentDescription="@string/layers"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_layers" />
+
+            <TextView
+                android:id="@+id/lblLayers"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Layers" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:layout_gravity="bottom|end"
-            android:layout_margin="12dp"
-            android:contentDescription="@string/follow_boat"
-            android:scaleType="centerInside"
-            android:src="@drawable/ic_my_location" />
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginBottom="8dp"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+
+            <ImageButton
+                android:id="@+id/btnLocate"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:contentDescription="@string/follow_boat"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_my_location" />
+
+            <TextView
+                android:id="@+id/lblLocate"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Follow" />
+        </LinearLayout>
         <!-- Non-blocking settings panel (layers, appearance). No scrim, so the map stays
              visible and changes preview live. Filled in code by SettingsPanel. -->
         <FrameLayout

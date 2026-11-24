@@ -77,7 +77,8 @@ your IP address and the area on screen.
 
 ## Data sources and licences
 
-Each chart layer keeps its source's licence. If you reuse the chart files, follow all of them.
+The app and pipeline code is under the [MIT licence](LICENSE). The **data isn't**: each chart layer keeps its
+source's licence (including the bundled `hazards.geojson`). If you reuse the chart files, follow all of them.
 **The marine park outlines are non-commercial**, so don't sell charts that include them.
 
 | Layer | Source | Licence |

@@ -264,8 +264,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         overlays.setTrack(visibleTrack())
     }
 
-    /** A round action button in the bottom row. Long-press shows [label]. */
-    private class ModeAction(val icon: Int, val label: String, val active: Boolean = false, val onTap: () -> Unit)
+    /** A round action button in the bottom row with one [word] under it. Long-press shows [label]. */
+    private class ModeAction(val icon: Int, val word: String, val label: String, val active: Boolean = false, val onTap: () -> Unit)
 
     private fun refreshModePanel() {
         val actions: List<ModeAction>
@@ -275,13 +275,13 @@ class MainActivity : AppCompatActivity(), LocationListener {
             AppMode.ROUTE -> {
                 summary = routeSummary()
                 actions = listOf(
-                    ModeAction(R.drawable.ic_undo, "Undo last waypoint") { undoWaypoint() },
-                    ModeAction(R.drawable.ic_delete, "Clear route") {
+                    ModeAction(R.drawable.ic_undo, "Undo", "Undo last waypoint") { undoWaypoint() },
+                    ModeAction(R.drawable.ic_delete, "Clear", "Clear route") {
                         confirm("Clear the route?") { plan.waypoints.clear(); planChanged() }
                     },
-                    ModeAction(R.drawable.ic_folder, "Saved routes") { showRoutesMenu(modeButtons) },
-                    ModeAction(R.drawable.ic_check, "Check route") { checkRoute() },
-                    ModeAction(R.drawable.ic_play, "Start navigating") { startNavigation(plan) },
+                    ModeAction(R.drawable.ic_folder, "Routes", "Saved routes") { showRoutesMenu(modeButtons) },
+                    ModeAction(R.drawable.ic_check, "Check", "Check route") { checkRoute() },
+                    ModeAction(R.drawable.ic_play, "Go", "Start navigating") { startNavigation(plan) },
                 )
             }
             AppMode.NAVIGATE -> {
@@ -292,9 +292,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
                         (n?.let { "\n${Geo.fmtNm(it.dtwNm)} nm · ${Geo.fmtBearing(it.bearing)} · ${Geo.fmtNm(it.remainNm)} nm to go" } ?: "")
                 } else "No active route"
                 actions = listOf(
-                    ModeAction(R.drawable.ic_skip_prev, "Previous waypoint") { if (navigator.previous(lastPos())) navChanged() },
-                    ModeAction(R.drawable.ic_stop, "Stop navigating") { confirm("Stop navigating?") { stopNavigation() } },
-                    ModeAction(R.drawable.ic_skip_next, "Skip to next waypoint") { if (navigator.skip()) navChanged() },
+                    ModeAction(R.drawable.ic_skip_prev, "Back", "Previous waypoint") { if (navigator.previous(lastPos())) navChanged() },
+                    ModeAction(R.drawable.ic_stop, "Stop", "Stop navigating") { confirm("Stop navigating?") { stopNavigation() } },
+                    ModeAction(R.drawable.ic_skip_next, "Next", "Skip to next waypoint") { if (navigator.skip()) navChanged() },
                 )
             }
             AppMode.FISH -> {
@@ -304,11 +304,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
                         "(line shows ${settings.driftProjectMin.toInt()} min)"
                 } ?: "Measuring drift…") + (anchor?.let { "\nAnchor alarm ON · ${settings.anchorRadiusM.toInt()} m" } ?: "")
                 actions = listOf(
-                    ModeAction(R.drawable.ic_star, "Mark this spot") { addMarkAtBoat() },
-                    ModeAction(R.drawable.ic_anchor, if (anchor == null) "Set anchor alarm" else "Turn anchor alarm off",
+                    ModeAction(R.drawable.ic_star, "Mark", "Mark this spot") { addMarkAtBoat() },
+                    ModeAction(R.drawable.ic_anchor, "Anchor", if (anchor == null) "Set anchor alarm" else "Turn anchor alarm off",
                         active = anchor != null) { toggleAnchor() },
-                    ModeAction(R.drawable.ic_refresh, "Reset drift") { drift.reset(); refreshModePanel() },
-                    ModeAction(R.drawable.ic_list, "My marks") { showMarksList() },
+                    ModeAction(R.drawable.ic_refresh, "Reset", "Reset drift") { drift.reset(); refreshModePanel() },
+                    ModeAction(R.drawable.ic_list, "List", "My marks") { showMarksList() },
                 )
             }
         }
@@ -328,7 +328,16 @@ class MainActivity : AppCompatActivity(), LocationListener {
             actions.indices.chunked(perRow).forEach { idx ->
                 val row = LinearLayout(this).apply { gravity = Gravity.CENTER }
                 idx.forEachIndexed { k, _ ->
-                    row.addView(ImageButton(this), LinearLayout.LayoutParams(size, size).apply {
+                    val b = ImageButton(this)
+                    val cell = LinearLayout(this).apply {
+                        orientation = LinearLayout.VERTICAL
+                        addView(b, LinearLayout.LayoutParams(size, size))
+                        addView(TextView(this@MainActivity).apply {
+                            styleButtonLabel(this)
+                            setOnClickListener { b.performClick() }   // or the tap would land on the map
+                        }, LinearLayout.LayoutParams(size, LinearLayout.LayoutParams.WRAP_CONTENT))
+                    }
+                    row.addView(cell, LinearLayout.LayoutParams(size, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                         if (k > 0) marginStart = gap
                     })
                 }
@@ -337,18 +346,34 @@ class MainActivity : AppCompatActivity(), LocationListener {
             }
         }
         actions.forEachIndexed { i, a ->
-            val b = (modeButtons.getChildAt(i / perRow) as LinearLayout).getChildAt(i % perRow) as ImageButton
+            val cell = (modeButtons.getChildAt(i / perRow) as LinearLayout).getChildAt(i % perRow) as LinearLayout
+            val b = cell.getChildAt(0) as ImageButton
             b.setOnClickListener { a.onTap() }
             // Called on every GPS fix: only touch the look when it changes.
             val state = "${a.icon}/${a.label}/${a.active}/${look.controlAlpha}"
             if (b.tag != state) {
                 b.tag = state
                 b.setImageResource(a.icon)
+                (cell.getChildAt(1) as TextView).text = a.word
                 b.contentDescription = a.label
                 TooltipCompat.setTooltipText(b, a.label)
                 styleCircle(b, a.active)
             }
         }
+    }
+
+    /** Small word under a round button: no background, readable on any map thanks to a soft halo. */
+    private fun styleButtonLabel(t: TextView) {
+        val scale = look.controlScale
+        t.textSize = 10f * scale
+        t.setTextColor(look.surface)
+        t.gravity = Gravity.CENTER
+        t.maxLines = 1
+        t.includeFontPadding = false
+        t.alpha = 0.55f + 0.45f * look.controlAlpha
+        t.setShadowLayer(3f * resources.displayMetrics.density, 0f, 0f, look.onSurface)
+        t.setPadding(0, (2 * resources.displayMetrics.density).toInt(), 0, 0)
+        t.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO   // the button already has a name
     }
 
     /** Shared look of every round button. [active] = switched on (accent fill, dark icon). */
@@ -1123,6 +1148,12 @@ class MainActivity : AppCompatActivity(), LocationListener {
             b.layoutParams = b.layoutParams.apply { width = size; height = size }
             styleCircle(b)
         }
+        for ((label, button) in listOf(R.id.lblLayers to R.id.btnLayers, R.id.lblLocate to R.id.btnLocate)) {
+            findViewById<TextView>(label).apply {
+                styleButtonLabel(this)
+                setOnClickListener { this@MainActivity.findViewById<View>(button).performClick() }
+            }
+        }
         modeButton.apply {
             minHeight = size
             textSize = 13f * scale
@@ -1162,7 +1193,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         ui.setCompassMargins(0, barInsets.top + size + (24 * dp).toInt(), barInsets.right + pad, 0)
         ui.isLogoEnabled = false
         ui.attributionGravity = Gravity.BOTTOM or Gravity.START
-        ui.setAttributionMargins(barInsets.left + pad, 0, 0, barInsets.bottom + size + (20 * dp).toInt())
+        ui.setAttributionMargins(barInsets.left + pad, 0, 0, barInsets.bottom + size + ((20 + 16 * look.controlScale) * dp).toInt())
     }
 
     // =========================================================================

@@ -88,6 +88,13 @@ class MapLayers(private val prefs: SharedPreferences) {
         ),
     )
 
+    init {
+        // 0.10.4, once: turn Land back on. It used to have to be off to see relief in the rivers.
+        if (!prefs.getBoolean("migrated_land_on", false)) {
+            prefs.edit().remove("layer_land").remove("layer_opacity_land").putBoolean("migrated_land_on", true).apply()
+        }
+    }
+
     fun isOn(o: MapOverlay) = prefs.getBoolean("layer_${o.key}", o.defaultOn)
     private fun setOn(o: MapOverlay, on: Boolean) = prefs.edit().putBoolean("layer_${o.key}", on).apply()
 
