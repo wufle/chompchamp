@@ -29,6 +29,11 @@ class Appearance(private val ctx: Context, private val prefs: SharedPreferences)
     val controlScale get() = get("control_scale")
     val controlAlpha get() = get("control_alpha")
 
+    /** Scale bar at the bottom right of the map. */
+    var showScaleBar: Boolean
+        get() = prefs.getBoolean("ui_scale_bar", true)
+        set(v) = prefs.edit().putBoolean("ui_scale_bar", v).apply()
+
     // ---- Palette ---------------------------------------------------------------
 
     val surface = ContextCompat.getColor(ctx, R.color.ui_surface)

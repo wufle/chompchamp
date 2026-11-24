@@ -46,6 +46,7 @@ user which they need. The style must also cope with older charts that lack a new
 | `DataFields.kt` | Data fields per mode; loose cards or one group (default: single column) |
 | `MapLayers.kt` | Layer toggles and opacity |
 | `NavOverlays.kt` | Track, route, drift, marks, anchor (drawn in code) |
+| `ScaleBarView.kt` | Scale bar, bottom right |
 | `Hazards.kt` | Nav marks, wrecks and rocks from `assets/hazards.geojson` |
 | `SettingsPanel.kt`, `Settings.kt`, `Appearance.kt` | Docked panel (Layers, Display); behaviour options; size, opacity, palette |
 | `Navigator.kt`, `Geo.kt` | Guidance, drift, track; geodesy and formatting |

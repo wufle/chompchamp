@@ -73,6 +73,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private lateinit var panel: SettingsPanel
     private lateinit var controlButtons: List<ImageButton>
     private lateinit var modePanel: View
+    private lateinit var scaleBar: ScaleBarView
     private lateinit var modeSummary: TextView
     private lateinit var modeButtons: LinearLayout
 
@@ -163,6 +164,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         editBar = findViewById(R.id.editBar)
         modeButton = findViewById(R.id.btnMode)
         modePanel = findViewById(R.id.modePanel)
+        scaleBar = findViewById(R.id.scaleBar)
+        modePanel.addOnLayoutChangeListener { _, _, t, _, b, _, ot, _, ob -> if (b - t != ob - ot) scaleBar.post { placeScaleBar() } }
         modeSummary = findViewById(R.id.modeSummary)
         modeButtons = findViewById(R.id.modeButtons)
         mapView.onCreate(savedInstanceState)
@@ -210,6 +213,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 .target(LatLng(-32.0, 115.6)) // Perth / Rottnest
                 .zoom(8.0)
                 .build()
+            m.addOnCameraMoveListener { updateScaleBar() }
+            m.addOnCameraIdleListener { updateScaleBar() }
             m.addOnMapClickListener { p -> onMapTap(p); true }
             m.addOnMapLongClickListener { p -> onMapLongPress(p); true }
             loadStyle()
@@ -273,7 +278,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val actions: List<ModeAction>
         val summary: String
         when (mode) {
-            AppMode.CHART -> { modePanel.visibility = View.GONE; return }
+            AppMode.CHART -> { modePanel.visibility = View.GONE; placeScaleBar(); return }
             AppMode.ROUTE -> {
                 summary = routeSummary()
                 actions = listOf(
@@ -316,6 +321,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
         modePanel.visibility = View.VISIBLE
         modeSummary.text = summary
+        placeScaleBar()
 
         // Same size as the layers and position buttons; wraps to a second row if they don't fit.
         val dp = resources.displayMetrics.density
@@ -1144,6 +1150,13 @@ class MainActivity : AppCompatActivity(), LocationListener {
             rows.actionRow("Arrangement", fields.grouping.short) { showGroupingDialog() }
             rows.actionRow("Move or resize on screen", "Edit") { panel.hide(); setEditing(true) }
             look.fillPanel(rows, onChanged = { applyAppearance() })
+            rows.section("Map")
+            rows.actionRow("Scale bar", if (look.showScaleBar) "On" else "Off") {
+                look.showScaleBar = !look.showScaleBar
+                applyAppearance()
+                updateScaleBar()
+                refreshDisplayPanel()
+            }
             rows.section("Reset")
             rows.actionRow("Layout · ${mode.label} mode", "Reset") {
                 confirm("Are you sure you want to reset the ${mode.label} layout?\n\nData fields go back to their default " +
@@ -1212,9 +1225,37 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
         modeButtons.tag = null   // rebuild buttons at the new size
         editBar.background = look.surfaceBg(0.9f, 22f)
+        scaleBar.setLook(look.surface, scale, bgAlpha)
+        scaleBar.visibility = if (look.showScaleBar) View.VISIBLE else View.GONE
         fields.applyStyle()
         applyMapUiMargins()
         refreshModePanel()
+    }
+
+    /** Above the Follow button, or above the mode panel when that is taller. */
+    private fun placeScaleBar() {
+        val dp = resources.displayMetrics.density
+        val aboveButton = controlSizePx() + ((14 + 14 * look.controlScale) * dp).toInt()
+        val abovePanel = if (modePanel.visibility == View.VISIBLE) modePanel.height + (12 * dp).toInt() else 0
+        val lp = scaleBar.layoutParams as FrameLayout.LayoutParams
+        val margin = maxOf(aboveButton, abovePanel)
+        if (lp.bottomMargin != margin) {
+            lp.bottomMargin = margin
+            scaleBar.layoutParams = lp
+        }
+    }
+
+    private fun updateScaleBar() {
+        val m = map ?: return
+        if (scaleBar.visibility != View.VISIBLE || mapView.width == 0) return
+        // Measured across the middle of the screen, so it's right at any zoom and latitude.
+        val x = mapView.width / 2f
+        val y = mapView.height / 2f
+        val span = mapView.width / 4f
+        val a = m.projection.fromScreenLocation(PointF(x - span / 2, y))
+        val b = m.projection.fromScreenLocation(PointF(x + span / 2, y))
+        val nm = Geo.distanceNm(LatLon(a.latitude, a.longitude), LatLon(b.latitude, b.longitude))
+        scaleBar.setMetresPerPixel(nm * Geo.M_PER_NM / span)
     }
 
     private fun setEditing(on: Boolean) {
