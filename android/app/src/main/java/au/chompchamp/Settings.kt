@@ -2,7 +2,7 @@ package au.chompchamp
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.util.Locale
 
 /** User-tunable behaviour. Each option is a fixed list of choices to keep the UI simple. */
@@ -52,7 +52,7 @@ class Settings(private val prefs: SharedPreferences) {
             val label = o.labels.getOrNull(o.values.indexOf(v)) ?: String.format(Locale.US, "%.2f", v)
             "${o.title}\n   $label"
         }.toTypedArray()
-        AlertDialog.Builder(ctx)
+        MaterialAlertDialogBuilder(ctx)
             .setTitle("Settings")
             .setItems(rows) { _, which -> pick(ctx, options[which], onChanged) }
             .setPositiveButton(android.R.string.ok, null)
@@ -61,7 +61,7 @@ class Settings(private val prefs: SharedPreferences) {
 
     private fun pick(ctx: Context, o: Option, onChanged: () -> Unit) {
         val current = o.values.indexOf(get(o.key))
-        AlertDialog.Builder(ctx)
+        MaterialAlertDialogBuilder(ctx)
             .setTitle(o.title)
             .setSingleChoiceItems(o.labels.toTypedArray(), current) { d, which ->
                 prefs.edit().putFloat("set_${o.key}", o.values[which]).apply()

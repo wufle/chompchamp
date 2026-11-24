@@ -21,6 +21,7 @@ Everything is customisable:
 - **Data fields** per mode: SOG, COG, position, depth, waypoint, BRG, DTW, XTE, VMG, TTG, ETAs, remaining, drift speed/direction, nearest mark, anchor distance, trip log, time. Show/hide them and drag them anywhere (Menu → Edit layout); tap a field while editing to resize or hide just that one. Each mode keeps its own layout.
 - **Appearance** (Menu): size and transparency of data fields, and of buttons and panels.
 - **Layers** (bottom left): on/off and an opacity slider for every layer: satellite, 5 m reef relief, depth shading, contours, labels, land, zones, parks, route, marks, drift line, track, anchor circle.
+- **Data** (Menu): save and load named snapshots on the phone; export and import a backup file (.json) with routes, marks, track and settings (merge or replace); export and import GPX to move marks, routes and tracks to and from other chartplotter apps.
 - **Settings**: arrival radius, planning speed, north-up / course-up, drift window and projection, fish-mode zoom, anchor radius, safety depth.
 
 ## Repo layout

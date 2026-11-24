@@ -1,10 +1,30 @@
 <resources>
-    <style name="Theme.ChompChamp" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">#1565C0</item>
-        <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorPrimaryContainer">#D3E4FF</item>
-        <item name="colorOnPrimaryContainer">#001C3A</item>
+    <!-- One palette everywhere: navy surfaces, white text, amber accent.
+         Material 3 builds dialogs, popup menus, bottom sheets, switches and sliders
+         from these colour roles. -->
+    <style name="Theme.ChompChamp" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/ui_accent</item>
+        <item name="colorOnPrimary">@color/ui_surface</item>
+        <item name="colorPrimaryContainer">#3D3214</item>
+        <item name="colorOnPrimaryContainer">@color/ui_accent</item>
         <item name="colorSecondary">@color/ui_accent</item>
-        <item name="colorOnSecondary">#101C2B</item>
+        <item name="colorOnSecondary">@color/ui_surface</item>
+        <item name="colorSecondaryContainer">#2A3A4E</item>
+        <item name="colorOnSecondaryContainer">@color/ui_on_surface</item>
+        <item name="colorTertiary">@color/ui_accent</item>
+
+        <item name="android:colorBackground">@color/ui_surface</item>
+        <item name="colorSurface">@color/ui_surface</item>
+        <item name="colorOnSurface">@color/ui_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/ui_muted</item>
+        <item name="colorSurfaceVariant">#22344A</item>
+        <item name="colorSurfaceContainerLowest">#0B141F</item>
+        <item name="colorSurfaceContainerLow">#101C2B</item>
+        <item name="colorSurfaceContainer">#142233</item>
+        <item name="colorSurfaceContainerHigh">#18283B</item>
+        <item name="colorSurfaceContainerHighest">#1D2F44</item>
+        <item name="colorOutline">#3D5166</item>
+        <item name="colorOutlineVariant">#2A3A4E</item>
+        <item name="colorError">@color/alert_danger</item>
     </style>
 </resources>

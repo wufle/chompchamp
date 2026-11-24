@@ -23,12 +23,12 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.LinearLayout
-import android.widget.PopupMenu
+import androidx.appcompat.widget.PopupMenu
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
@@ -76,6 +76,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private lateinit var track: Track
     private lateinit var marks: MutableList<Mark>
     private lateinit var plan: Route
+    private lateinit var userData: UserData
+    /** What the next "create document" result should contain: (isGpx, parts). */
+    private var pendingExport: Pair<Boolean, Set<DataPart>>? = null
 
     private var mode = AppMode.CHART
     private var locationActive = false
@@ -97,6 +100,13 @@ class MainActivity : AppCompatActivity(), LocationListener {
     // Fallback picker for devices where ACTION_OPEN_DOCUMENT isn't available.
     private val importChartFallback =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri -> uri?.let { importChartFile(it) } }
+
+    private val exportJsonFile =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let { writeExport(it) } }
+    private val exportGpxFile =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/gpx+xml")) { uri -> uri?.let { writeExport(it) } }
+    private val importDataFile =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { readImport(it) } }
 
     private val requestLocation =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
@@ -121,6 +131,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         track = Track(store.track())
         marks = store.marks()
         plan = store.plan()
+        userData = UserData(File(filesDir, "data"), store, prefs)
 
         mapView = findViewById(R.id.mapView)
         zoneBanner = findViewById(R.id.zoneBanner)
@@ -337,7 +348,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             val prev = plan.waypoints[i - 1]
             "\nLeg from ${prev.name}: ${Geo.fmtNm(Geo.distanceNm(prev.pos, w.pos))} nm @ ${Geo.fmtBearing(Geo.bearing(prev.pos, w.pos))}"
         } else ""
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("${w.name}  (${i + 1} of ${plan.waypoints.size})")
             .setMessage("${Geo.formatDdm(w.lat, true)}  ${Geo.formatDdm(w.lon, false)}$legInfo")
             .setPositiveButton("Move") { _, _ -> movingWaypoint = i; refreshModePanel() }
@@ -381,7 +392,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val routes = store.routes()
         if (routes.isEmpty()) { Toast.makeText(this, "No saved routes", Toast.LENGTH_SHORT).show(); return }
         val labels = routes.map { "${it.name} · ${it.waypoints.size} wpts · ${Geo.fmtNm(it.lengthNm())} nm" }
-        AlertDialog.Builder(this).setTitle(title)
+        MaterialAlertDialogBuilder(this).setTitle(title)
             .setItems(labels.toTypedArray()) { _, which -> onPick(routes[which]) }
             .setNegativeButton(android.R.string.cancel, null).show()
     }
@@ -440,7 +451,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val body = (if (issues.isEmpty()) "No land, shallow water (< ${safety.toInt()} m) or no-fishing zones found on the route."
         else issues.joinToString("\n\n")) +
             "\n\nBased on a 250 m depth model, so small reefs, rocks and bars WILL be missed. Check official charts."
-        AlertDialog.Builder(this).setTitle("Route check").setMessage(body)
+        MaterialAlertDialogBuilder(this).setTitle("Route check").setMessage(body)
             .setPositiveButton(android.R.string.ok, null).show()
     }
 
@@ -490,7 +501,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun markMenu(mark: Mark) {
         val time = SimpleDateFormat("d MMM yyyy HH:mm", Locale.getDefault()).format(Date(mark.time))
         val dist = lastPos()?.let { "\n${Geo.fmtNm(Geo.distanceNm(it, mark.pos))} nm @ ${Geo.fmtBearing(Geo.bearing(it, mark.pos))} from boat" } ?: ""
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(mark.name)
             .setMessage("$time\n${Geo.formatDdm(mark.lat, true)}  ${Geo.formatDdm(mark.lon, false)}" +
                 (mark.depth?.let { "\nDepth (est.): $it m" } ?: "") + dist)
@@ -513,7 +524,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val labels = sorted.map { m ->
             m.name + (here?.let { " · ${Geo.fmtNm(Geo.distanceNm(it, m.pos))} nm" } ?: "") + (m.depth?.let { " · $it m" } ?: "")
         }
-        AlertDialog.Builder(this).setTitle("Marks")
+        MaterialAlertDialogBuilder(this).setTitle("Marks")
             .setItems(labels.toTypedArray()) { _, which ->
                 val m = sorted[which]
                 map?.locationComponent?.takeIf { locationActive }?.cameraMode = CameraMode.NONE
@@ -560,7 +571,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val depth = estimateDepthAt(point)
         val p = LatLon(point.latitude, point.longitude)
         val dist = lastPos()?.let { "\n${Geo.fmtNm(Geo.distanceNm(it, p))} nm @ ${Geo.fmtBearing(Geo.bearing(it, p))} from boat" } ?: ""
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("${Geo.formatDdm(p.lat, true)}  ${Geo.formatDdm(p.lon, false)}")
             .setMessage("Depth (est.): $depth m$dist")
             .setPositiveButton("Navigate here") { _, _ ->
@@ -605,7 +616,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             Linkify.addLinks(this, Linkify.WEB_URLS)
             movementMethod = LinkMovementMethod.getInstance()
         }
-        AlertDialog.Builder(this).setTitle(title)
+        MaterialAlertDialogBuilder(this).setTitle(title)
             .setView(ScrollView(this).apply { addView(text) })
             .setPositiveButton(android.R.string.ok, null).show()
     }
@@ -626,6 +637,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             },
             "Settings…" to { settings.show(this) { onSettingsChanged() } },
             "Marks…" to { showMarksList() },
+            "Data: save, load, export, import…" to { showDataMenu() },
             "Reset trip & clear track" to {
                 confirm("Clear the track and reset the trip log?") {
                     track.clear(); store.saveTrack(track.points); overlays.setTrack(track.points)
@@ -648,7 +660,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun showFieldsDialog() {
         val all = DataField.entries
         val checked = all.map { fields.isVisible(it) }.toBooleanArray()
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("Data fields: ${mode.label} mode")
             .setMultiChoiceItems(all.map { it.label.replace("  ", " ") }.toTypedArray(), checked) { _, which, on ->
                 fields.setVisible(all[which], on)
@@ -658,11 +670,166 @@ class MainActivity : AppCompatActivity(), LocationListener {
             .show()
     }
 
+    // =========================================================================
+    // User data: snapshots, backup files, GPX
+    // =========================================================================
+
+    private fun stamp(pattern: String) = SimpleDateFormat(pattern, Locale.getDefault()).format(Date())
+
+    /** Flush in-memory routes, marks and track to storage before reading it back out. */
+    private fun persistAll() {
+        store.saveMarks(marks)
+        store.savePlan(plan)
+        store.saveTrack(track.points)
+    }
+
+    /** Reload everything from storage after an import or snapshot load. */
+    private fun reloadAll() {
+        marks = store.marks()
+        plan = store.plan()
+        track = Track(store.track())
+        fields.mode = mode
+        map?.style?.let { layers.apply(it) }
+        applyAppearance()
+        refreshOverlays()
+        refreshModePanel()
+    }
+
+    private fun showDataMenu() {
+        val items: List<Pair<String, () -> Unit>> = listOf(
+            "Save snapshot on this phone…" to {
+                askText("Snapshot name", "Snapshot ${stamp("d MMM HH:mm")}") { name ->
+                    persistAll()
+                    userData.saveSnapshot(name)
+                    Toast.makeText(this, "Saved snapshot \"$name\"", Toast.LENGTH_SHORT).show()
+                }
+            },
+            "Load snapshot…" to { showSnapshots() },
+            "Export backup file (.json)…" to {
+                pickParts("Export backup", DataPart.entries, DataPart.entries.toSet()) { parts ->
+                    pendingExport = false to parts
+                    exportJsonFile.launch("chompchamp-backup-${stamp("yyyyMMdd-HHmm")}.json")
+                }
+            },
+            "Export GPX (marks, routes, track)…" to {
+                val gpxParts = listOf(DataPart.MARKS, DataPart.ROUTES, DataPart.TRACK)
+                pickParts("Export GPX", gpxParts, setOf(DataPart.MARKS, DataPart.ROUTES)) { parts ->
+                    pendingExport = true to parts
+                    exportGpxFile.launch("chompchamp-${stamp("yyyyMMdd-HHmm")}.gpx")
+                }
+            },
+            "Import backup or GPX file…" to { importDataFile.launch(arrayOf("*/*")) },
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Data")
+            .setItems(items.map { it.first }.toTypedArray()) { _, which -> items[which].second() }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun pickParts(title: String, options: List<DataPart>, preselected: Set<DataPart>,
+                          labels: (DataPart) -> String = { it.label }, onOk: (Set<DataPart>) -> Unit) {
+        val checked = options.map { it in preselected }.toBooleanArray()
+        MaterialAlertDialogBuilder(this)
+            .setTitle(title)
+            .setMultiChoiceItems(options.map(labels).toTypedArray(), checked) { _, i, on -> checked[i] = on }
+            .setPositiveButton("Continue") { _, _ ->
+                val parts = options.filterIndexed { i, _ -> checked[i] }.toSet()
+                if (parts.isEmpty()) Toast.makeText(this, "Nothing selected", Toast.LENGTH_SHORT).show() else onOk(parts)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun writeExport(uri: Uri) {
+        val (gpx, parts) = pendingExport ?: return
+        pendingExport = null
+        runCatching {
+            persistAll()
+            val text = if (gpx) userData.exportGpx(parts) else userData.export(parts)
+            contentResolver.openOutputStream(uri, "wt").use { out ->
+                requireNotNull(out) { "cannot write file" }.write(text.toByteArray())
+            }
+        }.onSuccess { Toast.makeText(this, "Exported", Toast.LENGTH_SHORT).show() }
+            .onFailure { Toast.makeText(this, "Export failed: ${it.message}", Toast.LENGTH_LONG).show() }
+    }
+
+    private fun readImport(uri: Uri) {
+        val bundle = runCatching {
+            val text = contentResolver.openInputStream(uri).use { input ->
+                requireNotNull(input) { "cannot open file" }.readBytes().also {
+                    require(it.size < 64 * 1024 * 1024) { "file too large" }
+                }.toString(Charsets.UTF_8)
+            }
+            val head = text.trimStart()
+            when {
+                head.startsWith("{") -> userData.parseBackup(text) to false
+                head.contains("<gpx", ignoreCase = true) -> userData.parseGpx(text) to true
+                else -> error("not a ChompChamp backup or GPX file")
+            }
+        }.getOrElse {
+            Toast.makeText(this, "Import failed: ${it.message}", Toast.LENGTH_LONG).show()
+            return
+        }
+        val (b, isGpx) = bundle
+        val available = b.available()
+        pickParts(if (isGpx) "Import GPX" else "Import backup", available, available.toSet(),
+            labels = { "${it.label}: ${b.describe(it)}" }) { parts ->
+            if (isGpx) {
+                applyBundle(b, parts, merge = true)
+            } else {
+                MaterialAlertDialogBuilder(this)
+                    .setTitle("Merge or replace?")
+                    .setMessage("Merge adds the imported items to what's already on this phone.\n\n" +
+                        "Replace deletes the selected kinds of data on this phone first.")
+                    .setPositiveButton("Merge") { _, _ -> applyBundle(b, parts, merge = true) }
+                    .setNeutralButton("Replace") { _, _ -> applyBundle(b, parts, merge = false) }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
+            }
+        }
+    }
+
+    private fun applyBundle(b: DataBundle, parts: Set<DataPart>, merge: Boolean) {
+        runCatching {
+            persistAll()
+            userData.apply(b, parts, merge)
+            reloadAll()
+        }.onSuccess { Toast.makeText(this, "Imported: " + parts.joinToString { b.describe(it) }, Toast.LENGTH_LONG).show() }
+            .onFailure { Toast.makeText(this, "Import failed: ${it.message}", Toast.LENGTH_LONG).show() }
+    }
+
+    private fun showSnapshots() {
+        val snaps = userData.snapshots()
+        if (snaps.isEmpty()) { Toast.makeText(this, "No snapshots yet", Toast.LENGTH_SHORT).show(); return }
+        val fmt = SimpleDateFormat("d MMM yyyy HH:mm", Locale.getDefault())
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Snapshots")
+            .setItems(snaps.map { "${it.first}\n   ${fmt.format(Date(it.second))}" }.toTypedArray()) { _, which ->
+                val name = snaps[which].first
+                MaterialAlertDialogBuilder(this)
+                    .setTitle(name)
+                    .setMessage("Loading replaces the routes, marks, track and settings on this phone with this snapshot.")
+                    .setPositiveButton("Load") { _, _ ->
+                        runCatching { userData.readSnapshot(name) }
+                            .onSuccess { applyBundle(it, DataPart.entries.toSet(), merge = false) }
+                            .onFailure { Toast.makeText(this, "Couldn't read snapshot: ${it.message}", Toast.LENGTH_LONG).show() }
+                    }
+                    .setNeutralButton("Delete") { _, _ ->
+                        confirm("Delete snapshot \"$name\"?") { userData.deleteSnapshot(name) }
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
     /** Tapping a field in Edit layout: size or hide just that field. */
     private fun fieldOptions(f: DataField) {
         val sizes = listOf(0.75f to "Small", 1f to "Normal", 1.35f to "Large", 1.75f to "Extra large")
         val current = sizes.indexOfFirst { it.first == fields.fieldSize(f) }.coerceAtLeast(1)
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(f.label.replace("  ", " "))
             .setSingleChoiceItems(sizes.map { it.second }.toTypedArray(), current) { d, which ->
                 fields.setFieldSize(f, sizes[which].first)
@@ -1059,7 +1226,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     // =========================================================================
 
     private fun confirm(message: String, onYes: () -> Unit) {
-        AlertDialog.Builder(this).setMessage(message)
+        MaterialAlertDialogBuilder(this).setMessage(message)
             .setPositiveButton(android.R.string.ok) { _, _ -> onYes() }
             .setNegativeButton(android.R.string.cancel, null).show()
     }
@@ -1072,7 +1239,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
         val pad = (20 * resources.displayMetrics.density).toInt()
         val box = FrameLayout(this).apply { setPadding(pad, pad / 2, pad, 0); addView(input) }
-        AlertDialog.Builder(this).setTitle(title).setView(box)
+        MaterialAlertDialogBuilder(this).setTitle(title).setView(box)
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 input.text.toString().trim().takeIf { it.isNotEmpty() }?.let(onOk)
             }
