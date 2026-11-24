@@ -28,10 +28,15 @@ class SettingsPanel(private val host: FrameLayout, private val look: Appearance)
     private val dp = ctx.resources.displayMetrics.density
     private var onClose: (() -> Unit)? = null
 
+    /** Title of the panel on screen, or null. */
+    var current: String? = null
+        private set
+
     val isOpen get() = host.visibility == View.VISIBLE
 
     fun show(title: String, build: (Rows) -> Unit, onClose: (() -> Unit)? = null) {
         this.onClose = onClose
+        current = title
         host.removeAllViews()
 
         val card = LinearLayout(ctx).apply {
@@ -81,6 +86,7 @@ class SettingsPanel(private val host: FrameLayout, private val look: Appearance)
 
     fun hide() {
         if (!isOpen) return
+        current = null
         host.visibility = View.GONE
         host.removeAllViews()
         onClose?.invoke()
@@ -115,6 +121,50 @@ class SettingsPanel(private val host: FrameLayout, private val look: Appearance)
                 setTextColor(look.accent)
                 setOnClickListener { onClick() }
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+
+        /** [switch] ● Name ............ 12  ›  The switch shows/hides; the rest of the row opens it. */
+        fun groupRow(name: String, count: Int, color: Int, checked: Boolean, onChecked: (Boolean) -> Unit, onOpen: () -> Unit) {
+            val row = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = (44 * dp).toInt()
+                background = with(TypedValue()) {
+                    ctx.theme.resolveAttribute(android.R.attr.selectableItemBackground, this, true)
+                    ContextCompat.getDrawable(ctx, resourceId)
+                }
+                setOnClickListener { onOpen() }
+            }
+            row.addView(MaterialSwitch(ctx).apply {
+                isChecked = checked
+                scaleX = 0.8f
+                scaleY = 0.8f
+                contentDescription = "Show $name on the map"
+                setOnCheckedChangeListener { _, on -> onChecked(on) }
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            row.addView(View(ctx).apply {
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.OVAL
+                    setColor(color)
+                }
+            }, LinearLayout.LayoutParams((12 * dp).toInt(), (12 * dp).toInt()).apply {
+                marginStart = (6 * dp).toInt()
+                marginEnd = (10 * dp).toInt()
+            })
+            row.addView(TextView(ctx).apply {
+                text = name
+                textSize = 14f
+                setTextColor(look.onSurface)
+                maxLines = 2
+                ellipsize = TextUtils.TruncateAt.END
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            row.addView(TextView(ctx).apply {
+                text = "$count  ›"
+                textSize = 13f
+                setTextColor(look.muted)
+                setPadding((10 * dp).toInt(), 0, (4 * dp).toInt(), 0)
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            parent.addView(row)
         }
 
         /** Label ............ (value)  The whole row is tappable. */

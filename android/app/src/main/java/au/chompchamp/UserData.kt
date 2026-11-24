@@ -28,6 +28,7 @@ class DataBundle(
     val marks: List<Mark> = emptyList(),
     val track: List<TrackPoint> = emptyList(),
     val settings: JSONObject? = null,
+    val markGroups: List<MarkGroup> = emptyList(),
 ) {
     fun available(): List<DataPart> = buildList {
         if (routes.isNotEmpty() || plan?.waypoints?.isNotEmpty() == true) add(DataPart.ROUTES)
@@ -64,7 +65,10 @@ class UserData(dir: File, private val store: Store, private val prefs: SharedPre
             o.put("routes", JSONArray().apply { store.routes().forEach { put(it.toJson()) } })
             o.put("plan", store.plan().toJson())
         }
-        if (DataPart.MARKS in parts) o.put("marks", JSONArray().apply { store.marks().forEach { put(it.toJson()) } })
+        if (DataPart.MARKS in parts) {
+            o.put("marks", JSONArray().apply { store.marks().forEach { put(it.toJson()) } })
+            o.put("markGroups", JSONArray().apply { store.markGroups().forEach { put(it.toJson()) } })
+        }
         if (DataPart.TRACK in parts) o.put("track3", Store.encodeTrack(store.track()))
         if (DataPart.SETTINGS in parts) o.put("settings", prefsToJson())
         return o.toString(1)
@@ -79,7 +83,8 @@ class UserData(dir: File, private val store: Store, private val prefs: SharedPre
         val track = o.optJSONArray("track3")?.let { Store.decodeTrack(it, 3) }
             ?: o.optJSONArray("track")?.let { Store.decodeTrack(it, 2) }
             ?: emptyList()
-        return DataBundle(routes, plan, marks, track, o.optJSONObject("settings"))
+        val groups = o.optJSONArray("markGroups")?.let { a -> List(a.length()) { MarkGroup.fromJson(a.getJSONObject(it)) } }.orEmpty()
+        return DataBundle(routes, plan, marks, track, o.optJSONObject("settings"), groups)
     }
 
     /**
@@ -101,9 +106,14 @@ class UserData(dir: File, private val store: Store, private val prefs: SharedPre
             val marks = if (merge) store.marks() else mutableListOf()
             for (m in b.marks) {
                 val i = marks.indexOfFirst { it.id == m.id }
+                if (i >= 0 && !m.groupKnown) m.group = marks[i].group
                 if (i >= 0) marks[i] = m else marks.add(m)
             }
             store.saveMarks(marks)
+            // Merging keeps this phone's own colours and show/hide choices.
+            val groups = if (merge) store.markGroups().toMutableList() else mutableListOf()
+            for (g in b.markGroups) if (groups.none { it.name.equals(g.name, ignoreCase = true) }) groups.add(g)
+            store.saveMarkGroups(groups)
         }
         if (DataPart.TRACK in parts) {
             store.saveTrack(if (merge) store.track() + b.track else b.track)
@@ -175,7 +185,9 @@ class UserData(dir: File, private val store: Store, private val prefs: SharedPre
             sb.append("""  <wpt lat="${m.lat}" lon="${m.lon}">""")
             sb.append("<time>${iso(m.time)}</time><name>${esc(m.name)}</name>")
             m.depth?.let { sb.append("<desc>Depth (est.) ${esc(it)} m</desc>") }
-            sb.append("<sym>Fishing Area</sym></wpt>\n")
+            sb.append("<sym>Fishing Area</sym>")
+            if (m.group.isNotEmpty()) sb.append("<type>${esc(m.group)}</type>")
+            sb.append("</wpt>\n")
         }
         if (DataPart.ROUTES in parts) {
             val routes = store.routes().toMutableList()
@@ -219,6 +231,7 @@ class UserData(dir: File, private val store: Store, private val prefs: SharedPre
         var pt: LatLon? = null
         var ptName: String? = null
         var ptTime: Long? = null
+        var ptType = ""
         val path = ArrayDeque<String>()
         var text0 = ""
 
@@ -234,6 +247,7 @@ class UserData(dir: File, private val store: Store, private val prefs: SharedPre
                                 parser.getAttributeValue(null, "lon").toDouble())
                             ptName = null
                             ptTime = null
+                            ptType = ""
                         }
                         "rte" -> route = Route(name = "")
                     }
@@ -245,10 +259,12 @@ class UserData(dir: File, private val store: Store, private val prefs: SharedPre
                     when {
                         tag == "name" && parent in setOf("wpt", "rtept") -> ptName = text0.trim()
                         tag == "name" && parent == "rte" -> route?.name = text0.trim()
+                        tag == "type" && parent == "wpt" -> ptType = text0.trim()
                         tag == "time" && (parent == "wpt" || parent == "trkpt") -> ptTime = parseIso(text0.trim())
                         tag == "wpt" -> pt?.let {
                             marks.add(Mark(UUID.randomUUID().toString(), it.lat, it.lon,
-                                ptName ?: "Mark ${marks.size + 1}", ptTime ?: System.currentTimeMillis()))
+                                ptName ?: "Mark ${marks.size + 1}", ptTime ?: System.currentTimeMillis(),
+                                group = MarkGroup.cleanName(ptType)))
                         }
                         tag == "rtept" -> pt?.let { p ->
                             route?.waypoints?.add(Waypoint(p.lat, p.lon, ptName ?: "WP${(route?.waypoints?.size ?: 0) + 1}"))

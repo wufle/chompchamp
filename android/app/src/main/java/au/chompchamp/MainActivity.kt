@@ -84,6 +84,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private val drift = DriftTracker()
     private lateinit var track: Track
     private lateinit var marks: MutableList<Mark>
+    private lateinit var groups: MarkGroups
+    private lateinit var marksPanel: MarksPanel
     private lateinit var plan: Route
     private lateinit var userData: UserData
     private lateinit var photos: Photos
@@ -152,6 +154,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         navigator = Navigator(settings)
         track = Track(store.track())
         marks = store.marks()
+        groups = MarkGroups(store).also { it.reload(marks) }
         plan = store.plan()
         userData = UserData(File(filesDir, "data"), store, prefs)
         photos = Photos(this)
@@ -160,6 +163,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         zoneBanner = findViewById(R.id.zoneBanner)
         look = Appearance(this, prefs)
         panel = SettingsPanel(findViewById(R.id.panelHost), look)
+        marksPanel = createMarksPanel()
         fields = DataFieldsOverlay(findViewById<FrameLayout>(R.id.fieldsContainer), prefs, look) { f -> fieldOptions(f) }
         editBar = findViewById(R.id.editBar)
         modeButton = findViewById(R.id.btnMode)
@@ -588,7 +592,34 @@ class MainActivity : AppCompatActivity(), LocationListener {
         addMark(LatLon(loc.latitude, loc.longitude), estimateDepthAt(LatLng(loc.latitude, loc.longitude)))
     }
 
-    private fun showMarks() = overlays.setMarks(marks) { id -> photos.bubble(id) }
+    /** Marks whose group is switched on. */
+    private fun visibleMarks(): List<Mark> {
+        val shown = groups.all().filter { it.visible }.map { it.name }.toSet()
+        return marks.filter { it.group in shown }
+    }
+
+    private fun showMarks() {
+        val colors = groups.all().associate { it.name to it.color }
+        overlays.setMarks(visibleMarks(), { colors[it.group] ?: MarkGroup.DEFAULT_COLOR }) { id -> photos.bubble(id) }
+    }
+
+    private fun createMarksPanel() = MarksPanel(this, panel, look, groups, object : MarksPanel.Host {
+        override val marks get() = this@MainActivity.marks
+        override val marksLayerOn get() = layers.isOn(MapOverlay.MARKS)
+        override fun beforeShow() { displayPanelOpen = false }
+        override fun changed() { store.saveMarks(marks); showMarks() }
+        override fun sorted(list: List<Mark>) = sortedMarks(list)
+        override fun label(m: Mark) = markLabel(m)
+        override fun open(m: Mark) = goToMark(m)
+        override fun delete(list: List<Mark>) {
+            list.forEach { m -> m.photos.forEach { photos.delete(it) } }
+            marks.removeAll(list.toSet())
+            changed()
+        }
+        override fun confirm(message: String, onYes: () -> Unit) = this@MainActivity.confirm(message, onYes)
+        override fun askText(title: String, initial: String, onOk: (String) -> Unit) = this@MainActivity.askText(title, initial, onOk)
+        override fun showAllMarks() = showMarksList()
+    })
 
     private fun addMark(p: LatLon, depth: String?) {
         val name = "Mark ${marks.size + 1}"
@@ -596,7 +627,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
             depth = depth?.takeIf { it != "--" && it != "off screen" })
         marks.add(mark)
         store.saveMarks(marks)
+        // A new mark must never be invisible.
+        if (!groups.isVisible(mark.group)) groups.setVisible(mark.group, true)
         showMarks()
+        marksPanel.refresh()
         buzz(short = true)
         // Quick photo of the catch straight after marking.
         Snackbar.make(mapView, "Saved $name", Snackbar.LENGTH_LONG)
@@ -691,7 +725,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
         body.addView(TextView(this).apply {
             text = "$time\n${Geo.formatDdm(mark.lat, true)}  ${Geo.formatDdm(mark.lon, false)}" +
-                (mark.depth?.let { "\nDepth (est.): $it m" } ?: "") + dist
+                (mark.depth?.let { "\nDepth (est.): $it m" } ?: "") + dist +
+                "\nGroup: ${groups.find(mark.group)?.label ?: "Ungrouped"}" +
+                if (groups.isVisible(mark.group)) "" else " (hidden on the map)"
             textSize = 14f
             setTextColor(look.muted)
         })
@@ -723,11 +759,12 @@ class MainActivity : AppCompatActivity(), LocationListener {
             },
             "📷  Take photo" to { takePhotoFor(mark) },
             "🖼  Add photo from gallery" to { pickPhotoFor(mark) },
+            "Move to group…" to { marksPanel.pickGroup("Move ${mark.name} to") { g -> g?.let { marksPanel.move(listOf(mark), it) } } },
             "Rename" to { askText("Rename mark", mark.name) { mark.name = it; store.saveMarks(marks); showMarks() } },
             "Delete mark" to {
                 confirm("Delete ${mark.name}" + (if (mark.photos.isNotEmpty()) " and its ${mark.photos.size} photo(s)" else "") + "?") {
                     mark.photos.forEach { photos.delete(it) }
-                    marks.remove(mark); store.saveMarks(marks); showMarks()
+                    marks.remove(mark); store.saveMarks(marks); showMarks(); marksPanel.refresh()
                 }
             },
         )
@@ -756,19 +793,30 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     private fun showMarksList() {
         if (marks.isEmpty()) { Toast.makeText(this, "No marks yet", Toast.LENGTH_SHORT).show(); return }
-        val here = lastPos()
-        val sorted = if (here != null) marks.sortedBy { Geo.distanceNm(here, it.pos) } else marks.sortedByDescending { it.time }
-        val labels = sorted.map { m ->
-            m.name + (here?.let { " · ${Geo.fmtNm(Geo.distanceNm(it, m.pos))} nm" } ?: "") + (m.depth?.let { " · $it m" } ?: "")
-        }
+        val sorted = sortedMarks(marks)
         MaterialAlertDialogBuilder(this).setTitle("Marks")
-            .setItems(labels.toTypedArray()) { _, which ->
-                val m = sorted[which]
-                map?.locationComponent?.takeIf { locationActive }?.cameraMode = CameraMode.NONE
-                map?.animateCamera(CameraUpdateFactory.newLatLng(LatLng(m.lat, m.lon)))
-                markMenu(m)
-            }
+            .setItems(sorted.map { markLabel(it) }.toTypedArray()) { _, which -> goToMark(sorted[which]) }
+            .setNeutralButton("Groups…") { _, _ -> marksPanel.show() }
             .setNegativeButton(android.R.string.cancel, null).show()
+    }
+
+    /** Nearest first with a GPS fix, otherwise newest first. */
+    private fun sortedMarks(list: List<Mark>): List<Mark> =
+        lastPos()?.let { here -> list.sortedBy { Geo.distanceNm(here, it.pos) } } ?: list.sortedByDescending { it.time }
+
+    private fun markLabel(m: Mark): String {
+        // fmtNm already says "m" below 0.1 nm.
+        val dist = lastPos()?.let { here ->
+            val nm = Geo.distanceNm(here, m.pos)
+            " · " + Geo.fmtNm(nm) + if (nm < 0.1) "" else " nm"
+        }.orEmpty()
+        return m.name + dist + (m.depth?.let { " · $it m" } ?: "")
+    }
+
+    private fun goToMark(m: Mark) {
+        map?.locationComponent?.takeIf { locationActive }?.cameraMode = CameraMode.NONE
+        map?.animateCamera(CameraUpdateFactory.newLatLng(LatLng(m.lat, m.lon)))
+        markMenu(m)
     }
 
     private fun toggleAnchor() {
@@ -897,7 +945,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun showMenu(anchorView: View) {
         val popup = PopupMenu(this, anchorView)
         val items: List<Pair<String, () -> Unit>> = listOf(
-            "Marks…" to { showMarksList() },
+            "Marks…" to { marksPanel.show() },
             "Display…" to { showDisplayPanel() },
             "Settings…" to { settings.show(this) { onSettingsChanged() } },
             "Charts & relief data…" to { showChartManager() },
@@ -994,6 +1042,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
     /** Reload everything from storage after an import or snapshot load. */
     private fun reloadAll() {
         marks = store.marks()
+        groups.reload(marks)
+        marksPanel.refresh()
         plan = store.plan()
         track = Track(store.track())
         fields.mode = mode
@@ -1083,7 +1133,15 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val available = b.available()
         pickParts(if (isGpx) "Import GPX" else "Import backup", available, available.toSet(),
             labels = { "${it.label}: ${b.describe(it)}" }) { parts ->
-            if (isGpx) {
+            if (isGpx && DataPart.MARKS in parts) {
+                // Keeping imports in their own group makes them easy to hide or delete again.
+                val named = b.marks.map { it.group }.filter { it.isNotEmpty() }.distinct().size
+                marksPanel.pickGroup("Put ${b.marks.size} marks in", suggestion = fileBaseName(uri),
+                    keep = if (named > 0) "Groups from the file ($named)" else null) { target ->
+                    if (target != null) b.marks.forEach { it.group = target }
+                    applyBundle(b, parts, merge = true)
+                }
+            } else if (isGpx) {
                 applyBundle(b, parts, merge = true)
             } else {
                 MaterialAlertDialogBuilder(this)
@@ -1097,6 +1155,12 @@ class MainActivity : AppCompatActivity(), LocationListener {
             }
         }
     }
+
+    private fun fileBaseName(uri: Uri): String = runCatching {
+        contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+        }
+    }.getOrNull().orEmpty().substringBeforeLast('.').replace('_', ' ').replace('-', ' ').trim()
 
     private fun applyBundle(b: DataBundle, parts: Set<DataPart>, merge: Boolean) {
         runCatching {
@@ -1606,7 +1670,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
         fields.set(DataField.DRIFT, d?.let { String.format(Locale.US, "%.1f", it.first) } ?: "--.-")
         fields.set(DataField.DRIFT_DIR, d?.let { Geo.fmtBearing(it.second) } ?: "---°")
-        val nearest = marks.minByOrNull { Geo.distanceNm(pos, it.pos) }
+        val nearest = visibleMarks().minByOrNull { Geo.distanceNm(pos, it.pos) }
         fields.set(DataField.MARK, nearest?.let {
             "${it.name}\n${Geo.fmtNm(Geo.distanceNm(pos, it.pos))} nm ${Geo.fmtBearing(Geo.bearing(pos, it.pos))}"
         } ?: "--")

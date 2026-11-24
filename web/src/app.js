@@ -19,17 +19,19 @@
 
   // ---- State (kept in this browser) ----------------------------------------------------
   const KEY = 'chompchamp.planner.v1';
-  const state = { routes: [], plan: C.emptyRoute(), marks: [], track: [], speed: 15, safety: 5, layers: {}, view: null, tab: 'routes' };
+  const state = { routes: [], plan: C.emptyRoute(), marks: [], groups: [], track: [], speed: 15, safety: 5, layers: {}, view: null, tab: 'routes' };
   let storageOk = true;
   try {
     const s = JSON.parse(localStorage.getItem(KEY) || '{}');
     const safe = (f, d) => { try { return f(); } catch (e) { return d; } };
     state.routes = (s.routes || []).map((r) => safe(() => C.cleanRoute(r))).filter(Boolean);
     state.marks = (s.marks || []).map((m) => safe(() => C.cleanMark(m))).filter(Boolean);
+    state.groups = (s.groups || []).map((g) => safe(() => C.cleanGroup(g))).filter(Boolean);
     if (s.plan) state.plan = safe(() => C.cleanRoute(s.plan), state.plan);
     state.track = Array.isArray(s.track) ? s.track : [];
     for (const k of ['speed', 'safety', 'layers', 'view', 'tab']) if (s[k] !== undefined && s[k] !== null) state[k] = s[k];
   } catch (e) { storageOk = false; }
+  C.tidyGroups(state.groups, state.marks);
   let saveTimer = 0;
   function save() {
     clearTimeout(saveTimer);
@@ -187,7 +189,7 @@
       { id: 'route-wpts', type: 'circle', source: 'route-wpts', paint: { 'circle-radius': 7, 'circle-color': '#ffffff', 'circle-stroke-color': MAGENTA, 'circle-stroke-width': 3 } },
       { id: 'route-labels', type: 'symbol', source: 'route-wpts', layout: { 'text-field': ['get', 'label'], 'text-font': FONT, 'text-size': 12,
         'text-offset': [0, -1.6], 'text-allow-overlap': true, 'text-ignore-placement': true }, paint: { 'text-color': MAGENTA, ...halo } },
-      { id: 'marks', type: 'circle', source: 'marks', paint: { 'circle-radius': 7, 'circle-color': '#fdd835', 'circle-stroke-color': '#4e342e', 'circle-stroke-width': 2 } },
+      { id: 'marks', type: 'circle', source: 'marks', paint: { 'circle-radius': 7, 'circle-color': ['to-color', ['get', 'color'], '#fdd835'], 'circle-stroke-color': '#4e342e', 'circle-stroke-width': 2 } },
       { id: 'marks-label', type: 'symbol', source: 'marks', layout: { 'text-field': ['get', 'name'], 'text-font': FONT, 'text-size': 11,
         'text-offset': [0, 1.5], 'text-optional': true }, paint: { 'text-color': '#4e342e', ...halo } },
       { id: 'issue', type: 'circle', source: 'issue', paint: { 'circle-radius': 16, 'circle-color': '#C62828', 'circle-opacity': 0.12, 'circle-stroke-color': '#C62828', 'circle-stroke-width': 2.5 } },
@@ -222,7 +224,8 @@
     setData('route-line', w.length > 1 ? [line(w)] : []);
     setData('route-wpts', w.map((p, i) => point(p, { i, label: p.name || String(i + 1) })));
     setData('route-mid', tool === 'route' ? w.slice(1).map((p, i) => point({ lat: (p.lat + w[i].lat) / 2, lon: (p.lon + w[i].lon) / 2 }, { i })) : []);
-    setData('marks', state.marks.map((m) => point(m, { id: m.id, name: m.name })));
+    const groups = Object.fromEntries(state.groups.map((g) => [g.name, g]));
+    setData('marks', state.marks.filter((m) => groups[m.group]?.visible !== false).map((m) => point(m, { id: m.id, name: m.name, color: groups[m.group]?.color || '#FDD835' })));
     setData('track', state.track.length > 1 ? [line(state.track)] : []);
   }
 
@@ -450,35 +453,132 @@
     if (reader) { try { const r = await reader.at(p); if (r.depth && !r.land) depth = C.depthText(r).replace(' m', ''); } catch (e) { /* no depth */ } }
     const name = await askText('New mark', `Mark ${state.marks.length + 1}`);
     if (name === null) return;
-    const m = { id: C.uuid(), ...p, name: name || `Mark ${state.marks.length + 1}`, time: Date.now() };
+    const m = { id: C.uuid(), ...p, name: name || `Mark ${state.marks.length + 1}`, time: Date.now(), group: openGroup === null ? '' : openGroup };
     if (depth) m.depth = depth;
+    const g = C.findGroup(state.groups, m.group);
+    if (g) g.visible = true;   // a new mark must never be invisible
     state.marks.push(m); save(); drawData(); renderMarks();
   }
   async function showMark(m) {
     const info = [C.fmtPos(m), m.depth ? `Depth (est.): ${m.depth} m` : '', m.time ? new Date(m.time).toLocaleString() : '',
       m.photos ? `${m.photos.length} photo${m.photos.length === 1 ? '' : 's'} on the phone` : ''].filter(Boolean).join('\n');
-    const a = await dialog(m.name || 'Mark', info, [['Delete', 'del', 'btn danger'], ['Rename', 'ren'], ['Add to route', 'rte'], ['Close', null, 'primary']]);
+    const grp = groupSelect(m.group, (name) => { m.group = name; marksChanged(); });
+    const a = await dialog(m.name || 'Mark', [info, el('div.row', {}, el('span', {}, 'Group'), grp)], [['Delete', 'del', 'btn danger'], ['Rename', 'ren'], ['Add to route', 'rte'], ['Close', null, 'primary']]);
     if (a === 'rte') { snapshot(); state.plan.waypoints.push({ lat: m.lat, lon: m.lon, name: m.name }); planChanged(); toast('Added to the route'); }
     if (a === 'ren') { const n = await askText('Rename mark', m.name); if (n) { m.name = n; save(); drawData(); renderMarks(); } }
     if (a === 'del' && await confirmBox('Delete mark', `Delete "${m.name}"?`, 'Delete')) {
       state.marks = state.marks.filter((x) => x.id !== m.id); save(); drawData(); renderMarks();
     }
   }
+  // Groups: null = the list of groups, otherwise the name of the group being looked at.
+  let openGroup = null;
+  const picked = new Set();
+  const groupLabel = (g) => g.name || 'Ungrouped';
+  const marksIn = (name) => state.marks.filter((m) => m.group === name);
+  const nMarks = (n) => `${n} mark${n === 1 ? '' : 's'}`;
+  function marksChanged() { C.tidyGroups(state.groups, state.marks); save(); drawData(); renderMarks(); }
+
+  /** <select> of groups with "New group…" at the end. */
+  function groupSelect(value, onPick, first = null) {
+    const s = el('select', { ariaLabel: 'Group' });
+    const fill = (v) => s.replaceChildren(...[first && el('option', { value: '\u0001' }, first), ...state.groups.map((g) => el('option', { value: g.name, selected: g.name === v }, groupLabel(g))), el('option', { value: '\u0000' }, 'New group…')].filter(Boolean));
+    fill(value);
+    s.addEventListener('change', () => {
+      if (s.value !== '\u0000') { if (s.value !== '\u0001') onPick(s.value); return; }
+      // A plain prompt field in place: this can sit inside the one dialog the page has.
+      const inp = el('input', { type: 'text', placeholder: 'New group name', ariaLabel: 'New group name' });
+      let done = false;
+      const finish = (keep) => {
+        if (done) return; done = true;
+        const name = keep && C.groupName(inp.value) ? C.ensureGroup(state.groups, inp.value) : value;
+        fill(name); inp.replaceWith(s);
+        if (name !== value) { value = name; onPick(name); }
+      };
+      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); finish(true); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); } });
+      inp.addEventListener('blur', () => finish(true));
+      s.replaceWith(inp); inp.focus();
+    });
+    return s;
+  }
+  /** Ask for a group. Resolves to its name, or null if cancelled. */
+  async function askGroup(title, text, suggestion = '') {
+    let choice = suggestion ? C.groupName(suggestion) : '';
+    const sel = groupSelect(choice, (n) => { choice = n; });
+    if (choice && !C.findGroup(state.groups, choice)) { sel.prepend(el('option', { value: choice, selected: true }, `New group: ${choice}`)); sel.value = choice; }
+    const ok = await dialog(title, [text, el('div.row', {}, el('span', {}, 'Group'), sel)].filter(Boolean), [['Cancel', null], ['OK', true, 'primary']]);
+    return ok ? C.ensureGroup(state.groups, choice) : null;
+  }
+  async function renameGroup(g) {
+    const n = C.groupName(await askText('Rename group', g.name) || '');
+    if (!n || n === g.name) return;
+    const clash = C.findGroup(state.groups, n);
+    if (clash && clash !== g) { toast(`There's already a group called ${groupLabel(clash)}`); return; }
+    const list = marksIn(g.name);
+    g.name = n; list.forEach((m) => { m.group = n; }); openGroup = n; marksChanged();
+  }
+  async function deleteGroup(g) {
+    const n = marksIn(g.name).length;
+    const how = await dialog(`Delete ${groupLabel(g)}?`, g.name ? `It has ${nMarks(n)}. Keep them (they become ungrouped) or delete them too? Deleting marks can't be undone.` : `Delete all ${nMarks(n)} that aren't in a group? This can't be undone.`,
+      [['Cancel', null], ['Delete marks too', 'all', 'btn danger'], ...(g.name ? [['Keep marks', 'keep', 'primary']] : [])]);
+    if (!how) return;
+    if (how === 'all') state.marks = state.marks.filter((m) => m.group !== g.name);
+    else marksIn(g.name).forEach((m) => { m.group = ''; });
+    if (g.name) state.groups = state.groups.filter((x) => x !== g);
+    openGroup = null; picked.clear(); marksChanged();
+  }
   function markRows() {
-    const list = state.marks.filter((m) => m.name.toLowerCase().includes(markFilter.toLowerCase())).sort((a, b) => b.time - a.time);
-    if (!list.length) return [el('p.empty', {}, state.marks.length ? 'No marks match.' : 'No marks yet. Add one here, right-click the map, or import a backup from your phone in the Data tab.')];
+    const q = markFilter.toLowerCase();
+    const list = state.marks.filter((m) => (openGroup === null || m.group === openGroup) && m.name.toLowerCase().includes(q)).sort((a, b) => b.time - a.time);
+    if (!list.length) return [el('p.empty', {}, q ? 'No marks match.' : 'No marks here yet.')];
     return list.map((m) => el('div.row', {},
+      openGroup === null ? null : el('input', { type: 'checkbox', ariaLabel: `Select ${m.name}`, checked: picked.has(m.id), onchange: (e) => { if (e.target.checked) picked.add(m.id); else picked.delete(m.id); updatePicked(); } }),
       el('button.link.grow.clip', { onclick: () => map.easeTo({ center: [m.lon, m.lat], zoom: Math.max(map.getZoom(), 13) }) }, m.name || 'Mark'),
       m.depth ? el('span.muted', {}, `${m.depth} m`) : null,
       el('button.icon', { title: 'Details', ariaLabel: `Details of ${m.name}`, onclick: () => showMark(m) }, '⋯')));
   }
+  function updatePicked() {
+    const bar = $('picked'); if (!bar) return;
+    bar.hidden = !picked.size;
+    $('picked-n').textContent = `${picked.size} selected`;
+  }
   function renderMarks() {
-    const rows = el('div', {}, markRows());
-    $('pane-marks').replaceChildren(
-      el('div.btns', {}, el('button.btn', { ariaPressed: String(tool === 'mark'), onclick: () => setTool('mark') }, tool === 'mark' ? 'Cancel' : 'Add mark')),
-      el('input', { type: 'search', placeholder: `Search ${state.marks.length} mark${state.marks.length === 1 ? '' : 's'}`, ariaLabel: 'Search marks', value: markFilter,
-        oninput: (e) => { markFilter = e.target.value; rows.replaceChildren(...markRows()); } }),
-      rows);
+    const g = openGroup === null ? null : state.groups.find((x) => x.name === openGroup);
+    if (openGroup !== null && !g) openGroup = null;
+    for (const id of picked) if (!state.marks.some((m) => m.id === id && m.group === openGroup)) picked.delete(id);
+    const rows = el('div', {});
+    const showRows = () => rows.replaceChildren(...(openGroup === null && !markFilter ? groupRows() : markRows()));
+    const out = [el('div.btns', {},
+      el('button.btn', { ariaPressed: String(tool === 'mark'), onclick: () => setTool('mark') }, tool === 'mark' ? 'Cancel' : 'Add mark'),
+      g ? null : el('button.btn', { onclick: async () => { const n = C.groupName(await askText('New group', '') || ''); if (n) { C.ensureGroup(state.groups, n); marksChanged(); } } }, 'New group'))];
+    if (g) {
+      out.push(el('button.link', { onclick: () => { openGroup = null; picked.clear(); renderMarks(); } }, '‹ All groups'),
+        el('div.row', {}, el('span.dot', { style: `background:${g.color}` }), el('strong.grow.clip', {}, groupLabel(g)),
+          el('select', { ariaLabel: 'Colour', onchange: (e) => { g.color = e.target.value; marksChanged(); } }, C.GROUP_COLORS.map(([n, c]) => el('option', { value: c, selected: c.toLowerCase() === g.color.toLowerCase() }, n)))),
+        el('div.btns', {}, g.name ? el('button.btn', { onclick: () => renameGroup(g) }, 'Rename') : null,
+          el('button.btn', { onclick: () => { const all = marksIn(g.name), on = picked.size < all.length; picked.clear(); if (on) all.forEach((m) => picked.add(m.id)); renderMarks(); } }, 'Select all'),
+          el('button.btn.danger', { disabled: !g.name && !marksIn('').length, onclick: () => deleteGroup(g) }, g.name ? 'Delete group' : 'Delete all')),
+        el('div.btns', { id: 'picked', hidden: true }, el('span', { id: 'picked-n' }),
+          el('button.btn', { onclick: async () => { const ids = new Set(picked), n = await askGroup('Move marks', `Move ${nMarks(ids.size)} to`); if (n === null) return; state.marks.forEach((m) => { if (ids.has(m.id)) m.group = n; }); picked.clear(); marksChanged(); toast(C.findGroup(state.groups, n).visible ? 'Moved' : 'Moved. That group is hidden on the map.'); } }, 'Move…'),
+          el('button.btn.danger', { onclick: async () => { const ids = new Set(picked); if (!await confirmBox('Delete marks', `Delete ${nMarks(ids.size)}? This can't be undone.`, 'Delete')) return; state.marks = state.marks.filter((m) => !ids.has(m.id)); picked.clear(); marksChanged(); } }, 'Delete…')));
+    }
+    out.push(el('input', { type: 'search', placeholder: g ? 'Search this group' : `Search ${nMarks(state.marks.length)}`, ariaLabel: 'Search marks', value: markFilter,
+      oninput: (e) => { markFilter = e.target.value; showRows(); } }), rows);
+    showRows();
+    $('pane-marks').replaceChildren(...out.filter(Boolean));
+    updatePicked();
+  }
+  function groupRows() {
+    const out = [el('h3', {}, 'Groups shown on the map')];
+    for (const g of state.groups) {
+      out.push(el('div.row', {}, el('input', { type: 'checkbox', checked: g.visible, ariaLabel: `Show ${groupLabel(g)}`, onchange: (e) => { g.visible = e.target.checked; save(); drawData(); } }),
+        el('span.dot', { style: `background:${g.color}` }),
+        el('button.link.grow.clip', { onclick: () => { openGroup = g.name; picked.clear(); renderMarks(); } }, groupLabel(g)),
+        el('span.muted', {}, `${marksIn(g.name).length} ›`)));
+    }
+    const hidden = state.groups.some((g) => !g.visible);
+    out.push(el('div.btns', {}, el('button.btn', { onclick: () => { state.groups.forEach((g) => { g.visible = hidden; }); marksChanged(); } }, hidden ? 'Show all' : 'Hide all')));
+    if (!state.marks.length) out.push(el('p.empty', {}, 'No marks yet. Add one here, right-click the map, or import a backup from your phone in the Data tab.'));
+    return out;
   }
 
   // ---- Layers pane ------------------------------------------------------------------------------------
@@ -514,6 +614,7 @@
   }
   async function importText(text, name) {
     const t = text.trimStart();
+    const isGpx = !t.startsWith('{');
     const b = t.startsWith('{') ? C.parseBackup(t) : C.parseGpx(new DOMParser().parseFromString(t, 'application/xml'));
     const list = [`${b.routes.length} route(s)${b.plan && b.plan.waypoints.length ? ' and the current plan' : ''}`, `${b.marks.length} mark(s)`, `${b.track.length} track point(s)`].join('\n');
     const how = await dialog(`Import ${name}`, [list, 'Merge keeps what you have and updates routes and marks that are in both. Replace swaps your routes, marks and track for the ones in this file.'],
@@ -521,8 +622,26 @@
     if (!how) return;
     if (how === 'replace' && !await confirmBox('Replace everything?', 'Your routes, marks and track in the planner will be replaced. This can\'t be undone.', 'Replace')) return;
     const replace = how === 'replace';
+    if (isGpx && b.marks.length) {
+      // Keeping imports in their own group makes them easy to hide or delete again.
+      const named = new Set(b.marks.map((m) => m.group).filter(Boolean)).size;
+      let keep = false;
+      if (named) {
+        const c = await dialog('Groups', `This file sorts its marks into ${named} group${named === 1 ? '' : 's'}.`, [['Cancel', null], ['Put all in one group', 'one'], ['Keep its groups', 'keep', 'primary']]);
+        if (!c) return;
+        keep = c === 'keep';
+      }
+      if (!keep) {
+        const n = await askGroup('Choose a group', `Put ${nMarks(b.marks.length)} in`, name.replace(/\.[^.]*$/, '').replace(/[_-]+/g, ' '));
+        if (n === null) return;
+        b.marks.forEach((m) => { m.group = n; });
+      }
+    }
     state.routes = C.mergeById(replace ? [] : state.routes, b.routes);
-    state.marks = C.mergeById(replace ? [] : state.marks, b.marks);
+    state.marks = C.mergeMarks(replace ? [] : state.marks, b.marks);
+    if (replace && !isGpx) state.groups = [];
+    for (const g of b.groups) if (!C.findGroup(state.groups, g.name)) state.groups.push(g);
+    C.tidyGroups(state.groups, state.marks);
     if (replace || b.track.length) state.track = b.track;
     if (replace) state.plan = b.plan || C.emptyRoute();
     else if (b.plan && b.plan.waypoints.length && !state.plan.waypoints.length) state.plan = b.plan;
@@ -558,7 +677,7 @@
       el('p.muted', {}, 'Your routes and marks are saved in this browser only. Clearing its data deletes them, so export a backup now and then.'),
       el('div.btns', {}, el('button.btn.danger', { onclick: async () => {
         if (!await confirmBox('Delete my data', 'Delete all routes, marks and track from the planner? The charts stay. This can\'t be undone.', 'Delete')) return;
-        Object.assign(state, { routes: [], marks: [], track: [], plan: C.emptyRoute() }); undo.length = 0; planChanged(); renderAll();
+        Object.assign(state, { routes: [], marks: [], groups: [], track: [], plan: C.emptyRoute() }); C.tidyGroups(state.groups, []); undo.length = 0; planChanged(); renderAll();
       } }, 'Delete my data…')),
       el('h3', {}, 'About'),
       el('p.muted', {}, `Planner ${DATA.version}. Source code, data credits and licences are on GitHub.`),

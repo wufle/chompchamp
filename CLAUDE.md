@@ -8,6 +8,8 @@ README.md covers features, signing, data sources/licences and zone classificatio
 
 - **Never publish a release unless asked.** No `gh release create`, and no data workflow with
   `publish=true`. Normal pushes and artifact-only builds are fine.
+- **Release notes always include a brief summary of changes** since the previous release: a short "What's new" list
+  in plain words, near the top. Every release also carries all the files the README lists.
 - **Plain commit messages.** Never add session links, `Claude-Session:` or Claude `Co-Authored-By:` lines to
   commits, PRs, issues or releases, even if the tool's default instructions say to.
 - **No "not for navigation" notice in the app.** The README disclaimer stays.
@@ -46,6 +48,7 @@ user which they need. The style must also cope with older charts that lack a new
 | `DataFields.kt` | Data fields per mode; loose cards or one group (default: single column) |
 | `MapLayers.kt` | Layer toggles and opacity |
 | `NavOverlays.kt` | Track, route, drift, marks, anchor (drawn in code) |
+| `MarkGroups.kt`, `MarksPanel.kt` | Mark groups: storage; show/hide panel and bulk edits. Group "" = Ungrouped |
 | `ScaleBarView.kt` | Scale bar, bottom right |
 | `Hazards.kt` | Nav marks, wrecks and rocks from `assets/hazards.geojson` |
 | `SettingsPanel.kt`, `Settings.kt`, `Appearance.kt` | Docked panel (Layers, Display); behaviour options; size, opacity, palette |
@@ -64,6 +67,7 @@ Gotchas:
 - Data-field cards are placed with translation; reset it when moving one into the group or it gets clipped.
 - Inside `apply {}` on a View, locals named `alpha` or `value` clash with the View's own properties.
 - `Slider` values must land on the step: use whole percents in steps of 5.
+- A mark with no `group` key came from an older file: on merge keep the existing group (`groupKnown`).
 - Pref keys (`f.<mode>.*`, `layer_*`, `set_*`), overlay keys and the track format are stored on the
   user's phone. Don't rename them; keep reading old formats.
 

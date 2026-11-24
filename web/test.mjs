@@ -18,12 +18,25 @@ assert.equal(C.fmtDuration(1.5), '1h 30m');
 
 // Backups: round trip, photo ids survive, no track or settings go to the phone
 const state = { routes: [{ id: 'r1', name: 'A & <b>', waypoints: [{ lat: -32, lon: 115.5, name: 'x' }] }], plan: C.emptyRoute(),
-  marks: [{ id: 'm1', lat: -32, lon: 115.6, name: 'Spot', time: 1700000000000, depth: '3–4', photos: ['p1'] }], track: [{ lat: 1, lon: 2, t: 3 }] };
+  marks: [{ id: 'm1', lat: -32, lon: 115.6, name: 'Spot', time: 1700000000000, depth: '3–4', photos: ['p1'], group: 'Reefs' }], groups: [{ name: 'Reefs', color: '#E53935', visible: false }], track: [{ lat: 1, lon: 2, t: 3 }] };
 const out = JSON.parse(C.exportBackup(state));
-assert.deepEqual(Object.keys(out).sort(), ['app', 'exported', 'format', 'marks', 'plan', 'routes']);
+assert.deepEqual(Object.keys(out).sort(), ['app', 'exported', 'format', 'markGroups', 'marks', 'plan', 'routes']);
 const back = C.parseBackup(JSON.stringify(out));
 assert.deepEqual(back.marks, state.marks);
 assert.deepEqual(back.routes, state.routes);
+assert.deepEqual(back.groups, state.groups);
+assert.ok(C.exportGpx(state).includes('<type>Reefs</type>'));
+
+// Groups: an old file without groups keeps the group we have; an explicit '' clears it
+const old = { id: 'm1', lat: 0, lon: 0, name: 'n', time: 1 };
+assert.equal(C.mergeMarks(state.marks, [C.cleanMark(old)])[0].group, 'Reefs');
+assert.equal(C.mergeMarks(state.marks, [C.cleanMark({ ...old, group: '' })])[0].group, '');
+const gs = [{ name: 'Reefs', color: '#FDD835', visible: true }], ms = [{ group: 'reefs' }, { group: 'Boats' }, {}];
+C.tidyGroups(gs, ms);
+assert.deepEqual(gs.map((g) => g.name), ['', 'Boats', 'Reefs']);
+assert.deepEqual(ms.map((m) => m.group), ['Reefs', 'Boats', '']);
+assert.equal(C.groupName('  ungrouped '), '');
+assert.equal(C.cleanGroup({ name: 'x', color: 'red;}' }).color, '#FDD835');
 assert.equal(C.parseBackup('{"app":"ChompChamp","track":[-32,115,-32.1,115]}').track.length, 2);
 assert.equal(C.parseBackup('{"app":"ChompChamp","track3":[-32,115,5]}').track[0].t, 5);
 assert.throws(() => C.parseBackup('{"app":"Other"}'));

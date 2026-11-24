@@ -81,7 +81,7 @@ class NavOverlays {
             textHaloColor("#ffffff"), textHaloWidth(1.5f),
             textAllowOverlap(true), textIgnorePlacement(true)))
         s.addLayer(CircleLayer(MARKS, MARKS).withProperties(
-            circleRadius(7f), circleColor("#fdd835"), circleStrokeColor("#4e342e"), circleStrokeWidth(2f)))
+            circleRadius(7f), circleColor(Expression.toColor(Expression.get("color"))), circleStrokeColor("#4e342e"), circleStrokeWidth(2f)))
         s.addLayer(SymbolLayer(MARK_PHOTOS, MARKS).withProperties(
             iconImage(Expression.get("photo")),
             iconAnchor(Property.ICON_ANCHOR_BOTTOM),
@@ -129,12 +129,13 @@ class NavOverlays {
     }
 
     /** [bubble] supplies the map bubble image for a photo id (null if unavailable). */
-    fun setMarks(marks: List<Mark>, bubble: (String) -> android.graphics.Bitmap? = { null }) {
+    fun setMarks(marks: List<Mark>, color: (Mark) -> String, bubble: (String) -> android.graphics.Bitmap? = { null }) {
         val s = style
         set(MARKS, marks.map { m ->
             Feature.fromGeometry(pt(m.pos)).apply {
                 addStringProperty("id", m.id)
                 addStringProperty("name", m.name)
+                addStringProperty("color", color(m))
                 val latest = m.photos.lastOrNull()
                 if (latest != null && s != null) {
                     val imageId = "photo-$latest"

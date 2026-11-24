@@ -70,7 +70,41 @@ const Core = (() => {
     if (o.depth !== undefined && o.depth !== null) m.depth = str(o.depth, 40);
     // Photos stay on the phone; keep their ids so a round trip doesn't detach them.
     if (Array.isArray(o.photos) && o.photos.length) m.photos = o.photos.map((p) => str(p, 80));
+    // No group key = a file from before groups existed, so a merge keeps the group we have.
+    if (o.group !== undefined) m.group = groupName(o.group);
     return m;
+  }
+
+  // ---- Mark groups (same rules as MarkGroups.kt; "" = Ungrouped) ------------------------------
+  const GROUP_COLORS = [['Yellow', '#FDD835'], ['Orange', '#FB8C00'], ['Red', '#E53935'], ['Pink', '#EC407A'], ['Purple', '#8E24AA'],
+    ['Blue', '#1E88E5'], ['Teal', '#00ACC1'], ['Green', '#43A047'], ['White', '#FFFFFF'], ['Grey', '#757575']];
+  function groupName(s) {
+    const n = str(s, 400).trim().replace(/\s+/g, ' ').slice(0, 60).trim();
+    return n.toLowerCase() === 'ungrouped' ? '' : n;
+  }
+  const cleanGroup = (o) => ({ name: groupName(o.name), color: /^#[0-9a-f]{6}$/i.test(o.color || '') ? o.color : GROUP_COLORS[0][1], visible: o.visible !== false });
+  const findGroup = (groups, name) => groups.find((g) => g.name.toLowerCase() === name.toLowerCase());
+  /** Get or create; returns the stored name. Changes [groups]. */
+  function ensureGroup(groups, raw) {
+    const name = groupName(raw), have = findGroup(groups, name);
+    if (have) return have.name;
+    const used = groups.map((g) => g.color), all = GROUP_COLORS.map((c) => c[1]);
+    const color = name === '' ? all[0] : all.find((c) => !used.includes(c)) || all[groups.length % all.length];
+    groups.push({ name, color, visible: true });
+    return name;
+  }
+  /** Make sure Ungrouped and every group in use exist, and sort them. Changes both lists. */
+  function tidyGroups(groups, marks) {
+    ensureGroup(groups, '');
+    for (const m of marks) m.group = ensureGroup(groups, m.group || '');
+    groups.sort((a, b) => (a.name === '') !== (b.name === '') ? (a.name === '' ? -1 : 1) : a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  }
+  function mergeMarks(list, incoming) {
+    return mergeById(list, incoming.map((m) => {
+      if (m.group !== undefined) return m;
+      const old = list.find((x) => x.id === m.id);
+      return old && old.group !== undefined ? { ...m, group: old.group } : m;
+    }));
   }
 
   function parseBackup(text) {
@@ -86,6 +120,7 @@ const Core = (() => {
       routes: (o.routes || []).map(cleanRoute),
       plan: o.plan ? cleanRoute(o.plan) : null,
       marks: (o.marks || []).map(cleanMark),
+      groups: (o.markGroups || []).map(cleanGroup),
       track,
     };
   }
@@ -95,6 +130,7 @@ const Core = (() => {
     return JSON.stringify({
       app: 'ChompChamp', format: 1, exported: new Date().toISOString().slice(0, 19) + 'Z',
       routes: s.routes.map(cleanRoute), plan: cleanRoute(s.plan), marks: s.marks.map(cleanMark),
+      markGroups: (s.groups || []).map(cleanGroup),
     }, null, 1);
   }
 
@@ -106,7 +142,7 @@ const Core = (() => {
       `  <metadata><time>${iso(Date.now())}</time></metadata>`];
     for (const m of s.marks) {
       out.push(`  <wpt lat="${m.lat}" lon="${m.lon}"><time>${iso(m.time)}</time><name>${esc(m.name)}</name>` +
-        (m.depth ? `<desc>Depth (est.) ${esc(m.depth)} m</desc>` : '') + '<sym>Fishing Area</sym></wpt>');
+        (m.depth ? `<desc>Depth (est.) ${esc(m.depth)} m</desc>` : '') + '<sym>Fishing Area</sym>' + (m.group ? `<type>${esc(m.group)}</type>` : '') + '</wpt>');
     }
     const routes = [...s.routes];
     if (s.plan.waypoints.length && !routes.some((r) => r.id === s.plan.id)) {
@@ -132,14 +168,14 @@ const Core = (() => {
     const at = (el) => pos({ lat: el.getAttribute('lat'), lon: el.getAttribute('lon') });
     const time = (el) => Date.parse(child(el, 'time')) || 0;
     const marks = all(doc, 'wpt').map((el, i) =>
-      cleanMark({ ...at(el), name: child(el, 'name') || `Mark ${i + 1}`, time: time(el) || Date.now() }));
+      cleanMark({ ...at(el), name: child(el, 'name') || `Mark ${i + 1}`, time: time(el) || Date.now(), group: child(el, 'type') }));
     const routes = all(doc, 'rte').map((el) => cleanRoute({
       name: child(el, 'name') || 'Imported route',
       waypoints: all(el, 'rtept').map((p, i) => ({ ...at(p), name: child(p, 'name') || `WP${i + 1}` })),
     })).filter((r) => r.waypoints.length);
     const track = all(doc, 'trkpt').map((el) => ({ ...at(el), t: time(el) }));
     if (!marks.length && !routes.length && !track.length) throw new Error('no waypoints, routes or tracks found');
-    return { routes, plan: null, marks, track };
+    return { routes, plan: null, marks, groups: [], track };
   }
 
   function mergeById(list, incoming) {
@@ -354,7 +390,7 @@ const Core = (() => {
   }
 
   return { distanceNm, bearing, routeLengthNm, segDistM, fmtNm, fmtBearing, fmtDuration, fmtDdm, fmtPos, uuid,
-    emptyRoute, cleanRoute, cleanMark, parseBackup, exportBackup, exportGpx, parseGpx, mergeById,
-    decodeTile, ChartReader, depthText, checkRoute, pos };
+    emptyRoute, cleanRoute, cleanMark, parseBackup, exportBackup, exportGpx, parseGpx, mergeById, mergeMarks,
+    GROUP_COLORS, groupName, cleanGroup, findGroup, ensureGroup, tidyGroups, decodeTile, ChartReader, depthText, checkRoute, pos };
 })();
 if (typeof globalThis !== 'undefined') globalThis.ChompCore = Core;

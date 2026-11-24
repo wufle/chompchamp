@@ -49,11 +49,17 @@ data class Mark(
     val depth: String? = null,
     /** Photo ids (see [Photos]), oldest first. */
     val photos: MutableList<String> = mutableListOf(),
+    /** Name of its [MarkGroup]; "" = ungrouped. */
+    var group: String = "",
 ) {
     val pos get() = LatLon(lat, lon)
 
+    /** False when read from a file that predates groups, so a merge doesn't wipe the group. */
+    var groupKnown = true
+
     fun toJson(): JSONObject = JSONObject()
         .put("id", id).put("lat", lat).put("lon", lon).put("name", name).put("time", time)
+        .put("group", group)
         .apply {
             depth?.let { put("depth", it) }
             if (photos.isNotEmpty()) put("photos", JSONArray().apply { photos.forEach { put(it) } })
@@ -64,7 +70,8 @@ data class Mark(
             o.getString("id"), o.getDouble("lat"), o.getDouble("lon"), o.optString("name"),
             o.optLong("time"), if (o.has("depth")) o.getString("depth") else null,
             o.optJSONArray("photos")?.let { a -> MutableList(a.length()) { a.getString(it) } } ?: mutableListOf(),
-        )
+            MarkGroup.cleanName(o.optString("group")),
+        ).also { it.groupKnown = o.has("group") }
     }
 }
 
@@ -74,6 +81,7 @@ class Store(dir: File) {
     private val planFile = File(dir, "plan.json")
     private val marksFile = File(dir, "marks.json")
     private val trackFile = File(dir, "track.json")
+    private val groupsFile = File(dir, "mark-groups.json")
 
     init { dir.mkdirs() }
 
@@ -85,6 +93,9 @@ class Store(dir: File) {
 
     fun marks(): MutableList<Mark> = readArray(marksFile).map { Mark.fromJson(it) }.toMutableList()
     fun saveMarks(list: List<Mark>) = writeArray(marksFile, list.map { it.toJson() })
+
+    fun markGroups(): List<MarkGroup> = readArray(groupsFile).map { MarkGroup.fromJson(it) }
+    fun saveMarkGroups(list: List<MarkGroup>) = writeArray(groupsFile, list.map { it.toJson() })
 
     /** v2: {"v":2,"pts":[lat,lon,t,...]}. v1 (old): [lat,lon,...] without times. */
     fun track(): MutableList<TrackPoint> = runCatching {
