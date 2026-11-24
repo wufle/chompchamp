@@ -13,7 +13,7 @@ A free, offline fishing chartplotter for Android, starting with **Western Austra
 
 ## Install
 
-You need an Android 8.0 or newer phone and three files from the
+You need an Android 8.0 or newer phone and these files from the
 [**latest release**](https://github.com/wufle/chompchamp/releases/latest):
 
 | File | What it is | Needed? |
@@ -21,6 +21,7 @@ You need an Android 8.0 or newer phone and three files from the
 | `chompchamp-<version>.apk` | The app | Yes |
 | `wa.pmtiles` (about 125 MB) | Offline chart: depths, contours, coast, fishing zones | Yes, or the map is blank |
 | `wa-relief.pmtiles` (about 55 MB) | Offline 5 m seabed (bathymetry) imagery for about 30 nearshore areas | Optional. Without it, the app streams the imagery when online |
+| `chompchamp-planner.html` | [Desktop planner](#desktop-planner) for your PC | Optional |
 
 **1. Install the app.** Open the `.apk` on your phone and allow "install unknown apps" for your
 browser or file manager when Android asks. ChompChamp isn't on the Play Store, so Play Protect may
@@ -68,13 +69,19 @@ Everything is customisable:
 - **Data** (Menu): save and load named snapshots on the phone; export and import a backup file (.json) with routes, marks, track and settings (merge or replace); export and import GPX to move marks, routes and tracks to and from other chartplotter apps.
 - **Settings**: track history shown (1 min to the entire trip), track point spacing, arrival radius, planning speed, north-up / course-up, drift window and projection, fish-mode zoom, anchor radius, safety depth.
 
-## Desktop planner (preview)
+## Desktop planner
 
 Plan on a big screen: a single HTML file for Linux, Windows or Mac that you open in a browser. It reads the same
 `wa.pmtiles` chart and works offline once opened. View the chart, depths, zones and hazards, draw and check routes,
 keep marks, and swap routes and marks with the phone app using backup or GPX files. No GPS or live navigation.
 
-It isn't in a release yet. To try it, run `python3 web/build.py` and open `web/dist/chompchamp-planner.html`.
+1. Download `chompchamp-planner.html` and `wa.pmtiles` from the
+   [latest release](https://github.com/wufle/chompchamp/releases/latest).
+2. Open the HTML file in a browser and choose `wa.pmtiles`. The browser keeps the chart, so you only do this once.
+3. To swap routes and marks with your phone, use **Data** in the planner and **☰ → Data** on the phone.
+
+Your routes and marks are saved in that browser only, so export a backup now and then. Keep the file's name and
+location when you update it, because some browsers tie your saved data to them. Tested in Chromium and Firefox on Linux.
 
 ## Privacy
 
