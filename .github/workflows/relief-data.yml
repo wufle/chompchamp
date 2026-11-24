@@ -33,7 +33,7 @@ jobs:
         with:
           name: wa-relief
           path: pipeline/out/wa-relief.pmtiles
-          retention-days: 30
+          retention-days: 7
 
       - name: Publish release
         if: ${{ inputs.publish }}

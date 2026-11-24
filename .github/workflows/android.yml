@@ -50,3 +50,4 @@ jobs:
         with:
           name: chompchamp-apk
           path: dist/*.apk
+          retention-days: 7   # only the latest build is ever needed
