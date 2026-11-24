@@ -91,12 +91,12 @@ class DataFieldsOverlay(
     private val group = GridLayout(ctx).apply { visibility = View.GONE }
 
     /** How the fields are arranged in the current mode. */
-    enum class Grouping(val key: Int, val label: String, val columns: Int) {
-        SEPARATE(0, "Separate cards (drag each one)", 0),
-        COLUMN(1, "One group: single column", 1),
-        GRID2(2, "One group: grid, 2 across", 2),
-        GRID3(3, "One group: grid, 3 across", 3),
-        ROW(99, "One group: single row", 99),
+    enum class Grouping(val key: Int, val short: String, val label: String, val columns: Int) {
+        SEPARATE(0, "Separate", "Separate cards (drag each one)", 0),
+        COLUMN(1, "Column", "One group: single column", 1),
+        GRID2(2, "Grid × 2", "One group: grid, 2 across", 2),
+        GRID3(3, "Grid × 3", "One group: grid, 3 across", 3),
+        ROW(99, "Row", "One group: single row", 99),
     }
 
     var grouping: Grouping

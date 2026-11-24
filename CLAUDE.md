@@ -45,7 +45,7 @@ user which they need. The style must also cope with older charts that lack a new
 | `MapLayers.kt` | Layer toggles and opacity |
 | `NavOverlays.kt` | Track, route, drift, marks, anchor (drawn in code) |
 | `Hazards.kt` | Nav marks, wrecks and rocks from `assets/hazards.geojson` |
-| `SettingsPanel.kt`, `Settings.kt`, `Appearance.kt` | Docked panel; behaviour options; size, opacity, palette |
+| `SettingsPanel.kt`, `Settings.kt`, `Appearance.kt` | Docked panel (Layers, Display); behaviour options; size, opacity, palette |
 | `Navigator.kt`, `Geo.kt` | Guidance, drift, track; geodesy and formatting |
 | `Storage.kt`, `UserData.kt`, `Photos.kt` | JSON persistence; backup/GPX; mark photos (not in backups yet) |
 

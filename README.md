@@ -61,8 +61,8 @@ Four modes (switch with the button at the top of the screen):
 - **Fish**: zooms in close, measures drift over a rolling window and draws where you'll be in N minutes. One-tap **Mark** saves the spot with estimated depth. Add photos to marks (camera or gallery); the latest shows as a bubble over the mark on the map. Anchor alarm, nearest-mark distance/bearing, breadcrumb track.
 
 Everything is customisable:
-- **Data fields** per mode: SOG, COG, position, depth, waypoint, BRG, DTW, XTE, VMG, TTG, ETAs, remaining, drift speed/direction, nearest mark, anchor distance, trip log, time. Show/hide them and drag them anywhere (Menu → Edit layout), or combine them into one group (Menu → Group data fields); tap a field while editing to resize or hide just that one. Each mode keeps its own layout.
-- **Appearance** (Menu): size and transparency of data fields, and of buttons and panels.
+- **Data fields** per mode: SOG, COG, position, depth, waypoint, BRG, DTW, XTE, VMG, TTG, ETAs, remaining, drift speed/direction, nearest mark, anchor distance, trip log, time. Show/hide them and drag them anywhere (Menu → Display → Move or resize), or combine them into one group (Menu → Display → Arrangement); tap a field while editing to resize or hide just that one. Each mode keeps its own layout.
+- **Display** (Menu): the data field options above, plus size and transparency of data fields, and of buttons and panels.
 - **Layers** (bottom left): on/off and an opacity slider for every layer: marks and hazards, satellite, 5 m reef relief, depth shading, contours, labels, land, zones, parks, route, marks, drift line, track, anchor circle.
 - **Charts & relief data** (Menu): see what is installed (size, date), import, remove the chart or the offline reef relief pack (relief falls back to online), clear the online tile cache.
 - **Data** (Menu): save and load named snapshots on the phone; export and import a backup file (.json) with routes, marks, track and settings (merge or replace); export and import GPX to move marks, routes and tracks to and from other chartplotter apps.

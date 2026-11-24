@@ -34,6 +34,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.button.MaterialButton
@@ -249,6 +250,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
         refreshOverlays()
         refreshModePanel()
+        refreshDisplayPanel()   // its data field rows belong to the current mode
     }
 
     private fun refreshOverlays() {
@@ -889,22 +891,17 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun showMenu(anchorView: View) {
         val popup = PopupMenu(this, anchorView)
         val items: List<Pair<String, () -> Unit>> = listOf(
-            "Charts & relief data…" to { showChartManager() },
-            "Data fields for ${mode.label} mode…" to { showFieldsDialog() },
-            "Group data fields…" to { showGroupingDialog() },
-            "Edit layout (${mode.label})" to { setEditing(true) },
-            "Appearance (size & transparency)…" to { showAppearancePanel() },
-            "Reset ${mode.label} layout" to {
-                fields.resetLayout(); Toast.makeText(this, R.string.layout_reset_done, Toast.LENGTH_SHORT).show()
-            },
-            "Settings…" to { settings.show(this) { onSettingsChanged() } },
             "Marks…" to { showMarksList() },
+            "Display…" to { showDisplayPanel() },
+            "Settings…" to { settings.show(this) { onSettingsChanged() } },
+            "Charts & relief data…" to { showChartManager() },
             "Data: save, load, export, import…" to { showDataMenu() },
             "Reset trip & clear track" to {
                 confirm("Clear the track and reset the trip log?") {
                     track.clear(); store.saveTrack(track.points); overlays.setTrack(visibleTrack())
                 }
             },
+            "About" to { showAbout() },
         )
         items.forEachIndexed { i, (label, _) -> popup.menu.add(0, i, i, label) }
         popup.setOnMenuItemClickListener { items[it.itemId].second(); true }
@@ -933,13 +930,12 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val all = DataField.entries
         val checked = all.map { fields.isVisible(it) }.toBooleanArray()
         MaterialAlertDialogBuilder(this)
-            .setTitle("Data fields: ${mode.label} mode")
+            .setTitle("Fields shown: ${mode.label} mode")
             .setMultiChoiceItems(all.map { it.label.replace("  ", " ") }.toTypedArray(), checked) { _, which, on ->
                 fields.setVisible(all[which], on)
             }
             .setPositiveButton(android.R.string.ok, null)
-            .setNeutralButton(R.string.menu_edit_layout) { _, _ -> setEditing(true) }
-            .setNegativeButton("Group…") { _, _ -> showGroupingDialog() }
+            .setOnDismissListener { refreshDisplayPanel() }
             .show()
     }
 
@@ -947,12 +943,32 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun showGroupingDialog() {
         val options = DataFieldsOverlay.Grouping.entries
         MaterialAlertDialogBuilder(this)
-            .setTitle("Data fields: ${mode.label} mode")
+            .setTitle("Arrangement: ${mode.label} mode")
             .setSingleChoiceItems(options.map { it.label }.toTypedArray(), options.indexOf(fields.grouping)) { d, which ->
                 fields.grouping = options[which]
                 d.dismiss()
             }
             .setNegativeButton(android.R.string.cancel, null)
+            .setOnDismissListener { refreshDisplayPanel() }
+            .show()
+    }
+
+    private fun showAbout() {
+        val version = runCatching {
+            val info = packageManager.getPackageInfo(packageName, 0)
+            "${info.versionName} (build ${PackageInfoCompat.getLongVersionCode(info)})"
+        }.getOrDefault("unknown")
+        val chart = if (chartFile.exists()) fileInfo(chartFile) else "not installed"
+        MaterialAlertDialogBuilder(this)
+            .setIcon(R.mipmap.ic_launcher)
+            .setTitle(R.string.app_name)
+            .setMessage("Version $version\nChart: $chart\n\nFree offline fishing chartplotter for Western Australia.\n" +
+                "Source code, data credits and licences are on GitHub:\n$GITHUB_URL")
+            .setPositiveButton("Open GitHub") { _, _ ->
+                runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(GITHUB_URL))) }
+                    .onFailure { Toast.makeText(this, "No app found to open the link", Toast.LENGTH_SHORT).show() }
+            }
+            .setNegativeButton("Close", null)
             .show()
     }
 
@@ -1112,15 +1128,43 @@ class MainActivity : AppCompatActivity(), LocationListener {
     }
 
     private fun showLayersPanel() {
+        displayPanelOpen = false
         panel.show("Map layers", { rows ->
             layers.fillPanel(rows, map?.style?.takeIf { chartFile.exists() })
         })
     }
 
-    private fun showAppearancePanel() {
-        panel.show("Appearance", { rows ->
-            look.fillPanel(rows, onChanged = { applyAppearance() }, onReset = { showAppearancePanel() })
-        })
+    private var displayPanelOpen = false
+
+    /** Everything about how the screen looks, in one docked panel that previews live. */
+    private fun showDisplayPanel() {
+        panel.show("Display", { rows ->
+            rows.section("Data fields · ${mode.label} mode")
+            rows.actionRow("Fields shown", "${DataField.entries.count { fields.isVisible(it) }}") { showFieldsDialog() }
+            rows.actionRow("Arrangement", fields.grouping.short) { showGroupingDialog() }
+            rows.actionRow("Move or resize on screen", "Edit") { panel.hide(); setEditing(true) }
+            look.fillPanel(rows, onChanged = { applyAppearance() })
+            rows.section("Reset")
+            rows.actionRow("Layout · ${mode.label} mode", "Reset") {
+                confirm("Are you sure you want to reset the ${mode.label} layout?\n\nData fields go back to their default " +
+                    "position and size. Which fields are shown, and how they're arranged, stays the same.") {
+                    fields.resetLayout()
+                    Toast.makeText(this, R.string.layout_reset_done, Toast.LENGTH_SHORT).show()
+                }
+            }
+            rows.actionRow("Sizes and transparency · all modes", "Reset") {
+                confirm("Are you sure you want to reset all sizes and transparency to their defaults?") {
+                    look.reset()
+                    applyAppearance()
+                    refreshDisplayPanel()
+                }
+            }
+        }, onClose = { displayPanelOpen = false })
+        displayPanelOpen = true
+    }
+
+    private fun refreshDisplayPanel() {
+        if (displayPanelOpen && panel.isOpen) showDisplayPanel()
     }
 
     /** Tapping a field in Edit layout: size or hide just that field. */
@@ -1640,6 +1684,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     }
 
     companion object {
+        private const val GITHUB_URL = "https://github.com/wufle/chompchamp"
         private const val RELIEF_ONLINE =
             "https://public-services.slip.wa.gov.au/public/rest/services/Landgate_Public_Maps/WA_Bathymetry/MapServer/export" +
                 "?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&layers=show:2&f=image"

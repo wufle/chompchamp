@@ -50,6 +50,13 @@ class Appearance(private val ctx: Context, private val prefs: SharedPreferences)
             if (dashedOutline) setStroke((2 * dp).roundToInt(), accent, 6 * dp, 4 * dp)
         }
 
+    /** Tinted pill behind a value the user can change. */
+    fun pillBg() = GradientDrawable().apply {
+        cornerRadius = 14 * dp
+        setColor(ColorUtils.setAlphaComponent(accent, 0x24))
+        setStroke(dp.roundToInt().coerceAtLeast(1), ColorUtils.setAlphaComponent(accent, 0x66))
+    }
+
     fun circleBg(alpha: Float, color: Int = surface) = GradientDrawable().apply {
         shape = GradientDrawable.OVAL
         setColor(ColorUtils.setAlphaComponent(color, (alpha.coerceIn(0f, 1f) * 255).roundToInt()))
@@ -58,10 +65,10 @@ class Appearance(private val ctx: Context, private val prefs: SharedPreferences)
     // ---- Settings panel ----------------------------------------------------------------
 
     /** Fill the docked settings panel; [onChanged] re-applies the look live. */
-    fun fillPanel(rows: SettingsPanel.Rows, onChanged: () -> Unit, onReset: () -> Unit) {
+    fun fillPanel(rows: SettingsPanel.Rows, onChanged: () -> Unit) {
         val groups = listOf(
-            "Data fields" to listOf(knobs[0] to "Size", knobs[1] to "Background"),
-            "Buttons & panels" to listOf(knobs[2] to "Size", knobs[3] to "Opacity"),
+            "Data field style · all modes" to listOf(knobs[0] to "Size", knobs[1] to "Background"),
+            "Buttons and panels · all modes" to listOf(knobs[2] to "Size", knobs[3] to "Opacity"),
         )
         for ((title, items) in groups) {
             rows.section(title)
@@ -78,17 +85,14 @@ class Appearance(private val ctx: Context, private val prefs: SharedPreferences)
                 )
             }
         }
-        rows.note("Tip: in Edit layout, tap a single data field to resize or hide just that one.")
-        rows.button("Reset appearance") {
-            val e = prefs.edit()
-            knobs.forEach { e.remove("ui_${it.key}") }
-            e.apply()
-            onChanged()
-            onReset()
-        }
+    }
+
+    /** Back to the default sizes and transparency. */
+    fun reset() {
+        val e = prefs.edit()
+        knobs.forEach { e.remove("ui_${it.key}") }
+        e.apply()
     }
 
     private fun pct(v: Float) = (v * 100).roundToInt().toFloat()
-
-
 }

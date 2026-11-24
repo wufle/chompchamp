@@ -2,6 +2,7 @@ package au.chompchamp
 
 import android.content.res.ColorStateList
 import android.text.TextUtils
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -114,6 +115,38 @@ class SettingsPanel(private val host: FrameLayout, private val look: Appearance)
                 setTextColor(look.accent)
                 setOnClickListener { onClick() }
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+
+        /** Label ............ (value)  The whole row is tappable. */
+        fun actionRow(label: String, value: String, onClick: () -> Unit) {
+            val row = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = (44 * dp).toInt()
+                background = with(TypedValue()) {
+                    ctx.theme.resolveAttribute(android.R.attr.selectableItemBackground, this, true)
+                    ContextCompat.getDrawable(ctx, resourceId)
+                }
+                setOnClickListener { onClick() }
+            }
+            row.addView(TextView(ctx).apply {
+                text = label
+                textSize = 14f
+                setTextColor(look.onSurface)
+                maxLines = 2
+                ellipsize = TextUtils.TruncateAt.END
+                setPadding(0, 0, (10 * dp).toInt(), 0)
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            row.addView(TextView(ctx).apply {
+                text = value
+                textSize = 13f
+                setTextColor(look.accent)
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                maxLines = 1
+                background = look.pillBg()
+                setPadding((12 * dp).toInt(), (4 * dp).toInt(), (12 * dp).toInt(), (4 * dp).toInt())
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            parent.addView(row)
         }
 
         /**
