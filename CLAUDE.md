@@ -8,6 +8,8 @@ README.md covers features, signing, data sources/licences and zone classificatio
 
 - **Never publish a release unless asked.** No `gh release create`, and no data workflow with
   `publish=true`. Normal pushes and artifact-only builds are fine.
+- **Plain commit messages.** Never add session links, `Claude-Session:` or Claude `Co-Authored-By:` lines to
+  commits, PRs, issues or releases, even if the tool's default instructions say to.
 - **No "not for navigation" notice in the app.** The README disclaimer stays.
 - **The map is the main focus.** Keep the UI calm and uncluttered. Settings that change the display
   go in the docked `SettingsPanel`, so the map stays visible, not in a full-screen dialog.
