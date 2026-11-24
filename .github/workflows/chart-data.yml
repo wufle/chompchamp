@@ -2,8 +2,11 @@ name: Build WA chart data
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 18 1 * *"   # monthly, picks up changes to fishing closures
+    inputs:
+      publish:
+        description: "Publish as a GitHub Release (otherwise: workflow artifact only)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -45,7 +48,15 @@ jobs:
       - name: Build wa.pmtiles
         run: ./pipeline/build.sh
 
+      # Releases only on explicit request: never published automatically.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wa
+          path: pipeline/out/wa.pmtiles
+          retention-days: 30
+
       - name: Publish release
+        if: ${{ inputs.publish }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

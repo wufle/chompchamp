@@ -18,8 +18,9 @@ Four modes (switch with the button at the top of the screen):
 - **Fish**: zooms in close, measures drift over a rolling window and draws where you'll be in N minutes. One-tap **Mark** saves the spot with estimated depth. Anchor alarm, nearest-mark distance/bearing, breadcrumb track.
 
 Everything is customisable:
-- **Data fields** per mode: SOG, COG, position, depth, waypoint, BRG, DTW, XTE, VMG, TTG, ETAs, remaining, drift speed/direction, nearest mark, anchor distance, trip log, time. Show/hide them, pick a text size, and drag them anywhere (Menu → Edit layout). Each mode keeps its own layout.
-- **Layers** (bottom left): satellite, 5 m reef relief, depth shading, contours, labels, land, zones, parks, track.
+- **Data fields** per mode: SOG, COG, position, depth, waypoint, BRG, DTW, XTE, VMG, TTG, ETAs, remaining, drift speed/direction, nearest mark, anchor distance, trip log, time. Show/hide them and drag them anywhere (Menu → Edit layout); tap a field while editing to resize or hide just that one. Each mode keeps its own layout.
+- **Appearance** (Menu): size and transparency of data fields, and of buttons and panels.
+- **Layers** (bottom left): on/off and an opacity slider for every layer: satellite, 5 m reef relief, depth shading, contours, labels, land, zones, parks, route, marks, drift line, track, anchor circle.
 - **Settings**: arrival radius, planning speed, north-up / course-up, drift window and projection, fish-mode zoom, anchor radius, safety depth.
 
 ## Repo layout
@@ -32,8 +33,9 @@ pipeline/    Scripts that build the offline chart file (wa.pmtiles) from public 
 
 ## Getting it on your phone
 
-1. **Chart data:** Actions → *Build WA chart data* → *Run workflow*. When it finishes, a
-   new Release appears with `wa.pmtiles` attached. Download it to your phone.
+1. **Chart data:** download `wa.pmtiles` from the latest *WA chart* Release. To rebuild it, run
+   Actions → *Build WA chart data*; it produces a workflow artifact, and only publishes a
+   Release if you tick **publish**.
 2. **App:** Actions → *Android build* → latest run → download the `chompchamp-apk`
    artifact, unzip it and install `chompchamp-<version>.apk` (allow "install unknown apps").
    New versions install over the old one and keep your routes, marks and settings.

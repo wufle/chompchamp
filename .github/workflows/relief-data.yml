@@ -6,6 +6,10 @@ on:
       maxzoom:
         description: "Max zoom (15 ≈ 4 m/pixel, matches the 5 m source)"
         default: "15"
+      publish:
+        description: "Publish as a GitHub Release (otherwise: workflow artifact only)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -24,7 +28,15 @@ jobs:
         run: |
           mkdir -p pipeline/out
           python -I pipeline/scripts/build_relief.py pipeline/out/wa-relief.pmtiles --maxzoom "${{ inputs.maxzoom || 15 }}"
+      # Releases only on explicit request: never published automatically.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wa-relief
+          path: pipeline/out/wa-relief.pmtiles
+          retention-days: 30
+
       - name: Publish release
+        if: ${{ inputs.publish }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

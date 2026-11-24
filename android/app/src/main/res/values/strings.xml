@@ -12,17 +12,17 @@
     <string name="restricted_banner">Restricted area\n%1$s</string>
     <string name="location_needed">Location permission is needed to show your boat.</string>
     <string name="menu">Menu</string>
+    <string name="mode">Mode</string>
     <string name="layers">Map layers</string>
     <string name="follow_boat">Follow boat</string>
-    <string name="edit_hint">Drag fields to move them</string>
+    <string name="edit_hint">Drag to move · tap to resize</string>
     <string name="done">Done</string>
     <string name="menu_import">Import chart file…</string>
     <string name="menu_fields">Data fields…</string>
     <string name="menu_edit_layout">Edit layout</string>
-    <string name="menu_text_size">Text size…</string>
     <string name="menu_reset_layout">Reset layout</string>
     <string name="menu_about">Not-for-navigation notice</string>
     <string name="layers_title">Map layers</string>
-    <string name="layers_note">No-fishing alerts keep working when zones are hidden. Satellite needs internet (Sentinel-2, about 10 m detail).</string>
+    <string name="layers_note">The slider under each layer sets its opacity. No-fishing alerts keep working when zones are hidden. Satellite needs internet (Sentinel-2, about 10 m detail).</string>
     <string name="layout_reset_done">Layout reset</string>
 </resources>

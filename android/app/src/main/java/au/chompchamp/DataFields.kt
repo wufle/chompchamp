@@ -6,11 +6,12 @@ import android.graphics.Typeface
 import android.util.TypedValue
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.core.content.ContextCompat
+import kotlin.math.abs
 import kotlin.math.max
 
 enum class AppMode(val key: String, val label: String) {
@@ -25,16 +26,16 @@ enum class AppMode(val key: String, val label: String) {
  * [defaultIn] = modes where it's shown until the user changes it.
  */
 enum class DataField(val key: String, val label: String, vararg val defaultIn: AppMode) {
-    SOG("sog", "SOG  kn", AppMode.CHART, AppMode.NAVIGATE, AppMode.FISH),
-    COG("cog", "COG  °T", AppMode.CHART, AppMode.NAVIGATE),
-    POSITION("pos", "POSITION", AppMode.CHART),
-    DEPTH("depth", "DEPTH  m (est.)", AppMode.CHART, AppMode.NAVIGATE, AppMode.FISH),
+    SOG("sog", "SOG  kn", AppMode.CHART, AppMode.NAVIGATE),
+    COG("cog", "COG  °T", AppMode.CHART),
+    POSITION("pos", "POSITION"),
+    DEPTH("depth", "DEPTH  m (est.)", AppMode.CHART, AppMode.FISH),
     WPT("wpt", "WAYPOINT", AppMode.NAVIGATE),
     BRG("brg", "BRG  °T", AppMode.NAVIGATE),
     DTW("dtw", "DTW  nm", AppMode.NAVIGATE),
     XTE("xte", "XTE  nm", AppMode.NAVIGATE),
     VMG("vmg", "VMG  kn"),
-    TTG("ttg", "TTG", AppMode.NAVIGATE),
+    TTG("ttg", "TTG"),
     ETA_WPT("eta_wpt", "ETA WPT"),
     ETA_DEST("eta_dest", "ETA DEST", AppMode.NAVIGATE),
     REMAIN("remain", "REMAIN  nm"),
@@ -66,6 +67,9 @@ enum class DataField(val key: String, val label: String, vararg val defaultIn: A
 class DataFieldsOverlay(
     private val container: FrameLayout,
     private val prefs: SharedPreferences,
+    private val look: Appearance,
+    /** Called when a field is tapped (not dragged) while editing the layout. */
+    private val onFieldTapped: (DataField) -> Unit,
 ) {
     private val ctx = container.context
     private val dp = ctx.resources.displayMetrics.density
@@ -97,7 +101,7 @@ class DataFieldsOverlay(
             if (r - l != or - ol || b - t != ob - ot) placeAll()
         }
         applyVisibility()
-        applyTextSize()
+        applyStyle()
     }
 
     private fun k(field: DataField, what: String) = "f.${mode.key}.${field.key}.$what"
@@ -125,21 +129,31 @@ class DataFieldsOverlay(
         container.post { placeAll() }
     }
 
-    /** 0 = small, 1 = medium, 2 = large (shared by all modes) */
-    var textSize: Int
-        get() = prefs.getInt("field_text_size", 1)
-        set(v) {
-            prefs.edit().putInt("field_text_size", v.coerceIn(0, 2)).apply()
-            applyTextSize()
-        }
+    /** Per-field size multiplier in the current mode (1 = normal). */
+    fun fieldSize(field: DataField) = prefs.getFloat(k(field, "size"), 1f)
 
-    private fun applyTextSize() {
-        val valueSp = floatArrayOf(18f, 26f, 36f)[textSize]
-        val labelSp = floatArrayOf(10f, 11f, 13f)[textSize]
+    fun setFieldSize(field: DataField, size: Float) {
+        prefs.edit().putFloat(k(field, "size"), size).apply()
+        applyStyle()
+    }
+
+    /** Re-apply sizes, colours and background transparency (call after Appearance changes). */
+    fun applyStyle() {
+        val p = (6 * dp * look.fieldScale).toInt().coerceAtLeast(2)
         for ((field, card) in cards) {
-            card.label.setTextSize(TypedValue.COMPLEX_UNIT_SP, labelSp)
-            val scale = if (field == DataField.POSITION || field == DataField.WPT || field == DataField.MARK) 0.6f else 1f
-            card.value.setTextSize(TypedValue.COMPLEX_UNIT_SP, valueSp * scale)
+            val scale = look.fieldScale * fieldSize(field)
+            val small = field == DataField.POSITION || field == DataField.WPT || field == DataField.MARK
+            card.label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f * scale)
+            card.value.setTextSize(TypedValue.COMPLEX_UNIT_SP, (if (small) 13f else 22f) * scale)
+            card.label.setTextColor(look.muted)
+            card.value.setTextColor(look.onSurface)
+            // Keep text legible on a see-through card.
+            val shadow = if (look.fieldAlpha < 0.4f) 4f else 0f
+            card.value.setShadowLayer(shadow, 0f, 1f, look.surface)
+            card.label.setShadowLayer(shadow, 0f, 1f, look.surface)
+            card.root.setPadding(p * 2, p, p * 2, p + p / 2)
+            card.root.background = look.surfaceBg(
+                if (editing) maxOf(look.fieldAlpha, 0.6f) else look.fieldAlpha, 10f, dashedOutline = editing)
         }
     }
 
@@ -149,15 +163,14 @@ class DataFieldsOverlay(
     fun setEditing(on: Boolean) {
         editing = on
         for ((field, card) in cards) {
-            card.root.background = ContextCompat.getDrawable(
-                ctx, if (on) R.drawable.bg_field_edit else R.drawable.bg_field)
             card.root.setOnTouchListener(if (on) dragListener(field) else null)
         }
+        applyStyle()
     }
 
     fun resetLayout() {
         val e = prefs.edit()
-        for (field in DataField.entries) e.remove(k(field, "x")).remove(k(field, "y"))
+        for (field in DataField.entries) e.remove(k(field, "x")).remove(k(field, "y")).remove(k(field, "size"))
         e.apply()
         placeAll()
     }
@@ -166,21 +179,35 @@ class DataFieldsOverlay(
     private fun dragListener(field: DataField): View.OnTouchListener {
         var dx = 0f
         var dy = 0f
+        var downX = 0f
+        var downY = 0f
+        var dragging = false
+        val slop = ViewConfiguration.get(ctx).scaledTouchSlop
         return View.OnTouchListener { v, e ->
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     dx = v.x - e.rawX
                     dy = v.y - e.rawY
+                    downX = e.rawX
+                    downY = e.rawY
+                    dragging = false
                     v.bringToFront()
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    v.x = (e.rawX + dx).coerceIn(0f, freeX(v))
-                    v.y = (e.rawY + dy).coerceIn(0f, freeY(v))
+                    if (!dragging && (abs(e.rawX - downX) > slop || abs(e.rawY - downY) > slop)) dragging = true
+                    if (dragging) {
+                        v.x = (e.rawX + dx).coerceIn(0f, freeX(v))
+                        v.y = (e.rawY + dy).coerceIn(0f, freeY(v))
+                    }
                     true
                 }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    savePosition(field, v)
+                MotionEvent.ACTION_UP -> {
+                    if (dragging) savePosition(field, v) else onFieldTapped(field)
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    if (dragging) savePosition(field, v)
                     true
                 }
                 else -> false
@@ -203,7 +230,7 @@ class DataFieldsOverlay(
      */
     private fun placeAll() {
         if (container.width == 0) return
-        val top = 56 * dp
+        val top = (12 + 44 * look.controlScale + 8) * dp
         val gap = 6 * dp
         var stackX = 0f
         var stackY = top
@@ -229,19 +256,12 @@ class DataFieldsOverlay(
     }
 
     private fun makeCard(field: DataField): Card {
-        val root = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            background = ContextCompat.getDrawable(ctx, R.drawable.bg_field)
-            val p = (8 * dp).toInt()
-            setPadding(p + p / 2, p / 2, p + p / 2, p)
-        }
+        val root = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
         val label = TextView(ctx).apply {
             text = field.label
-            setTextColor(0xFFB0C4DE.toInt())
             letterSpacing = 0.08f
         }
         val value = TextView(ctx).apply {
-            setTextColor(0xFFFFFFFF.toInt())
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
         }
         root.addView(label)

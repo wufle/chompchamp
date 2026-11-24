@@ -1,3 +1,12 @@
 <resources>
     <color name="ic_launcher_background">#0D47A1</color>
+
+    <!-- UI palette: one surface, one accent, alert colours only for alerts. -->
+    <color name="ui_surface">#101C2B</color>
+    <color name="ui_on_surface">#FFFFFF</color>
+    <color name="ui_muted">#9FB3C8</color>
+    <color name="ui_accent">#FFC857</color>
+    <color name="alert_danger">#C62828</color>
+    <color name="alert_warn">#E65100</color>
+    <color name="alert_info">#1565C0</color>
 </resources>

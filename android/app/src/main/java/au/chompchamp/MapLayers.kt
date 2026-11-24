@@ -3,12 +3,27 @@ package au.chompchamp
 import android.content.Context
 import android.content.SharedPreferences
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.materialswitch.MaterialSwitch
+import com.google.android.material.slider.Slider
+import org.maplibre.android.maps.Style
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
-import org.maplibre.android.maps.Style
+import kotlin.math.roundToInt
+
+/** How a style layer's opacity is controlled. */
+private enum class Kind { FILL, LINE, RASTER, SYMBOL, CIRCLE }
+
+/**
+ * One style layer belonging to an overlay.
+ * [base] = the designed opacity at 100% on the user's slider.
+ * [queried] = the app reads this layer with queryRenderedFeatures (depth estimate, zone
+ * alerts, route check), so "off" means opacity 0 rather than visibility=none, or it would
+ * stop working.
+ */
+private class StyleLayer(val id: String, val kind: Kind, val base: Float, val queried: Boolean = false)
 
 /** User-toggleable map overlays. Keys are persisted, so don't rename them. */
 enum class MapOverlay(val key: String, val label: String, val defaultOn: Boolean) {
@@ -21,51 +36,91 @@ enum class MapOverlay(val key: String, val label: String, val defaultOn: Boolean
     NO_TAKE("notake", "No-fishing zones", true),
     RESTRICTED("restricted", "Restricted areas", true),
     PARKS("parks", "Marine park boundaries", true),
+    ROUTE("route", "Route & navigation line", true),
+    MARKS("marks", "Marks", true),
+    DRIFT("drift", "Drift line (Fish mode)", true),
     TRACK("track", "Track (breadcrumb trail)", true),
+    ANCHOR("anchor", "Anchor alarm circle", true),
 }
 
 class MapLayers(private val prefs: SharedPreferences) {
 
+    private val layers: Map<MapOverlay, List<StyleLayer>> = mapOf(
+        MapOverlay.SATELLITE to listOf(StyleLayer("satellite", Kind.RASTER, 1f)),
+        MapOverlay.RELIEF to listOf(StyleLayer("relief", Kind.RASTER, 0.9f)),
+        MapOverlay.DEPTH to listOf(StyleLayer("depth-fill", Kind.FILL, 1f, queried = true)),
+        MapOverlay.CONTOURS to listOf(StyleLayer("contour", Kind.LINE, 0.8f)),
+        MapOverlay.CONTOUR_LABELS to listOf(StyleLayer("contour-label", Kind.SYMBOL, 1f)),
+        MapOverlay.LAND to listOf(StyleLayer("land", Kind.FILL, 1f, queried = true)),
+        MapOverlay.NO_TAKE to listOf(
+            StyleLayer("zones-notake-fill", Kind.FILL, 0.22f, queried = true),
+            StyleLayer("zones-notake-line", Kind.LINE, 1f),
+            StyleLayer("zones-notake-label", Kind.SYMBOL, 1f),
+        ),
+        MapOverlay.RESTRICTED to listOf(
+            StyleLayer("zones-restricted-fill", Kind.FILL, 0.15f, queried = true),
+            StyleLayer("zones-restricted-line", Kind.LINE, 1f),
+        ),
+        MapOverlay.PARKS to listOf(
+            StyleLayer("zones-park-fill", Kind.FILL, 0.06f, queried = true),
+            StyleLayer("zones-park-line", Kind.LINE, 1f),
+        ),
+        MapOverlay.ROUTE to listOf(
+            StyleLayer("route-line", Kind.LINE, 1f),
+            StyleLayer("nav-line", Kind.LINE, 1f),
+            StyleLayer(NavOverlays.ROUTE_WPTS, Kind.CIRCLE, 1f, queried = true),
+            StyleLayer("route-labels", Kind.SYMBOL, 1f),
+        ),
+        MapOverlay.MARKS to listOf(
+            StyleLayer(NavOverlays.MARKS, Kind.CIRCLE, 1f, queried = true),
+            StyleLayer("marks-label", Kind.SYMBOL, 1f),
+        ),
+        MapOverlay.DRIFT to listOf(
+            StyleLayer("drift-line", Kind.LINE, 1f),
+            StyleLayer("drift-end", Kind.CIRCLE, 1f),
+        ),
+        MapOverlay.TRACK to listOf(StyleLayer("track-line", Kind.LINE, 0.75f)),
+        MapOverlay.ANCHOR to listOf(
+            StyleLayer("anchor-fill", Kind.FILL, 0.12f),
+            StyleLayer("anchor-line", Kind.LINE, 1f),
+        ),
+    )
+
     fun isOn(o: MapOverlay) = prefs.getBoolean("layer_${o.key}", o.defaultOn)
+    private fun setOn(o: MapOverlay, on: Boolean) = prefs.edit().putBoolean("layer_${o.key}", on).apply()
 
-    private fun setOn(o: MapOverlay, on: Boolean) =
-        prefs.edit().putBoolean("layer_${o.key}", on).apply()
+    /** User opacity multiplier 0..1 (default 1). */
+    fun opacity(o: MapOverlay) = prefs.getFloat("layer_opacity_${o.key}", 1f)
+    private fun setOpacity(o: MapOverlay, v: Float) = prefs.edit().putFloat("layer_opacity_${o.key}", v).apply()
 
-    /**
-     * Apply the saved toggles to a loaded chart style.
-     *
-     * Fills that the app queries (depth for the depth estimate, zones for alerts) are
-     * hidden with opacity 0 rather than visibility=none, so they still "render" and
-     * queryRenderedFeatures keeps working when the user hides them.
-     */
+    /** Apply saved toggles and opacities to a loaded style. */
     fun apply(style: Style) {
         val sat = isOn(MapOverlay.SATELLITE)
-
-        visible(style, "satellite", sat)
-        visible(style, "relief", isOn(MapOverlay.RELIEF))
-        visible(style, "track-line", isOn(MapOverlay.TRACK))
-        opacity(style, "depth-fill", when {
-            !isOn(MapOverlay.DEPTH) -> 0f
-            sat -> 0.35f
-            else -> 1f
-        })
-        visible(style, "contour", isOn(MapOverlay.CONTOURS))
-        visible(style, "contour-label", isOn(MapOverlay.CONTOUR_LABELS))
-        // With satellite on, the coarse 250 m land polygons would hide the imagery.
-        opacity(style, "land", if (isOn(MapOverlay.LAND) && !sat) 1f else 0f)
-
-        val noTake = isOn(MapOverlay.NO_TAKE)
-        opacity(style, "zones-notake-fill", if (noTake) 0.22f else 0f)
-        visible(style, "zones-notake-line", noTake)
-        visible(style, "zones-notake-label", noTake)
-
-        val restricted = isOn(MapOverlay.RESTRICTED)
-        opacity(style, "zones-restricted-fill", if (restricted) 0.15f else 0f)
-        visible(style, "zones-restricted-line", restricted)
-
-        val parks = isOn(MapOverlay.PARKS)
-        opacity(style, "zones-park-fill", if (parks) 0.06f else 0f)
-        visible(style, "zones-park-line", parks)
+        for ((overlay, styleLayers) in layers) {
+            val on = isOn(overlay)
+            var factor = opacity(overlay)
+            // Over satellite, fade depth shading and drop the coarse 250 m land polygons.
+            if (sat && overlay == MapOverlay.DEPTH) factor *= 0.4f
+            val hiddenBySatellite = sat && overlay == MapOverlay.LAND
+            for (l in styleLayers) {
+                val layer = style.getLayer(l.id) ?: continue
+                val show = on && !hiddenBySatellite
+                if (!show && !l.queried) {
+                    layer.setProperties(PropertyFactory.visibility(Property.NONE))
+                    continue
+                }
+                layer.setProperties(PropertyFactory.visibility(Property.VISIBLE))
+                val a = if (show) l.base * factor else 0f
+                when (l.kind) {
+                    Kind.FILL -> layer.setProperties(PropertyFactory.fillOpacity(a))
+                    Kind.LINE -> layer.setProperties(PropertyFactory.lineOpacity(a))
+                    Kind.RASTER -> layer.setProperties(PropertyFactory.rasterOpacity(a))
+                    Kind.SYMBOL -> layer.setProperties(PropertyFactory.textOpacity(a))
+                    Kind.CIRCLE -> layer.setProperties(
+                        PropertyFactory.circleOpacity(a), PropertyFactory.circleStrokeOpacity(a))
+                }
+            }
+        }
     }
 
     fun showSheet(context: Context, style: Style?) {
@@ -79,19 +134,36 @@ class MapLayers(private val prefs: SharedPreferences) {
         list.addView(TextView(context).apply {
             setText(R.string.layers_title)
             textSize = 20f
-            setPadding(0, 0, 0, (8 * dp).toInt())
+            setPadding(0, 0, 0, (4 * dp).toInt())
         })
         for (o in MapOverlay.entries) {
+            val slider = Slider(context).apply {
+                valueFrom = 0f
+                valueTo = 100f
+                stepSize = 5f
+                value = ((opacity(o) * 100 / 5).roundToInt() * 5f).coerceIn(0f, 100f)
+                isEnabled = isOn(o)
+                setLabelFormatter { "${it.roundToInt()}%" }
+                addOnChangeListener { _, v, fromUser ->
+                    if (fromUser) {
+                        setOpacity(o, v / 100f)
+                        style?.let { apply(it) }
+                    }
+                }
+            }
             list.addView(MaterialSwitch(context).apply {
                 text = o.label
-                textSize = 16f
+                textSize = 15f
                 isChecked = isOn(o)
-                minHeight = (48 * dp).toInt()
+                minHeight = (44 * dp).toInt()
                 setOnCheckedChangeListener { _, checked ->
                     setOn(o, checked)
+                    slider.isEnabled = checked
                     style?.let { apply(it) }
                 }
             })
+            list.addView(slider, LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, (36 * dp).toInt()))
         }
         list.addView(TextView(context).apply {
             setText(R.string.layers_note)
@@ -99,16 +171,7 @@ class MapLayers(private val prefs: SharedPreferences) {
             alpha = 0.7f
             setPadding(0, (12 * dp).toInt(), 0, 0)
         })
-        dialog.setContentView(list)
+        dialog.setContentView(ScrollView(context).apply { addView(list) })
         dialog.show()
-    }
-
-    private fun visible(style: Style, id: String, on: Boolean) {
-        style.getLayer(id)?.setProperties(
-            PropertyFactory.visibility(if (on) Property.VISIBLE else Property.NONE))
-    }
-
-    private fun opacity(style: Style, id: String, value: Float) {
-        style.getLayer(id)?.setProperties(PropertyFactory.fillOpacity(value))
     }
 }

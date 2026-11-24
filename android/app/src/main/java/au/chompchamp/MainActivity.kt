@@ -21,6 +21,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.PopupMenu
 import android.widget.ScrollView
@@ -33,7 +34,6 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.floatingactionbutton.FloatingActionButton
 import org.json.JSONArray
 import org.json.JSONObject
 import org.maplibre.android.MapLibre
@@ -62,7 +62,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private lateinit var settings: Settings
     private lateinit var store: Store
     private lateinit var editBar: View
-    private lateinit var modeButton: MaterialButton
+    private lateinit var modeButton: TextView
+    private lateinit var look: Appearance
+    private lateinit var controlButtons: List<ImageButton>
     private lateinit var modePanel: View
     private lateinit var modeSummary: TextView
     private lateinit var modeButtons: LinearLayout
@@ -122,7 +124,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
         mapView = findViewById(R.id.mapView)
         zoneBanner = findViewById(R.id.zoneBanner)
-        fields = DataFieldsOverlay(findViewById<FrameLayout>(R.id.fieldsContainer), prefs)
+        look = Appearance(this, prefs)
+        fields = DataFieldsOverlay(findViewById<FrameLayout>(R.id.fieldsContainer), prefs, look) { f -> fieldOptions(f) }
         editBar = findViewById(R.id.editBar)
         modeButton = findViewById(R.id.btnMode)
         modePanel = findViewById(R.id.modePanel)
@@ -140,13 +143,16 @@ class MainActivity : AppCompatActivity(), LocationListener {
             insets
         }
 
-        findViewById<FloatingActionButton>(R.id.btnLocate).setOnClickListener { followBoat() }
-        findViewById<FloatingActionButton>(R.id.btnMenu).setOnClickListener { showMenu(it) }
-        findViewById<FloatingActionButton>(R.id.btnLayers).setOnClickListener {
+        controlButtons = listOf(
+            findViewById(R.id.btnMenu), findViewById(R.id.btnLayers), findViewById(R.id.btnLocate))
+        findViewById<View>(R.id.btnLocate).setOnClickListener { followBoat() }
+        findViewById<View>(R.id.btnMenu).setOnClickListener { showMenu(it) }
+        findViewById<View>(R.id.btnLayers).setOnClickListener {
             layers.showSheet(this, map?.style?.takeIf { chartFile.exists() })
         }
         findViewById<View>(R.id.btnDoneEditing).setOnClickListener { setEditing(false) }
         modeButton.setOnClickListener { showModePicker(it) }
+        applyAppearance()
         // Tap the alert banner for full zone details (with links to the legal orders).
         zoneBanner.setOnClickListener {
             lastFix?.let { showZoneInfo(LatLng(it.latitude, it.longitude), always = true) }
@@ -266,8 +272,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 modeButtons.addView(MaterialButton(this, null,
                     com.google.android.material.R.attr.borderlessButtonStyle).apply {
                     text = label
-                    setTextColor(0xFFFFD54F.toInt())
-                    textSize = 13f
+                    setTextColor(look.accent)
+                    textSize = 12.5f * look.controlScale
                     minWidth = 0
                     minimumWidth = 0
                     setPadding(8, 0, 8, 0)
@@ -615,7 +621,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             "Import chart / relief file…" to { openChartPicker() },
             "Data fields for ${mode.label} mode…" to { showFieldsDialog() },
             "Edit layout (${mode.label})" to { setEditing(true) },
-            "Text size…" to { showTextSizeDialog() },
+            "Appearance (size & transparency)…" to { look.showSheet { applyAppearance() } },
             "Reset ${mode.label} layout" to {
                 fields.resetLayout(); Toast.makeText(this, R.string.layout_reset_done, Toast.LENGTH_SHORT).show()
             },
@@ -654,14 +660,51 @@ class MainActivity : AppCompatActivity(), LocationListener {
             .show()
     }
 
-    private fun showTextSizeDialog() {
+    /** Tapping a field in Edit layout: size or hide just that field. */
+    private fun fieldOptions(f: DataField) {
+        val sizes = listOf(0.75f to "Small", 1f to "Normal", 1.35f to "Large", 1.75f to "Extra large")
+        val current = sizes.indexOfFirst { it.first == fields.fieldSize(f) }.coerceAtLeast(1)
         AlertDialog.Builder(this)
-            .setTitle(R.string.menu_text_size)
-            .setSingleChoiceItems(arrayOf("Small", "Medium", "Large"), fields.textSize) { d, which ->
-                fields.textSize = which
+            .setTitle(f.label.replace("  ", " "))
+            .setSingleChoiceItems(sizes.map { it.second }.toTypedArray(), current) { d, which ->
+                fields.setFieldSize(f, sizes[which].first)
                 d.dismiss()
             }
+            .setNegativeButton("Hide field") { _, _ -> fields.setVisible(f, false) }
+            .setPositiveButton(android.R.string.ok, null)
             .show()
+    }
+
+    /** One palette for every control; sizes and transparency from Appearance settings. */
+    private fun applyAppearance() {
+        val dp = resources.displayMetrics.density
+        val scale = look.controlScale
+        val bgAlpha = look.controlAlpha
+        val size = controlSizePx()
+        for (b in controlButtons) {
+            b.layoutParams = b.layoutParams.apply { width = size; height = size }
+            b.background = look.circleBg(bgAlpha)
+            b.imageAlpha = (255 * (0.55f + 0.45f * bgAlpha)).toInt()
+            val pad = (10 * dp * scale).toInt()
+            b.setPadding(pad, pad, pad, pad)
+        }
+        modeButton.apply {
+            minHeight = size
+            textSize = 13f * scale
+            setTextColor(look.onSurface)
+            background = look.surfaceBg(bgAlpha, 22f * scale)
+        }
+        modePanel.background = look.surfaceBg(bgAlpha, 14f)
+        modeSummary.textSize = 13f * scale
+        (modePanel.layoutParams as FrameLayout.LayoutParams).apply {
+            marginStart = size + (20 * dp).toInt()
+            marginEnd = size + (20 * dp).toInt()
+        }
+        modeButtons.tag = null   // rebuild buttons at the new size
+        editBar.background = look.surfaceBg(0.9f, 22f)
+        fields.applyStyle()
+        applyMapUiMargins()
+        refreshModePanel()
     }
 
     private fun setEditing(on: Boolean) {
@@ -670,15 +713,19 @@ class MainActivity : AppCompatActivity(), LocationListener {
     }
 
     /** Keep MapLibre's compass and attribution clear of our buttons and the system bars. */
+    private fun controlSizePx() = (44 * resources.displayMetrics.density * look.controlScale).toInt()
+
     private fun applyMapUiMargins() {
         val ui = map?.uiSettings ?: return
         val dp = resources.displayMetrics.density
         val pad = (16 * dp).toInt()
+        val size = controlSizePx()
+        // Compass under the menu button; data credits "i" above the layers button.
         ui.compassGravity = Gravity.TOP or Gravity.END
-        ui.setCompassMargins(0, barInsets.top + (72 * dp).toInt(), barInsets.right + pad, 0)
+        ui.setCompassMargins(0, barInsets.top + size + (24 * dp).toInt(), barInsets.right + pad, 0)
         ui.isLogoEnabled = false
         ui.attributionGravity = Gravity.BOTTOM or Gravity.START
-        ui.setAttributionMargins(barInsets.left + (84 * dp).toInt(), 0, 0, barInsets.bottom + pad)
+        ui.setAttributionMargins(barInsets.left + pad, 0, 0, barInsets.bottom + size + (20 * dp).toInt())
     }
 
     // =========================================================================
@@ -975,8 +1022,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val name = feature?.getStringProperty("name")
         zoneAlert = when {
             feature == null -> null
-            notake.isNotEmpty() -> getString(R.string.no_fishing_banner, name ?: "") to 0xE6C62828.toInt()
-            else -> getString(R.string.restricted_banner, name ?: "") to 0xE6EF6C00.toInt()
+            notake.isNotEmpty() -> getString(R.string.no_fishing_banner, name ?: "") to look.danger
+            else -> getString(R.string.restricted_banner, name ?: "") to look.warn
         }
         if (feature != null && name != currentZone && notake.isNotEmpty()) buzz()
         currentZone = name
@@ -990,7 +1037,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             if (dist > settings.anchorRadiusM) {
                 val now = System.currentTimeMillis()
                 if (now - lastAnchorBuzz > 5000) { buzz(); lastAnchorBuzz = now }
-                "⚓ ANCHOR DRAGGING\n${dist.toInt()} m from anchor" to 0xE61565C0.toInt()
+                "⚓ ANCHOR DRAGGING\n${dist.toInt()} m from anchor" to look.info
             } else null
         } else null
         val alert = anchorAlert ?: zoneAlert
@@ -998,7 +1045,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             zoneBanner.visibility = View.GONE
         } else {
             zoneBanner.text = alert.first
-            zoneBanner.setBackgroundColor(alert.second)
+            zoneBanner.background = look.surfaceBg(0.92f, 18f, color = alert.second)
             zoneBanner.visibility = View.VISIBLE
         }
     }
