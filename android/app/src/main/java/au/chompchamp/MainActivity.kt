@@ -242,7 +242,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         if (mode != AppMode.FISH) overlays.setDrift(null, null)
         overlays.setMarks(marks)
         overlays.setAnchor(anchor, settings.anchorRadiusM)
-        overlays.setTrack(track.points)
+        overlays.setTrack(visibleTrack())
     }
 
     private fun refreshModePanel() {
@@ -654,7 +654,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             "Data: save, load, export, import…" to { showDataMenu() },
             "Reset trip & clear track" to {
                 confirm("Clear the track and reset the trip log?") {
-                    track.clear(); store.saveTrack(track.points); overlays.setTrack(track.points)
+                    track.clear(); store.saveTrack(track.points); overlays.setTrack(visibleTrack())
                 }
             },
         )
@@ -663,7 +663,17 @@ class MainActivity : AppCompatActivity(), LocationListener {
         popup.show()
     }
 
+    private var fixCount = 0
+
+    /** Track for the chosen history window, always joined up to the boat's current position. */
+    private fun visibleTrack(): List<LatLon> {
+        val pts = track.window(settings.trackWindowMin)
+        val here = lastPos() ?: return pts
+        return if (pts.isEmpty() || pts.last() != here) pts + here else pts
+    }
+
     private fun onSettingsChanged() {
+        overlays.setTrack(visibleTrack())
         overlays.setAnchor(anchor, settings.anchorRadiusM)
         refreshModePanel()
         if (mode == AppMode.NAVIGATE || mode == AppMode.FISH) {
@@ -1153,8 +1163,12 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val sog = if (location.hasSpeed()) location.speed * Geo.KN_PER_MS else null
         val cog = if (location.hasBearing() && location.speed > 0.5f) location.bearing.toDouble() else null
 
-        if (track.add(pos) && track.points.size % 5 == 0) {
-            overlays.setTrack(track.points)
+        val added = track.add(pos, location.time, settings.trackSpacingM)
+        // Redraw every few fixes: new points arrive and old ones age out of the time window.
+        if (++fixCount % 5 == 0 || (added && settings.trackWindowMin == null && track.points.size % 5 == 0)) {
+            overlays.setTrack(visibleTrack())
+        }
+        if (added) {
             if (track.points.size % 60 == 0) {
                 val pts = ArrayList(track.points)
                 io.execute { store.saveTrack(pts) }

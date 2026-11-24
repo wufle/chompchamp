@@ -31,6 +31,13 @@ class Settings(private val prefs: SharedPreferences) {
             listOf(14f, 15f, 16f, 17f), listOf("Wide", "Medium", "Close", "Very close"), 16f),
         Option("anchor_m", "Anchor alarm radius",
             listOf(20f, 30f, 50f, 75f, 100f, 150f), listOf("20 m", "30 m", "50 m", "75 m", "100 m", "150 m"), 50f),
+        Option("track_window", "Track history shown",
+            listOf(1f, 2f, 5f, 10f, 15f, 30f, 60f, 120f, 240f, 480f, 720f, -1f),
+            listOf("1 min", "2 min", "5 min", "10 min", "15 min", "30 min",
+                "1 hour", "2 hours", "4 hours", "8 hours", "12 hours", "Entire trip"), -1f),
+        Option("track_spacing", "Track point spacing",
+            listOf(5f, 10f, 25f, 50f, 100f),
+            listOf("5 m (most detail)", "10 m", "25 m", "50 m", "100 m (longest history)"), 10f),
         Option("safety_m", "Safety depth (route check)",
             listOf(2f, 3f, 5f, 10f, 20f), listOf("2 m", "3 m", "5 m", "10 m", "20 m"), 5f),
     )
@@ -45,6 +52,9 @@ class Settings(private val prefs: SharedPreferences) {
     val fishZoom get() = get("fish_zoom").toDouble()
     val anchorRadiusM get() = get("anchor_m").toDouble()
     val safetyDepthM get() = get("safety_m").toDouble()
+    /** Minutes of track to draw, or null for the entire trip. */
+    val trackWindowMin: Double? get() = get("track_window").let { if (it < 0) null else it.toDouble() }
+    val trackSpacingM get() = get("track_spacing").toDouble()
 
     fun show(ctx: Context, onChanged: () -> Unit) {
         val rows = options.map { o ->

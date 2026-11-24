@@ -26,7 +26,7 @@ class DataBundle(
     val routes: List<Route> = emptyList(),
     val plan: Route? = null,
     val marks: List<Mark> = emptyList(),
-    val track: List<LatLon> = emptyList(),
+    val track: List<TrackPoint> = emptyList(),
     val settings: JSONObject? = null,
 ) {
     fun available(): List<DataPart> = buildList {
@@ -65,7 +65,7 @@ class UserData(dir: File, private val store: Store, private val prefs: SharedPre
             o.put("plan", store.plan().toJson())
         }
         if (DataPart.MARKS in parts) o.put("marks", JSONArray().apply { store.marks().forEach { put(it.toJson()) } })
-        if (DataPart.TRACK in parts) o.put("track", JSONArray().apply { store.track().forEach { put(it.lat); put(it.lon) } })
+        if (DataPart.TRACK in parts) o.put("track3", Store.encodeTrack(store.track()))
         if (DataPart.SETTINGS in parts) o.put("settings", prefsToJson())
         return o.toString(1)
     }
@@ -76,7 +76,9 @@ class UserData(dir: File, private val store: Store, private val prefs: SharedPre
         val routes = o.optJSONArray("routes")?.let { a -> List(a.length()) { Route.fromJson(a.getJSONObject(it)) } }.orEmpty()
         val plan = o.optJSONObject("plan")?.let { Route.fromJson(it) }
         val marks = o.optJSONArray("marks")?.let { a -> List(a.length()) { Mark.fromJson(a.getJSONObject(it)) } }.orEmpty()
-        val track = o.optJSONArray("track")?.let { a -> List(a.length() / 2) { LatLon(a.getDouble(it * 2), a.getDouble(it * 2 + 1)) } }.orEmpty()
+        val track = o.optJSONArray("track3")?.let { Store.decodeTrack(it, 3) }
+            ?: o.optJSONArray("track")?.let { Store.decodeTrack(it, 2) }
+            ?: emptyList()
         return DataBundle(routes, plan, marks, track, o.optJSONObject("settings"))
     }
 
@@ -193,7 +195,11 @@ class UserData(dir: File, private val store: Store, private val prefs: SharedPre
             val t = store.track()
             if (t.isNotEmpty()) {
                 sb.append("  <trk><name>ChompChamp track</name><trkseg>\n")
-                for (p in t) sb.append("""    <trkpt lat="${p.lat}" lon="${p.lon}"/>""").append('\n')
+                for (p in t) {
+                    if (p.t > 0) sb.append("""    <trkpt lat="${p.lat}" lon="${p.lon}"><time>${iso(p.t)}</time></trkpt>""")
+                    else sb.append("""    <trkpt lat="${p.lat}" lon="${p.lon}"/>""")
+                    sb.append('\n')
+                }
                 sb.append("  </trkseg></trk>\n")
             }
         }
@@ -208,7 +214,7 @@ class UserData(dir: File, private val store: Store, private val prefs: SharedPre
         parser.setInput(StringReader(text))
         val marks = mutableListOf<Mark>()
         val routes = mutableListOf<Route>()
-        val track = mutableListOf<LatLon>()
+        val track = mutableListOf<TrackPoint>()
         var route: Route? = null
         var pt: LatLon? = null
         var ptName: String? = null
@@ -239,7 +245,7 @@ class UserData(dir: File, private val store: Store, private val prefs: SharedPre
                     when {
                         tag == "name" && parent in setOf("wpt", "rtept") -> ptName = text0.trim()
                         tag == "name" && parent == "rte" -> route?.name = text0.trim()
-                        tag == "time" && parent == "wpt" -> ptTime = parseIso(text0.trim())
+                        tag == "time" && (parent == "wpt" || parent == "trkpt") -> ptTime = parseIso(text0.trim())
                         tag == "wpt" -> pt?.let {
                             marks.add(Mark(UUID.randomUUID().toString(), it.lat, it.lon,
                                 ptName ?: "Mark ${marks.size + 1}", ptTime ?: System.currentTimeMillis()))
@@ -247,7 +253,7 @@ class UserData(dir: File, private val store: Store, private val prefs: SharedPre
                         tag == "rtept" -> pt?.let { p ->
                             route?.waypoints?.add(Waypoint(p.lat, p.lon, ptName ?: "WP${(route?.waypoints?.size ?: 0) + 1}"))
                         }
-                        tag == "trkpt" -> pt?.let { track.add(it) }
+                        tag == "trkpt" -> pt?.let { track.add(TrackPoint(it.lat, it.lon, ptTime ?: 0L)) }
                         tag == "rte" -> route?.let {
                             if (it.waypoints.isNotEmpty()) routes.add(it.also { r -> if (r.name.isBlank()) r.name = "Imported route" })
                             route = null

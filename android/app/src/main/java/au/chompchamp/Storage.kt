@@ -80,14 +80,28 @@ class Store(dir: File) {
     fun marks(): MutableList<Mark> = readArray(marksFile).map { Mark.fromJson(it) }.toMutableList()
     fun saveMarks(list: List<Mark>) = writeArray(marksFile, list.map { it.toJson() })
 
-    fun track(): MutableList<LatLon> = runCatching {
-        val a = JSONArray(trackFile.readText())
-        MutableList(a.length() / 2) { i -> LatLon(a.getDouble(i * 2), a.getDouble(i * 2 + 1)) }
+    /** v2: {"v":2,"pts":[lat,lon,t,...]}. v1 (old): [lat,lon,...] without times. */
+    fun track(): MutableList<TrackPoint> = runCatching {
+        val text = trackFile.readText().trimStart()
+        if (text.startsWith("{")) decodeTrack(JSONObject(text).getJSONArray("pts"), 3)
+        else decodeTrack(JSONArray(text), 2)
     }.getOrElse { mutableListOf() }
 
-    fun saveTrack(points: List<LatLon>) = write(trackFile, JSONArray().apply {
-        points.forEach { put(it.lat); put(it.lon) }
-    }.toString())
+    fun saveTrack(points: List<TrackPoint>) =
+        write(trackFile, JSONObject().put("v", 2).put("pts", encodeTrack(points)).toString())
+
+    companion object {
+        fun encodeTrack(points: List<TrackPoint>) = JSONArray().apply {
+            points.forEach { put(it.lat); put(it.lon); put(it.t) }
+        }
+
+        /** [stride] 3 = lat,lon,t; 2 = old lat,lon (time unknown → 0). */
+        fun decodeTrack(a: JSONArray, stride: Int): MutableList<TrackPoint> =
+            MutableList(a.length() / stride) { i ->
+                TrackPoint(a.getDouble(i * stride), a.getDouble(i * stride + 1),
+                    if (stride == 3) a.getLong(i * stride + 2) else 0L)
+            }
+    }
 
     private fun readArray(f: File): List<JSONObject> = runCatching {
         val a = JSONArray(f.readText())

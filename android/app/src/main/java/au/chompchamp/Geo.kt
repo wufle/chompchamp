@@ -14,6 +14,11 @@ import kotlin.math.sqrt
 
 data class LatLon(val lat: Double, val lon: Double)
 
+/** A recorded track point. [t] = epoch ms, or 0 for points recorded before timestamps existed. */
+data class TrackPoint(val lat: Double, val lon: Double, val t: Long) {
+    val pos get() = LatLon(lat, lon)
+}
+
 /** Great-circle navigation maths. Distances in nautical miles, angles in degrees true. */
 object Geo {
     const val EARTH_NM = 3440.065
