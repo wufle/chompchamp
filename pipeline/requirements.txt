@@ -1,0 +1,5 @@
+numpy==2.5.5
+scipy==1.18.1
+rasterio==1.5.2
+shapely==2.2.0
+contourpy==1.4.0

@@ -460,15 +460,17 @@ class MainActivity : AppCompatActivity(), LocationListener {
             val pb = m.projection.toScreenLocation(LatLng(b.lat, b.lon))
             val steps = (Math.hypot((pb.x - pa.x).toDouble(), (pb.y - pa.y).toDouble()) / 3).toInt().coerceIn(2, 2000)
             var land = false
+            var unknown = false
             var shallowest: Int? = null
             val zones = linkedSetOf<String>()
             for (s in 0..steps) {
                 val t = s.toFloat() / steps
                 val p = PointF(pa.x + (pb.x - pa.x) * t, pa.y + (pb.y - pa.y) * t)
-                if (m.queryRenderedFeatures(p, "land").isNotEmpty()) land = true
-                m.queryRenderedFeatures(p, "depth-fill").firstOrNull()?.getNumberProperty("dmin")?.toInt()?.let { d ->
-                    if (shallowest == null || d < shallowest!!) shallowest = d
-                }
+                val onLand = m.queryRenderedFeatures(p, "land").isNotEmpty()
+                if (onLand) land = true
+                val d = m.queryRenderedFeatures(p, "depth-fill").firstOrNull()?.getNumberProperty("dmin")?.toInt()
+                if (d == null) { if (!onLand) unknown = true }
+                else if (shallowest == null || d < shallowest!!) shallowest = d
                 m.queryRenderedFeatures(p, "zones-notake-fill").forEach { f ->
                     f.getStringProperty("name")?.let { zones.add(it) }
                 }
@@ -476,11 +478,13 @@ class MainActivity : AppCompatActivity(), LocationListener {
             val label = "Leg ${leg + 1} (${a.name} → ${b.name})"
             if (land) issues.add("⛔ $label crosses LAND")
             shallowest?.let { if (it < safety) issues.add("⚠ $label: depth may be under ${safety.toInt()} m (shallowest band from $it m)") }
+            if (unknown) issues.add("⚠ $label: no depth data for part of this leg")
             zones.forEach { issues.add("ℹ $label passes through no-fishing zone: $it (transit OK, no fishing)") }
         }
         val body = (if (issues.isEmpty()) "No land, shallow water (< ${safety.toInt()} m) or no-fishing zones found on the route."
         else issues.joinToString("\n\n")) +
-            "\n\nBased on a 250 m depth model, so small reefs, rocks and bars WILL be missed. Check official charts."
+            "\n\nDepths are survey data around Perth and a 250 m model elsewhere, measured from about mean sea level: " +
+            "expect less water at low tide. Small reefs, rocks and bars can be missed. Check official charts."
         MaterialAlertDialogBuilder(this).setTitle("Route check").setMessage(body)
             .setPositiveButton(android.R.string.ok, null).show()
     }
@@ -1168,7 +1172,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         for (i in 0 until src.length()) {
             val layer = src.getJSONObject(i)
             out.put(layer)
-            if (layer.getString("id") == "depth-fill") {
+            // Above land (so coarse land never hides surveyed water), below zones and contours.
+            if (layer.getString("id") == "land") {
                 out.put(JSONObject().put("id", "relief").put("type", "raster").put("source", "relief")
                     .put("paint", JSONObject().put("raster-opacity", 0.9)))
             }

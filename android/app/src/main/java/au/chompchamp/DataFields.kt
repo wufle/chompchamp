@@ -100,7 +100,7 @@ class DataFieldsOverlay(
     }
 
     var grouping: Grouping
-        get() = prefs.getInt("f.${mode.key}.group", 0).let { k -> Grouping.entries.firstOrNull { it.key == k } }
+        get() = prefs.getInt("f.${mode.key}.group", Grouping.COLUMN.key).let { k -> Grouping.entries.firstOrNull { it.key == k } }
             ?: Grouping.SEPARATE
         set(value) {
             prefs.edit().putInt("f.${mode.key}.group", value.key).apply()

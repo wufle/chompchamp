@@ -45,7 +45,14 @@ jobs:
           path: pipeline/build/ausbathytopo.zip
           key: ausbathytopo-australia-2024-250m
 
+      - name: Python packages for the Perth metro detail
+        run: |
+          python3 -m venv /tmp/venv
+          /tmp/venv/bin/pip install -q -r pipeline/requirements.txt
+
       - name: Build wa.pmtiles
+        env:
+          PY: /tmp/venv/bin/python
         run: ./pipeline/build.sh
 
       # Releases only on explicit request: never published automatically.

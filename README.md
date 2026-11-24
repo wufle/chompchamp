@@ -83,6 +83,8 @@ and reinstall (losing routes and marks).
 | Layer | Source | Licence |
 |---|---|---|
 | Depth, contours, land | Geoscience Australia, [AusBathyTopo (Australia) 250m 2024](https://pid.geoscience.gov.au/dataset/ga/150050) | © Commonwealth of Australia; check terms before commercial use |
+| Depth, contours: Perth metro coast (Two Rocks to Warnbro, Rottnest), Cockburn Sound, Swan and Canning rivers | WA Department of Transport 5 m composite grids (DOT-022) and point soundings (DOT-021). Heights relative to AHD (about mean sea level), not low-tide chart datum | CC BY 4.0 |
+| Coastline and river outlines (Perth metro) | © OpenStreetMap contributors | ODbL 1.0 |
 | No-fishing / restricted zones | WA DPIRD Fisheries Guide, consolidated notices and orders (DPIRD-061), via [SLIP](https://public-services.slip.wa.gov.au/public/rest/services/SLIP_Public_Services/DPIRD_Fisheries_Guide/MapServer) | WA Government, check SLIP terms |
 | State marine park outlines | WA DBCA Legislated Lands and Waters (DBCA-011) | CC BY-SA 4.0 |
 | Commonwealth marine park zones | Parks Australia, [Australian Marine Parks](https://gis.environment.gov.au/gispubmap/rest/services/ogc_services/Australian_Marine_Parks/FeatureServer) | Commonwealth (likely CC BY 4.0, verify) |

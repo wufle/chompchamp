@@ -42,7 +42,10 @@ class MapLayers(private val prefs: SharedPreferences) {
     private val layers: Map<MapOverlay, List<StyleLayer>> = mapOf(
         MapOverlay.SATELLITE to listOf(StyleLayer("satellite", Kind.RASTER, 1f)),
         MapOverlay.RELIEF to listOf(StyleLayer("relief", Kind.RASTER, 0.9f)),
-        MapOverlay.DEPTH to listOf(StyleLayer("depth-fill", Kind.FILL, 1f, queried = true)),
+        MapOverlay.DEPTH to listOf(
+            StyleLayer("water-fill", Kind.FILL, 1f),
+            StyleLayer("depth-fill", Kind.FILL, 1f, queried = true),
+        ),
         MapOverlay.CONTOURS to listOf(StyleLayer("contour", Kind.LINE, 0.8f)),
         MapOverlay.CONTOUR_LABELS to listOf(StyleLayer("contour-label", Kind.SYMBOL, 1f)),
         MapOverlay.LAND to listOf(StyleLayer("land", Kind.FILL, 1f, queried = true)),
