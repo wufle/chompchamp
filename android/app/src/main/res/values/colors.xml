@@ -1,5 +1,5 @@
 <resources>
-    <color name="ic_launcher_background">#0D47A1</color>
+    <color name="ic_launcher_background">#8EC1E6</color>
 
     <!-- UI palette: one surface, one accent, alert colours only for alerts. -->
     <color name="ui_surface">#101C2B</color>

@@ -13,5 +13,6 @@ android/captures/
 pipeline/build/
 pipeline/out/
 *.pmtiles
+__pycache__/
 
 .DS_Store
