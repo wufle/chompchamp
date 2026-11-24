@@ -31,7 +31,7 @@ There is no Java, Android SDK, GDAL or tippecanoe on the dev machine, so **CI is
 Bump `versionCode` and `versionName` in `android/app/build.gradle.kts` for every APK the user will install.
 A `-tempkey` filename means the signing secrets were missing, and it won't update an installed app.
 
-There are no automated tests. Nothing can be run on a device from here, so say so when reporting.
+The Android app has no automated tests. It can't be run on a device from here, so say so when reporting.
 Pipeline Python can be tested locally: `uv venv` + `pipeline/requirements.txt` in a scratch directory,
 then plot the GeoJSON and look at it before spending CI time.
 
@@ -65,6 +65,16 @@ Gotchas:
 - `Slider` values must land on the step: use whole percents in steps of 5.
 - Pref keys (`f.<mode>.*`, `layer_*`, `set_*`), overlay keys and the track format are stored on the
   user's phone. Don't rename them; keep reading old formats.
+
+## Desktop planner (`web/`)
+
+`python3 web/build.py` -> `web/dist/chompchamp-planner.html`, one offline file opened from disk (`file://`), so no
+modules, no fetch of local files and no CDN. Vendored libraries are in `web/vendor`. It reuses the Android app's
+`chart-style.json`, `hazards.geojson` and logo. `src/core.js` is pure logic (mirrors `Geo.kt`, `Storage.kt`,
+`UserData.kt`; keep the data formats in step) and `src/app.js` is the interface. Depth, zones and the route check read
+the chart file through `ChartReader`, not rendered features. Keep the filename unversioned: some browsers tie saved
+data to it. Put text on the page with `textContent` / `el()`, never HTML. Test with `node web/test.mjs`, and in
+headless Chromium (available locally) before calling it done. Bump `web/VERSION` for each release.
 
 ## Pipeline (`pipeline/build.sh`)
 

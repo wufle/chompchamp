@@ -68,6 +68,14 @@ Everything is customisable:
 - **Data** (Menu): save and load named snapshots on the phone; export and import a backup file (.json) with routes, marks, track and settings (merge or replace); export and import GPX to move marks, routes and tracks to and from other chartplotter apps.
 - **Settings**: track history shown (1 min to the entire trip), track point spacing, arrival radius, planning speed, north-up / course-up, drift window and projection, fish-mode zoom, anchor radius, safety depth.
 
+## Desktop planner (preview)
+
+Plan on a big screen: a single HTML file for Linux, Windows or Mac that you open in a browser. It reads the same
+`wa.pmtiles` chart and works offline once opened. View the chart, depths, zones and hazards, draw and check routes,
+keep marks, and swap routes and marks with the phone app using backup or GPX files. No GPS or live navigation.
+
+It isn't in a release yet. To try it, run `python3 web/build.py` and open `web/dist/chompchamp-planner.html`.
+
 ## Privacy
 
 No accounts, ads or analytics. Your position, track, marks and photos stay on the phone unless you export
@@ -133,6 +141,7 @@ and obstructions known only from hydrographic surveys (AHO ENCs) are not in any 
 ```
 android/     Kotlin app using MapLibre Native (reads a local .pmtiles chart file)
 pipeline/    Scripts that build the offline chart (wa.pmtiles) and relief pack from public data
+web/         Desktop planner: plain JavaScript, built into one HTML file by build.py
 branding/    Logo source; make_icon.py writes the launcher icons
 .github/     CI: builds the APK on every push to android/; chart and relief on demand
 ```
@@ -159,6 +168,8 @@ lines aren't stair-stepped, which looks better but adds no real detail.
 
 The chart and relief can also be built with the *Build WA chart data* and *Build WA reef relief pack*
 workflows. They make a workflow artifact, and only publish a release if **publish** is ticked.
+
+**Desktop planner:** `python3 web/build.py` (no dependencies), tests with `node web/test.mjs`.
 
 ### Signing
 

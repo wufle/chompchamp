@@ -16,3 +16,7 @@ pipeline/out/
 __pycache__/
 
 .DS_Store
+
+# Planner build
+web/dist/
+node_modules/

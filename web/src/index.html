@@ -1,0 +1,61 @@
+<!doctype html>
+<!--
+ChompChamp Planner: MIT licence, https://github.com/wufle/chompchamp
+Bundled libraries (map data has its own licences, see the README):
+
+%%LICENCES%%
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' blob:; worker-src blob:; child-src blob:; style-src 'unsafe-inline'; img-src data: blob: https://tiles.maps.eox.at https://public-services.slip.wa.gov.au; connect-src data: blob: https://tiles.maps.eox.at https://public-services.slip.wa.gov.au; base-uri 'none'; form-action 'none'">
+<title>ChompChamp Planner</title>
+<link rel="icon" href="data:image/svg+xml;base64,%%LOGO_B64%%">
+<style>%%VENDOR_CSS%%</style>
+<style>%%APP_CSS%%</style>
+</head>
+<body>
+<div id="map" aria-label="Chart"></div>
+
+<aside id="panel" aria-label="Planner">
+  <header>
+    <img src="data:image/svg+xml;base64,%%LOGO_B64%%" alt="" width="36" height="36">
+    <div><h1>ChompChamp</h1><span class="muted">Planner %%VERSION%%</span></div>
+    <button id="collapse" class="icon" aria-label="Hide panel" title="Hide panel">‹</button>
+  </header>
+  <nav role="tablist" aria-label="Sections">
+    <button role="tab" data-tab="routes" id="tab-routes" aria-controls="pane-routes">Route</button>
+    <button role="tab" data-tab="marks" id="tab-marks" aria-controls="pane-marks">Marks</button>
+    <button role="tab" data-tab="layers" id="tab-layers" aria-controls="pane-layers">Layers</button>
+    <button role="tab" data-tab="data" id="tab-data" aria-controls="pane-data">Data</button>
+  </nav>
+  <section role="tabpanel" id="pane-routes" aria-labelledby="tab-routes"></section>
+  <section role="tabpanel" id="pane-marks" aria-labelledby="tab-marks" hidden></section>
+  <section role="tabpanel" id="pane-layers" aria-labelledby="tab-layers" hidden></section>
+  <section role="tabpanel" id="pane-data" aria-labelledby="tab-data" hidden></section>
+</aside>
+<button id="expand" class="icon" aria-label="Show panel" title="Show panel" hidden>›</button>
+
+<div id="welcome" hidden>
+  <img src="data:image/svg+xml;base64,%%LOGO_B64%%" alt="" width="96" height="96">
+  <h2>Open your chart</h2>
+  <p>Choose the <code>wa.pmtiles</code> file from the ChompChamp release. It's kept in this browser, so you only do this once.</p>
+  <button class="primary" id="welcome-open">Choose wa.pmtiles…</button>
+  <p class="muted">You can also drop the file anywhere on this page.</p>
+</div>
+
+<div id="hint" role="status" hidden></div>
+<div id="status" aria-live="off"><span id="s-pos">–</span><span id="s-depth">–</span><span id="s-zone"></span></div>
+<div id="menu" role="menu" hidden></div>
+<div id="toast" role="status" hidden></div>
+<dialog id="dialog"><form method="dialog"></form></dialog>
+<input type="file" id="file" hidden>
+
+<script>%%VENDOR_MAPLIBRE%%</script>
+<script>%%VENDOR_PMTILES%%</script>
+<script>%%DATA%%</script>
+<script>%%CORE_JS%%</script>
+<script>%%APP_JS%%</script>
+</body>
+</html>

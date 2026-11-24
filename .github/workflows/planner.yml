@@ -1,0 +1,25 @@
+name: Desktop planner
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", "android/app/src/main/assets/**", "branding/logo.svg", ".github/workflows/planner.yml"]
+  pull_request:
+    paths: ["web/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: node web/test.mjs
+      - run: python3 web/build.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chompchamp-planner
+          path: web/dist/chompchamp-planner.html
+          retention-days: 7
