@@ -171,7 +171,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
 
         setMode(AppMode.CHART)
-        showDisclaimerIfNeeded()
         handleIncomingIntent(intent)
     }
 
@@ -632,7 +631,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
                     track.clear(); store.saveTrack(track.points); overlays.setTrack(track.points)
                 }
             },
-            "Not-for-navigation notice" to { showDisclaimer(force = true) },
         )
         items.forEachIndexed { i, (label, _) -> popup.menu.add(0, i, i, label) }
         popup.setOnMenuItemClickListener { items[it.itemId].second(); true }
@@ -1081,21 +1079,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
             .setNegativeButton(android.R.string.cancel, null).show()
     }
 
-    private fun showDisclaimerIfNeeded() = showDisclaimer(force = false)
-
-    private fun showDisclaimer(force: Boolean) {
-        val prefs = getSharedPreferences("app", MODE_PRIVATE)
-        if (!force && prefs.getBoolean(DISCLAIMER_KEY, false)) return
-        AlertDialog.Builder(this)
-            .setTitle(R.string.disclaimer_title)
-            .setMessage(R.string.disclaimer_body)
-            .setCancelable(false)
-            .setPositiveButton(R.string.disclaimer_accept) { _, _ ->
-                prefs.edit().putBoolean(DISCLAIMER_KEY, true).apply()
-            }
-            .show()
-    }
-
     // =========================================================================
     // Lifecycle
     // =========================================================================
@@ -1119,7 +1102,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
     }
 
     companion object {
-        private const val DISCLAIMER_KEY = "disclaimer_v1"
         private const val RELIEF_ONLINE =
             "https://public-services.slip.wa.gov.au/public/rest/services/Landgate_Public_Maps/WA_Bathymetry/MapServer/export" +
                 "?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&layers=show:2&f=image"

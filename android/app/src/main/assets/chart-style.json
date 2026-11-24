@@ -6,7 +6,7 @@
     "chart": {
       "type": "vector",
       "url": "{{CHART_URL}}",
-      "attribution": "Depth: \u00a9 Geoscience Australia (AusBathyTopo). Zones: WA DPIRD, DBCA (CC BY-SA 4.0), Parks Australia. NOT FOR NAVIGATION."
+      "attribution": "Depth: \u00a9 Geoscience Australia (AusBathyTopo). Zones: WA DPIRD, DBCA (CC BY-SA 4.0), Parks Australia."
     },
     "satellite": {
       "type": "raster",

@@ -27,7 +27,7 @@ COVERAGE_LAYER = 1      # "Composite Surfaces - Multibeam LIDAR Laser (DOT-022)"
 IMAGE_GROUP = 2         # "Bathymetry Images" group layer
 HALF = 20037508.342789244
 UA = {"User-Agent": "chompchamp-pipeline/0.2"}
-ATTRIBUTION = "Bathymetry imagery © WA Department of Transport (CC BY 3.0 AU). NOT FOR NAVIGATION."
+ATTRIBUTION = "Bathymetry imagery © WA Department of Transport (CC BY 3.0 AU)."
 
 
 def fetch(url, params, retries=5):
