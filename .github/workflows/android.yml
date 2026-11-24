@@ -27,7 +27,7 @@ jobs:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
         run: |
           if [ -z "$KEYSTORE_B64" ]; then
-            echo "::warning::ANDROID_KEYSTORE_B64 secret not set - building an UNSIGNED release (not installable). See README 'Signing'."
+            echo "::warning::ANDROID_KEYSTORE_B64 secret not set - signing with a temporary key. It installs, but won't update over other builds. See README 'Signing'."
             exit 0
           fi
           echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.p12"
@@ -41,11 +41,9 @@ jobs:
           ./gradlew --no-daemon assembleRelease
           mkdir -p ../dist
           VERSION=$(grep versionName app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
-          if [ -f app/build/outputs/apk/release/app-release.apk ]; then
-            cp app/build/outputs/apk/release/app-release.apk "../dist/chompchamp-$VERSION.apk"
-          else
-            cp app/build/outputs/apk/release/app-release-unsigned.apk "../dist/chompchamp-$VERSION-UNSIGNED.apk"
-          fi
+          SUFFIX=""
+          [ -z "${ANDROID_KEYSTORE_PATH:-}" ] && SUFFIX="-tempkey"
+          cp app/build/outputs/apk/release/app-release.apk "../dist/chompchamp-$VERSION$SUFFIX.apk"
           ls -la ../dist
 
       - uses: actions/upload-artifact@v4

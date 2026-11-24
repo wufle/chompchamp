@@ -34,7 +34,9 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.findByName("release")
+            // Without the real key, fall back to the throwaway debug key so the APK still
+            // installs (it just can't update over a build signed with a different key).
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
         debug {
             // Sign debug builds with the same key when available, so either can update the other.
