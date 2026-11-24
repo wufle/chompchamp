@@ -14,6 +14,8 @@ import android.os.Vibrator
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
+import android.widget.FrameLayout
+import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -40,7 +42,9 @@ import kotlin.math.abs
 class MainActivity : AppCompatActivity(), LocationListener {
 
     private lateinit var mapView: MapView
-    private lateinit var navText: TextView
+    private lateinit var fields: DataFieldsOverlay
+    private lateinit var layers: MapLayers
+    private lateinit var editBar: View
     private lateinit var zoneBanner: TextView
     private var map: MapLibreMap? = null
     private var locationActive = false
@@ -77,7 +81,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         mapView = findViewById(R.id.mapView)
-        navText = findViewById(R.id.navText)
+        val prefs = getSharedPreferences("app", MODE_PRIVATE)
+        fields = DataFieldsOverlay(findViewById<FrameLayout>(R.id.fieldsContainer), prefs)
+        layers = MapLayers(prefs)
+        editBar = findViewById(R.id.editBar)
         zoneBanner = findViewById(R.id.zoneBanner)
         mapView.onCreate(savedInstanceState)
 
@@ -92,7 +99,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
 
         findViewById<FloatingActionButton>(R.id.btnLocate).setOnClickListener { followBoat() }
-        findViewById<FloatingActionButton>(R.id.btnImport).setOnClickListener { openChartPicker() }
+        findViewById<FloatingActionButton>(R.id.btnMenu).setOnClickListener { showMenu(it) }
+        findViewById<FloatingActionButton>(R.id.btnLayers).setOnClickListener {
+            layers.showSheet(this, map?.style?.takeIf { chartFile.exists() })
+        }
+        findViewById<View>(R.id.btnDoneEditing).setOnClickListener { setEditing(false) }
 
         mapView.getMapAsync { m ->
             map = m
@@ -144,16 +155,72 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
     }
 
+    // ---- Menu & layout settings -------------------------------------------------
+
+    private fun showMenu(anchor: View) {
+        val popup = PopupMenu(this, anchor)
+        val items = listOf(
+            R.string.menu_import, R.string.menu_fields, R.string.menu_edit_layout,
+            R.string.menu_text_size, R.string.menu_reset_layout, R.string.menu_about,
+        )
+        items.forEachIndexed { i, res -> popup.menu.add(0, res, i, res) }
+        popup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                R.string.menu_import -> openChartPicker()
+                R.string.menu_fields -> showFieldsDialog()
+                R.string.menu_edit_layout -> setEditing(true)
+                R.string.menu_text_size -> showTextSizeDialog()
+                R.string.menu_reset_layout -> {
+                    fields.resetLayout()
+                    Toast.makeText(this, R.string.layout_reset_done, Toast.LENGTH_SHORT).show()
+                }
+                R.string.menu_about -> showDisclaimer(force = true)
+            }
+            true
+        }
+        popup.show()
+    }
+
+    private fun showFieldsDialog() {
+        val all = DataField.entries
+        val checked = all.map { fields.isVisible(it) }.toBooleanArray()
+        AlertDialog.Builder(this)
+            .setTitle(R.string.menu_fields)
+            .setMultiChoiceItems(all.map { it.label.replace("  ", " ") }.toTypedArray(), checked) { _, which, on ->
+                fields.setVisible(all[which], on)
+            }
+            .setPositiveButton(android.R.string.ok, null)
+            .setNeutralButton(R.string.menu_edit_layout) { _, _ -> setEditing(true) }
+            .show()
+    }
+
+    private fun showTextSizeDialog() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.menu_text_size)
+            .setSingleChoiceItems(arrayOf("Small", "Medium", "Large"), fields.textSize) { d, which ->
+                fields.textSize = which
+                d.dismiss()
+            }
+            .show()
+    }
+
+    private fun setEditing(on: Boolean) {
+        fields.setEditing(on)
+        editBar.visibility = if (on) View.VISIBLE else View.GONE
+    }
+
     /** Keep MapLibre's compass, logo and attribution clear of our buttons and the system bars. */
     private fun applyMapUiMargins() {
         val ui = map?.uiSettings ?: return
         val dp = resources.displayMetrics.density
         val pad = (16 * dp).toInt()
         ui.compassGravity = Gravity.TOP or Gravity.END
-        // Sit below the top-right + button (mini FAB 40dp + 16dp margins).
+        // Sit below the top-right menu button (mini FAB 40dp + 16dp margins).
         ui.setCompassMargins(0, barInsets.top + (72 * dp).toInt(), barInsets.right + pad, 0)
-        ui.setLogoMargins(barInsets.left + pad, 0, 0, barInsets.bottom + pad)
-        ui.setAttributionMargins(barInsets.left + (100 * dp).toInt(), 0, 0, barInsets.bottom + pad)
+        ui.isLogoEnabled = false
+        // Data credits "i" button: just right of the bottom-left layers button.
+        ui.attributionGravity = Gravity.BOTTOM or Gravity.START
+        ui.setAttributionMargins(barInsets.left + (84 * dp).toInt(), 0, 0, barInsets.bottom + pad)
     }
 
     // ---- Chart style -------------------------------------------------------
@@ -167,7 +234,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
             Toast.makeText(this, R.string.no_chart, Toast.LENGTH_LONG).show()
             EMPTY_STYLE
         }
-        m.setStyle(Style.Builder().fromJson(json)) { style -> startLocation(style) }
+        m.setStyle(Style.Builder().fromJson(json)) { style ->
+            layers.apply(style)
+            startLocation(style)
+        }
     }
 
     private fun importChartFile(uri: Uri) {
@@ -244,7 +314,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     override fun onLocationChanged(location: Location) {
         val m = map ?: return
         if (locationActive) m.locationComponent.forceLocationUpdate(location)
-        updateNav(location)
+        updateFields(location)
         checkZone(location)
     }
 
@@ -263,10 +333,29 @@ class MainActivity : AppCompatActivity(), LocationListener {
         m.locationComponent.zoomWhileTracking(13.0)
     }
 
-    private fun updateNav(loc: Location) {
-        val sog = if (loc.hasSpeed()) String.format(Locale.US, "%4.1f", loc.speed * MS_TO_KNOTS) else "--.-"
-        val cog = if (loc.hasBearing() && loc.speed > 0.5f) String.format(Locale.US, "%03.0f", loc.bearing) else "---"
-        navText.text = "SOG $sog kn\nCOG $cog°\n${formatDdm(loc.latitude, true)}\n${formatDdm(loc.longitude, false)}"
+    private fun updateFields(loc: Location) {
+        fields.set(DataField.SOG,
+            if (loc.hasSpeed()) String.format(Locale.US, "%.1f", loc.speed * MS_TO_KNOTS) else "--.-")
+        fields.set(DataField.COG,
+            if (loc.hasBearing() && loc.speed > 0.5f) String.format(Locale.US, "%03.0f°", loc.bearing) else "---°")
+        fields.set(DataField.POSITION,
+            "${formatDdm(loc.latitude, true)}\n${formatDdm(loc.longitude, false)}")
+        fields.set(DataField.DEPTH, estimateDepth(loc))
+    }
+
+    /**
+     * Depth band from the chart under the boat, e.g. "20–25". Only works while the boat
+     * is on screen (we query rendered tiles), and is only as good as the 250 m model.
+     */
+    private fun estimateDepth(loc: Location): String {
+        val m = map ?: return "--"
+        val screen = m.projection.toScreenLocation(LatLng(loc.latitude, loc.longitude))
+        if (screen.x < 0 || screen.y < 0 || screen.x > mapView.width || screen.y > mapView.height) return "off screen"
+        if (m.queryRenderedFeatures(screen, "land").isNotEmpty()) return "land"
+        val f = m.queryRenderedFeatures(screen, "depth-fill").firstOrNull() ?: return "--"
+        val dmin = f.getNumberProperty("dmin")?.toInt() ?: return "--"
+        val dmax = f.getNumberProperty("dmax")?.toInt()
+        return if (dmax == null || dmax >= 2000) ">$dmin" else "$dmin–$dmax"
     }
 
     // ---- Fishing zone alerts -------------------------------------------------
@@ -326,9 +415,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     // ---- Disclaimer ----------------------------------------------------------
 
-    private fun showDisclaimerIfNeeded() {
+    private fun showDisclaimerIfNeeded() = showDisclaimer(force = false)
+
+    private fun showDisclaimer(force: Boolean) {
         val prefs = getSharedPreferences("app", MODE_PRIVATE)
-        if (prefs.getBoolean(DISCLAIMER_KEY, false)) return
+        if (!force && prefs.getBoolean(DISCLAIMER_KEY, false)) return
         AlertDialog.Builder(this)
             .setTitle(R.string.disclaimer_title)
             .setMessage(R.string.disclaimer_body)

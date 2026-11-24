@@ -14,7 +14,9 @@ A free, offline fishing chartplotter for Android, starting with **Western Austra
 - **No-fishing zones** in red (state sanctuary zones, wreck sites, Commonwealth National Park and Sanctuary zones), restricted areas in orange, marine park boundaries in green
 - **Alert when you enter a no-fishing zone** (banner + vibration)
 - Tap a zone to see what it is and a link to the legal order
-- GPS boat position, follow mode, SOG/COG in knots, lat/lon in degrees and decimal minutes
+- GPS boat position and follow mode
+- **Customisable data fields**: speed (SOG), course (COG), position and estimated depth. Show/hide them, pick a text size, and drag them anywhere on screen (Menu → Edit layout)
+- **Layers menu** (bottom left): toggle depth shading, contours, labels, land, zones, and an online Sentinel-2 satellite layer
 - Keeps the screen on while open
 
 ## Repo layout
@@ -54,6 +56,7 @@ The first run downloads the 2.6 GB AusBathyTopo grid. To just refresh fishing zo
 | No-fishing / restricted zones | WA DPIRD Fisheries Guide, consolidated notices and orders (DPIRD-061), via [SLIP](https://public-services.slip.wa.gov.au/public/rest/services/SLIP_Public_Services/DPIRD_Fisheries_Guide/MapServer) | WA Government, check SLIP terms |
 | State marine park outlines | WA DBCA Legislated Lands and Waters (DBCA-011) | CC BY-SA 4.0 |
 | Commonwealth marine park zones | Parks Australia, [Australian Marine Parks](https://gis.environment.gov.au/gispubmap/rest/services/ogc_services/Australian_Marine_Parks/FeatureServer) | Commonwealth (likely CC BY 4.0, verify) |
+| Satellite (online) | [Sentinel-2 cloudless 2016](https://s2maps.eu) by EOX IT Services GmbH | CC BY 4.0 |
 | Label fonts (online, cached) | [OpenFreeMap](https://openfreemap.org) | OFL |
 
 **How zones are classified** (`pipeline/scripts/fetch_zones.py`):
@@ -63,6 +66,8 @@ The first run downloads the 2.6 GB AusBathyTopo grid. To just refresh fishing zo
 - Commercial-only closures are skipped.
 
 Known limitation: some DPIRD orders, such as Rottnest, mix full no-fishing areas with partial restrictions, so a few zones may show as stricter than they really are.
+
+Known limitation: the depth estimate and no-fishing alerts read the map tiles on screen, so they only work while the boat is visible on the map (follow mode keeps it there).
 
 ## Roadmap
 

@@ -48,7 +48,8 @@ ogr2ogr -f GeoJSONSeq "$WORK/contour.geojsonl" "$WORK/contour_lines.gpkg" -diale
   -sql "SELECT geom, CAST(ROUND(-elev) AS INTEGER) AS depth FROM contour"
 
 echo ">> Depth band polygons + land"
-BANDS="-12000 -200 -100 -50 -20 -10 -5 0 10000"
+# Fine bands so the app can estimate depth under the boat (dmin–dmax).
+BANDS="-12000 -1000 -500 -300 -200 -150 -100 -80 -60 -50 -40 -30 -25 -20 -15 -10 -8 -5 -3 -2 0 10000"
 rm -f "$WORK/bands.gpkg"
 # shellcheck disable=SC2086
 gdal_contour -q -p -amin emin -amax emax -fl $BANDS "$WORK/wa_dem.tif" "$WORK/bands.gpkg"
