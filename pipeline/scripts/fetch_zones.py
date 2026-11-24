@@ -87,12 +87,37 @@ def query_layer(layer_url, where="1=1", bbox=None, chunk=100):
     return features
 
 
-def classify_dpird(layer_name):
+def is_commercial_only(layer_name):
     n = layer_name.lower()
-    if "commercial" in n and "recreational" not in n:
-        return None  # commercial-only closures don't affect rec anglers
-    if "recreational" in n or "prohibition on fishing" in n or "prohibiton on fishing" in n or "wreck site" in n:
+    return "commercial" in n and "recreational" not in n
+
+
+def classify_dpird(order, heading):
+    """Classify one area of a DPIRD order by its schedule heading, not the order title.
+
+    Marine park orders typically ban recreational fishing across the whole park
+    (Schedule 1) and then allow it back in General Use / Recreation / Special Purpose
+    areas via a "permitted activities" schedule. Only sanctuary areas and wreck sites
+    are closed to all recreational fishing. Returns notake | restricted | park | None.
+    """
+    o = order.lower()
+    h = heading.lower()
+    if "sanctuary" in h or "wreck" in o or "wreck" in h:
         return "notake"
+    if "general use" in h:
+        # e.g. Ningaloo: "General Use Areas - must not ... by means of a pointed instrument"
+        return "restricted" if "must not" in h else "park"
+    # Areas that only define the whole park or list permitted activities.
+    if ("marine park" in h or "marine management area" in h or "permitted recreational fishing" in h
+            or ("interpretation" in h and "marine park" in o)):
+        return None
+    # Single-area orders that prohibit all fishing (Burswood Lake, Esperance Jetty,
+    # Greens Pool, Hamelin Pool, Bernier Island...).
+    blanket = o.startswith("prohibition on fishing (") or o.startswith("prohibiton on fishing (")
+    partial = any(w in h for w in ("special purpose", "recreation", "protected area", "schedule 6", "schedule 8"))
+    if blanket and not partial:
+        return "notake"
+    # Recreation / special purpose / protected areas, habitat protection, gear rules...
     return "restricted"
 
 
@@ -101,15 +126,19 @@ def fetch_dpird():
     for group_id, group_label in DPIRD_GROUPS.items():
         group = get_json(f"{DPIRD}/{group_id}", {"f": "json"})
         for sub in group.get("subLayers", []):
-            zone_class = classify_dpird(sub["name"])
-            if zone_class is None:
-                continue
+            if is_commercial_only(sub["name"]):
+                continue  # commercial-only closures don't affect rec anglers
             for f in query_layer(f"{DPIRD}/{sub['id']}"):
                 p = f.get("properties") or {}
+                order = p.get("name") or sub["name"]
+                heading = " - ".join(x for x in (p.get("legal"), p.get("descript")) if x)
+                zone_class = classify_dpird(order, heading)
+                if zone_class is None:
+                    continue
                 out.append(feature(
                     f["geometry"], zone_class,
-                    name=p.get("name") or sub["name"],
-                    detail=" - ".join(x for x in (p.get("legal"), p.get("descript")) if x),
+                    name=order,
+                    detail=heading,
                     source=f"WA DPIRD Fisheries Guide ({group_label})",
                     link=p.get("link"),
                 ))

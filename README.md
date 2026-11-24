@@ -89,13 +89,18 @@ and reinstall (losing routes and marks).
 | Satellite (online) | [Sentinel-2 cloudless 2016](https://s2maps.eu) by EOX IT Services GmbH | CC BY 4.0 |
 | Label fonts (online, cached) | [OpenFreeMap](https://openfreemap.org) | OFL |
 
-**How zones are classified** (`pipeline/scripts/fetch_zones.py`):
-- `notake`: DPIRD orders prohibiting recreational fishing or all fishing (marine park sanctuary zones, wreck sites, Rottnest, etc.), plus Commonwealth National Park (IUCN II) and Sanctuary (Ia) zones
-- `restricted`: DPIRD fish habitat protection areas and other closures that limit but don't ban rec fishing
-- `park`: all other marine park areas (rec fishing generally allowed)
-- Commercial-only closures are skipped.
-
-Known limitation: some DPIRD orders, such as Rottnest, mix full no-fishing areas with partial restrictions, so a few zones may show as stricter than they really are.
+**How zones are classified** (`pipeline/scripts/fetch_zones.py`): each area is classified by
+its own schedule heading, not by the title of the order. Marine park orders typically ban
+recreational fishing across the whole park, then allow it back in General Use, Recreation and
+Special Purpose areas through a "permitted activities" schedule.
+- `notake` (red): sanctuary areas, wreck sites, and single-area "Prohibition on Fishing" orders
+  (Burswood Lake, Esperance Jetty, Greens Pool, Hamelin Pool, Bernier Island), plus Commonwealth
+  National Park (IUCN II) and Sanctuary (Ia) zones
+- `restricted` (orange): recreation, special purpose and protected areas, fish habitat protection
+  areas, Abrolhos reef observation areas, gear and netting rules. Fishing is allowed with limits; tap
+  the zone and open the order for details
+- `park` (green outline): general use areas and other marine park waters
+- Commercial-only closures and schedules that only define the whole park are skipped.
 
 Known limitation: the depth estimate and no-fishing alerts read the map tiles on screen, so they only work while the boat is visible on the map (follow mode keeps it there).
 
