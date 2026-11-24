@@ -87,6 +87,8 @@ and reinstall (losing routes and marks).
 | State marine park outlines | WA DBCA Legislated Lands and Waters (DBCA-011) | CC BY-SA 4.0 |
 | Commonwealth marine park zones | Parks Australia, [Australian Marine Parks](https://gis.environment.gov.au/gispubmap/rest/services/ogc_services/Australian_Marine_Parks/FeatureServer) | Commonwealth (likely CC BY 4.0, verify) |
 | Reef relief (5 m, ~30 nearshore areas) | WA Department of Transport bathymetry imagery (DOT-022), via [SLIP](https://public-services.slip.wa.gov.au/public/rest/services/Landgate_Public_Maps/WA_Bathymetry/MapServer) | CC BY 3.0 AU |
+| Navigation marks (beacons, buoys, cardinals, lights, leads) | WA Department of Transport, Navigation Aids (DOT-004), via SLIP | CC BY 4.0 |
+| Wrecks, rocks, obstructions | © OpenStreetMap contributors (OpenSeaMap seamark tags) | ODbL 1.0 |
 | Satellite (online) | [Sentinel-2 cloudless 2016](https://s2maps.eu) by EOX IT Services GmbH | CC BY 4.0 |
 | Label fonts (online, cached) | [OpenFreeMap](https://openfreemap.org) | OFL |
 
@@ -116,3 +118,13 @@ Known limitation: the depth estimate and no-fishing alerts read the map tiles on
 - [ ] Tides (WA Department of Transport tide stations) and marine weather
 - [ ] Bag/size limits and seasonal closures by zone
 - [ ] Other states
+
+## Marks & hazards layer
+
+`android/app/src/main/assets/hazards.geojson` is bundled with the app (works offline). Refresh it with:
+
+    python3 pipeline/scripts/fetch_hazards.py android/app/src/main/assets/hazards.geojson
+
+This is not a substitute for official charts: isolated rocks and obstructions known only from
+hydrographic surveys (AHO ENCs) are not in any free dataset.
+

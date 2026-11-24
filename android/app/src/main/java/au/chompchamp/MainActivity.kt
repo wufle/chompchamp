@@ -74,6 +74,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     private var map: MapLibreMap? = null
     private val overlays = NavOverlays()
+    private val hazards by lazy { Hazards(this) }
     private lateinit var navigator: Navigator
     private val drift = DriftTracker()
     private lateinit var track: Track
@@ -728,6 +729,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         (hitFeature(point, NavOverlays.MARK_PHOTOS) ?: hitFeature(point, NavOverlays.MARKS))?.getStringProperty("id")?.let { id ->
             marks.firstOrNull { it.id == id }?.let { markMenu(it); return }
         }
+        hitFeature(point, Hazards.LAYER)?.let { showHazard(it); return }
         showZoneInfo(point)
     }
 
@@ -772,6 +774,37 @@ class MainActivity : AppCompatActivity(), LocationListener {
     }
 
     /** Message dialog whose URLs are tappable (open in the browser / PDF viewer). */
+    /** Details for a tapped navigation mark, wreck or rock. */
+    private fun showHazard(f: org.maplibre.geojson.Feature) {
+        val kind = f.getStringProperty("kind")
+        val pt = f.geometry() as? org.maplibre.geojson.Point ?: return
+        val p = LatLon(pt.latitude(), pt.longitude())
+        val name = f.getStringProperty("name").orEmpty()
+        val detail = f.getStringProperty("detail").orEmpty()
+        val fromDot = f.getStringProperty("src") == "dot"
+        val lines = listOfNotNull(
+            Hazards.describe(kind),
+            detail.takeIf { it.isNotBlank() }?.replaceFirstChar { it.uppercase() },
+            if (f.hasProperty("virtual")) "Virtual mark: AIS only, nothing physical in the water" else null,
+            f.getStringProperty("owner")?.let { "Maintained by: $it" },
+            "",
+            "${Geo.formatDdm(p.lat, true)}  ${Geo.formatDdm(p.lon, false)}",
+            lastPos()?.let { "${Geo.fmtNm(Geo.distanceNm(it, p))} nm @ ${Geo.fmtBearing(Geo.bearing(it, p))} from boat" },
+            "",
+            if (fromDot) "Source: WA Department of Transport, Navigation Aids (DOT-004), CC BY 4.0"
+            else "Source: © OpenStreetMap contributors (OpenSeaMap), ODbL. Position may be approximate.",
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle(name.ifBlank { Hazards.describe(kind).substringBefore(" (").substringBefore(":") })
+            .setMessage(lines.joinToString("\n"))
+            .setPositiveButton(android.R.string.ok, null)
+            .setNeutralButton("Navigate here") { _, _ ->
+                startNavigation(Route(name = "Go to", waypoints = mutableListOf(
+                    Waypoint(p.lat, p.lon, name.ifBlank { "Mark" }.take(24)))))
+            }
+            .show()
+    }
+
     private fun showLinkDialog(title: String, body: String) {
         val pad = (24 * resources.displayMetrics.density).toInt()
         val text = TextView(this).apply {
@@ -1108,6 +1141,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             EMPTY_STYLE
         }
         m.setStyle(Style.Builder().fromJson(json)) { style ->
+            hazards.install(style)
             overlays.install(style)
             layers.apply(style)
             refreshOverlays()

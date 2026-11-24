@@ -2,6 +2,16 @@ package au.chompchamp
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.util.TypedValue
+import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
+import androidx.core.content.ContextCompat
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.util.Locale
 
@@ -56,29 +66,97 @@ class Settings(private val prefs: SharedPreferences) {
     val trackWindowMin: Double? get() = get("track_window").let { if (it < 0) null else it.toDouble() }
     val trackSpacingM get() = get("track_spacing").toDouble()
 
+    /** Option keys grouped under headings on the settings page. */
+    private val sections = listOf(
+        "Navigation" to listOf("arrival_nm", "plan_kn", "course_up", "safety_m"),
+        "Fishing" to listOf("fish_zoom", "drift_window", "drift_project", "anchor_m"),
+        "Track" to listOf("track_window", "track_spacing"),
+    )
+
+    private fun valueLabel(o: Option): String {
+        val v = get(o.key)
+        return o.labels.getOrNull(o.values.indexOf(v)) ?: String.format(Locale.US, "%.2f", v)
+    }
+
+    /**
+     * Each row: setting name on the left, its current value in a tinted pill on the right,
+     * rows separated by hairlines and grouped under section headings.
+     */
     fun show(ctx: Context, onChanged: () -> Unit) {
-        val rows = options.map { o ->
-            val v = get(o.key)
-            val label = o.labels.getOrNull(o.values.indexOf(v)) ?: String.format(Locale.US, "%.2f", v)
-            "${o.title}\n   $label"
-        }.toTypedArray()
+        val dp = ctx.resources.displayMetrics.density
+        fun px(v: Int) = (v * dp).toInt()
+        val onSurface = ContextCompat.getColor(ctx, R.color.ui_on_surface)
+        val muted = ContextCompat.getColor(ctx, R.color.ui_muted)
+        val accent = ContextCompat.getColor(ctx, R.color.ui_accent)
+        val line = ContextCompat.getColor(ctx, R.color.ui_track)
+
+        val list = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(px(20), px(4), px(16), px(8))
+        }
+        for ((heading, keys) in sections) {
+            list.addView(TextView(ctx).apply {
+                text = heading.uppercase()
+                textSize = 11f
+                letterSpacing = 0.1f
+                setTextColor(muted)
+                setPadding(0, px(14), 0, px(4))
+            })
+            keys.mapNotNull { k -> options.firstOrNull { it.key == k } }.forEachIndexed { i, o ->
+                if (i > 0) list.addView(View(ctx).apply { setBackgroundColor(line) },
+                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, maxOf(1, px(1) / 2)))
+                val value = TextView(ctx).apply {
+                    text = valueLabel(o)
+                    textSize = 13f
+                    setTextColor(accent)
+                    setTypeface(typeface, Typeface.BOLD)
+                    maxLines = 1
+                    setPadding(px(12), px(5), px(10), px(5))
+                    background = GradientDrawable().apply {
+                        cornerRadius = 14 * dp
+                        setColor((accent and 0x00FFFFFF) or 0x24000000)
+                        setStroke(maxOf(1, px(1)), (accent and 0x00FFFFFF) or 0x66000000)
+                    }
+                }
+                val row = LinearLayout(ctx).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    minimumHeight = px(52)
+                    isClickable = true
+                    background = with(TypedValue()) {
+                        ctx.theme.resolveAttribute(android.R.attr.selectableItemBackground, this, true)
+                        ContextCompat.getDrawable(ctx, resourceId)
+                    }
+                    addView(TextView(ctx).apply {
+                        text = o.title
+                        textSize = 15f
+                        setTextColor(onSurface)
+                        setPadding(0, px(8), px(12), px(8))
+                    }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                    addView(value, LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                    setOnClickListener { pick(ctx, o) { value.text = valueLabel(o); onChanged() } }
+                }
+                list.addView(row)
+            }
+        }
         MaterialAlertDialogBuilder(ctx)
             .setTitle("Settings")
-            .setItems(rows) { _, which -> pick(ctx, options[which], onChanged) }
-            .setPositiveButton(android.R.string.ok, null)
+            .setView(ScrollView(ctx).apply { addView(list) })
+            .setPositiveButton(R.string.done, null)
             .show()
     }
 
-    private fun pick(ctx: Context, o: Option, onChanged: () -> Unit) {
+    private fun pick(ctx: Context, o: Option, onPicked: () -> Unit) {
         val current = o.values.indexOf(get(o.key))
         MaterialAlertDialogBuilder(ctx)
             .setTitle(o.title)
             .setSingleChoiceItems(o.labels.toTypedArray(), current) { d, which ->
                 prefs.edit().putFloat("set_${o.key}", o.values[which]).apply()
                 d.dismiss()
-                onChanged()
-                show(ctx, onChanged)
+                onPicked()
             }
+            .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
 }
