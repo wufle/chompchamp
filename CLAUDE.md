@@ -51,7 +51,7 @@ user which they need. The style must also cope with older charts that lack a new
 | `MarkGroups.kt`, `MarksPanel.kt` | Mark groups: storage; show/hide panel and bulk edits. Group "" = Ungrouped |
 | `Trips.kt`, `TripsPanel.kt`, `SpeedChartView.kt` | Trips, stats, catch log storage and export; docked panel; speed chart |
 | `CatchDialogs.kt`, `TrackService.kt` | Catch entry and viewing; foreground service for recording with the screen off |
-| `Ais.kt` | Vessels from Open Waters AIS (polling, parsing, map layers). Never store or export its data (AISHub terms) |
+| `Ais.kt` | Vessels from Open Waters AIS (polling, parsing, map layers). Never store or export its data (AISHub terms). Its User-Agent carries the repo link, which the owner approved and Open Waters requires from 2027 |
 | `ScaleBarView.kt` | Scale bar, bottom right |
 | `Hazards.kt` | Nav marks, wrecks and rocks from `assets/hazards.geojson` |
 | `SettingsPanel.kt`, `Settings.kt`, `Appearance.kt` | Docked panel (Layers, Display); behaviour options; size, opacity, palette |
