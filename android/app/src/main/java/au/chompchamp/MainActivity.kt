@@ -1049,7 +1049,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 val m = map ?: return null
                 if (mapView.width == 0) return null
                 val b = m.projection.visibleRegion.latLngBounds
-                return doubleArrayOf(b.lonWest, b.latSouth, b.lonEast, b.latNorth)
+                return doubleArrayOf(b.longitudeWest, b.latitudeSouth, b.longitudeEast, b.latitudeNorth)
             }
             override fun templates() = offlineTemplates()
             override fun zoomTo(a: OfflineArea) {
