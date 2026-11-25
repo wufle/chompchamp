@@ -55,7 +55,7 @@ class TripsPanel(
             val s = host.track.stats
             rows.note(if (host.track.points.size < 2) "Nothing recorded yet. Recording starts by itself once there's a GPS fix."
             else summary(s.start, s.end, s.durationMs, s.distanceNm, s.movingMs, s.avgMovingKn, s.maxKn, host.currentCatches().size))
-            rows.actionRow("Log a catch", "Add") { host.logCatch() }
+            rows.actionRow("Mark a catch", "Add") { host.logCatch() }
             if (host.track.points.size >= 2) {
                 rows.actionRow("Speed log and details", "Open") { showDetails(null) }
                 rows.actionRow("Finish this trip", "Save") { host.finishTrip(); show() }

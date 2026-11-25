@@ -363,8 +363,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                         "(line shows ${settings.driftProjectMin.toInt()} min)"
                 } ?: "Measuring drift…") + (anchor?.let { "\nAnchor alarm ON · ${settings.anchorRadiusM.toInt()} m" } ?: "")
                 actions = listOf(
-                    ModeAction(R.drawable.ic_star, "Mark", "Mark this spot") { addMarkAtBoat() },
-                    ModeAction(R.drawable.ic_fish, "Catch", "Log a catch") { logCatch() },
+                    ModeAction(R.drawable.ic_star, "Mark", "Mark a catch here") { markCatch() },
                     ModeAction(R.drawable.ic_anchor, "Anchor", if (anchor == null) "Set anchor alarm" else "Turn anchor alarm off",
                         active = anchor != null) { toggleAnchor() },
                     ModeAction(R.drawable.ic_refresh, "Reset", "Reset drift") { drift.reset(); refreshModePanel() },
@@ -636,11 +635,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
     // Fishing: marks, anchor alarm
     // =========================================================================
 
-    private fun addMarkAtBoat() {
-        val loc = lastFix ?: run { Toast.makeText(this, "Waiting for GPS fix", Toast.LENGTH_SHORT).show(); return }
-        addMark(LatLon(loc.latitude, loc.longitude), estimateDepthAt(LatLng(loc.latitude, loc.longitude)))
-    }
-
     /** Marks whose group is switched on. */
     private fun visibleMarks(): List<Mark> {
         val shown = groups.all().filter { it.visible }.map { it.name }.toSet()
@@ -649,7 +643,24 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     private fun showMarks() {
         val colors = groups.all().associate { it.name to it.color }
-        overlays.setMarks(visibleMarks(), { colors[it.group] ?: MarkGroup.DEFAULT_COLOR }) { id -> photos.bubble(id) }
+        val caught = tripLog.catches.filter { it.markId != null }.groupBy { it.markId }
+        overlays.setMarks(visibleMarks(), { colors[it.group] ?: MarkGroup.DEFAULT_COLOR },
+            photo = { m -> newestPhoto(m.photos + caught[m.id].orEmpty().flatMap { it.photos }) }) { id -> photos.bubble(id) }
+    }
+
+    private fun newestPhoto(names: List<String>) =
+        if (names.size < 2) names.firstOrNull() else names.maxByOrNull { photos.file(it).lastModified() }
+
+    /** Catches logged at this mark, newest first. */
+    private fun catchesAt(m: Mark) = tripLog.catches.filter { it.markId == m.id }.sortedByDescending { it.time }
+
+    private fun deleteMark(m: Mark) {
+        m.photos.forEach { photos.delete(it) }
+        marks.removeAll { it.id == m.id }
+        store.saveMarks(marks)
+        showMarks()
+        showCatchesOnMap()
+        marksPanel.refresh()
     }
 
     private fun createMarksPanel() = MarksPanel(this, panel, look, groups, object : MarksPanel.Host {
@@ -664,22 +675,29 @@ class MainActivity : AppCompatActivity(), LocationListener {
             list.forEach { m -> m.photos.forEach { photos.delete(it) } }
             marks.removeAll(list.toSet())
             changed()
+            showCatchesOnMap()   // their catches stay in the log
         }
         override fun confirm(message: String, onYes: () -> Unit) = this@MainActivity.confirm(message, onYes)
         override fun askText(title: String, initial: String, onOk: (String) -> Unit) = this@MainActivity.askText(title, initial, onOk)
         override fun showAllMarks() = showMarksList()
     })
 
-    private fun addMark(p: LatLon, depth: String?) {
-        val name = "Mark ${marks.size + 1}"
-        val mark = Mark(lat = p.lat, lon = p.lon, name = name,
-            depth = depth?.takeIf { it != "--" && it != "off screen" })
+    private fun nextMarkName() = "Mark ${marks.size + 1}"
+
+    private fun storeMark(mark: Mark) {
         marks.add(mark)
         store.saveMarks(marks)
         // A new mark must never be invisible.
         if (!groups.isVisible(mark.group)) groups.setVisible(mark.group, true)
         showMarks()
         marksPanel.refresh()
+    }
+
+    private fun addMark(p: LatLon, depth: String?) {
+        val name = nextMarkName()
+        val mark = Mark(lat = p.lat, lon = p.lon, name = name,
+            depth = depth?.takeIf { it != "--" && it != "off screen" })
+        storeMark(mark)
         buzz(short = true)
         // Quick photo of the catch straight after marking.
         Snackbar.make(mapView, "Saved $name", Snackbar.LENGTH_LONG)
@@ -694,7 +712,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         marks.firstOrNull { it.id == id }?.photos ?: tripLog.catches.firstOrNull { it.id == id }?.photos
 
     private fun photosChanged(id: String) {
-        if (marks.any { it.id == id }) { store.saveMarks(marks); showMarks() } else tripLog.saveCatches()
+        if (marks.any { it.id == id }) store.saveMarks(marks) else { tripLog.saveCatches(); showCatchesOnMap() }
+        showMarks()
     }
 
     /** Back to the mark or catch a photo belongs to. */
@@ -794,17 +813,20 @@ class MainActivity : AppCompatActivity(), LocationListener {
         })
         lateinit var dialog: androidx.appcompat.app.AlertDialog
 
-        // Photo strip
-        if (mark.photos.isNotEmpty()) {
+        // Photo strip: the mark's own, then those of its catches
+        val caught = catchesAt(mark)
+        val shots = mark.photos.mapIndexed { i, name -> Triple(name, i, null as Catch?) } +
+            caught.flatMap { c -> c.photos.mapIndexed { i, name -> Triple(name, i, c) } }
+        if (shots.isNotEmpty()) {
             val strip = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
             val size = (72 * dp).toInt()
-            mark.photos.forEachIndexed { i, name ->
+            shots.forEach { (name, i, c) ->
                 strip.addView(android.widget.ImageView(this).apply {
                     scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
                     setImageBitmap(photos.loadScaled(name, 256))
                     background = look.surfaceBg(1f, 8f)
                     clipToOutline = true
-                    setOnClickListener { dialog.dismiss(); showPhoto(mark.name, mark.id, i) }
+                    setOnClickListener { dialog.dismiss(); showPhoto(c?.title ?: mark.name, c?.id ?: mark.id, i) }
                 }, LinearLayout.LayoutParams(size, size).apply { marginEnd = (6 * dp).toInt() })
             }
             body.addView(android.widget.HorizontalScrollView(this).apply {
@@ -814,20 +836,34 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
 
         // Actions
-        val actions: List<Pair<String, () -> Unit>> = listOf(
+        val only = caught.singleOrNull()
+        val actions: List<Pair<String, () -> Unit>> = (if (caught.size <= SHOWN_CATCHES) caught else caught.take(SHOWN_CATCHES - 1)).map { c ->
+            "🐟  ${c.title} · ${c.details()}" to { catchDialogs.view(c) }
+        } + (if (caught.size <= SHOWN_CATCHES) emptyList() else
+            listOf<Pair<String, () -> Unit>>("All ${caught.size} catches here" to { catchDialogs.list(mark.name, caught) })) + listOf(
+            "Add a catch here" to { markCatch(mark) },
+            // With one catch, a photo belongs to it; otherwise it's of the spot.
+            "📷  Take photo" to { takePhotoFor(only?.id ?: mark.id) },
+            "🖼  Add photo from gallery" to { pickPhotoFor(only?.id ?: mark.id) },
             "Navigate to" to {
                 startNavigation(Route(name = mark.name, waypoints = mutableListOf(Waypoint(mark.lat, mark.lon, mark.name))))
             },
-            "Log a catch here" to { logCatch(mark.pos, mark.depth) },
-            "📷  Take photo" to { takePhotoFor(mark.id) },
-            "🖼  Add photo from gallery" to { pickPhotoFor(mark.id) },
             "Move to group…" to { marksPanel.pickGroup("Move ${mark.name} to") { g -> g?.let { marksPanel.move(listOf(mark), it) } } },
             "Rename" to { askText("Rename mark", mark.name) { mark.name = it; store.saveMarks(marks); showMarks() } },
             "Delete mark" to {
-                confirm("Delete ${mark.name}" + (if (mark.photos.isNotEmpty()) " and its ${mark.photos.size} photo(s)" else "") + "?") {
-                    mark.photos.forEach { photos.delete(it) }
-                    marks.remove(mark); store.saveMarks(marks); showMarks(); marksPanel.refresh()
-                }
+                val what = "Delete ${mark.name}" + (if (mark.photos.isNotEmpty()) " and its ${mark.photos.size} photo(s)" else "") + "?"
+                if (caught.isEmpty()) confirm(what) { deleteMark(mark) }
+                else MaterialAlertDialogBuilder(this)
+                    .setMessage("$what\n\nIt has ${if (caught.size == 1) "a catch" else "${caught.size} catches"} in the catch log.")
+                    .setPositiveButton(if (caught.size == 1) "Delete mark and catch" else "Delete mark and catches") { _, _ ->
+                        caught.forEach { c -> c.photos.forEach { photos.delete(it) } }
+                        tripLog.catches.removeAll { it.markId == mark.id }
+                        tripLog.saveCatches()
+                        deleteMark(mark)
+                        tripsPanel.refresh()
+                    }
+                    .setNeutralButton("Mark only") { _, _ -> deleteMark(mark) }
+                    .setNegativeButton(android.R.string.cancel, null).show()
             },
         )
         val list = LinearLayout(this).apply {
@@ -914,7 +950,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         override fun discardTrip() = clearTrack()
         override fun showTrip(t: Trip?, points: List<TrackPoint>, zoom: Boolean) = showTripOnMap(t, points, zoom)
         override fun setCursor(p: LatLon?) = overlays.setTripCursor(p)
-        override fun logCatch() = this@MainActivity.logCatch()
+        override fun logCatch() = markCatch()
         override fun showCatches(title: String, list: List<Catch>) = catchDialogs.list(title, list)
         override fun exportText(fileName: String, csv: Boolean, text: String) = this@MainActivity.exportText(fileName, csv, text)
         override fun confirm(message: String, onYes: () -> Unit) = this@MainActivity.confirm(message, onYes)
@@ -922,7 +958,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     })
 
     private fun createCatchDialogs() = CatchDialogs(this, look, tripLog, photos, object : CatchDialogs.Host {
-        override fun changed() { showCatchesOnMap(); tripsPanel.refresh() }
+        override fun changed() { showCatchesOnMap(); showMarks(); tripsPanel.refresh() }
         override fun goTo(p: LatLon) {
             map?.locationComponent?.takeIf { locationActive }?.cameraMode = CameraMode.NONE
             map?.animateCamera(CameraUpdateFactory.newLatLng(LatLng(p.lat, p.lon)))
@@ -930,9 +966,30 @@ class MainActivity : AppCompatActivity(), LocationListener {
         override fun takePhoto(id: String) = takePhotoFor(id)
         override fun pickPhoto(id: String) = pickPhotoFor(id)
         override fun showPhoto(title: String, ownerId: String, index: Int) = this@MainActivity.showPhoto(title, ownerId, index)
-        override fun added(c: Catch) {
+        override fun markOf(c: Catch) = c.markId?.let { id -> marks.firstOrNull { it.id == id } }
+        override fun catchesAt(m: Mark) = this@MainActivity.catchesAt(m)
+        override fun openMark(m: Mark) = goToMark(m)
+        override fun deleteMark(m: Mark) = this@MainActivity.deleteMark(m)
+        override fun adding(c: Catch) {
+            val p = c.pos ?: return   // no fix: it goes in the catch log only
+            if (markOf(c) != null) return
+            val mark = Mark(lat = p.lat, lon = p.lon, name = if (c.species.isBlank()) nextMarkName() else c.title, depth = c.depth)
+            c.markId = mark.id
+            storeMark(mark)
+        }
+        override fun edited(c: Catch, oldTitle: String) {
+            // Keep a name the user chose; follow the species otherwise.
+            val m = markOf(c) ?: return
+            if (c.species.isBlank() || catchesAt(m).size > 1) return
+            if (m.name != oldTitle && !AUTO_NAME.matches(m.name)) return
+            m.name = c.title
+            store.saveMarks(marks)
+            marksPanel.refresh()
+        }
+        override fun added(c: Catch, photo: Boolean) {
             buzz(short = true)
-            Snackbar.make(mapView, "Logged ${c.title}", Snackbar.LENGTH_LONG)
+            if (photo) { takePhotoFor(c.id); return }
+            Snackbar.make(mapView, (if (c.markId == null) "No GPS fix, so logged without a mark: " else "Marked ") + c.title, Snackbar.LENGTH_LONG)
                 .setAction("📷 Photo") { takePhotoFor(c.id) }
                 .setActionTextColor(look.accent)
                 .show()
@@ -941,10 +998,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
         override fun confirm(message: String, onYes: () -> Unit) = this@MainActivity.confirm(message, onYes)
     })
 
-    /** At the boat, or at [at]. Works without a GPS fix too, just without a position. */
-    private fun logCatch(at: LatLon? = lastPos(), knownDepth: String? = null) {
-        val depth = knownDepth ?: at?.let { estimateDepthAt(LatLng(it.lat, it.lon)) }
-        catchDialogs.edit(Catch(lat = at?.lat, lon = at?.lon,
+    /** Mark a catch at the boat, or add one to [mark]. Without a GPS fix it's only logged. */
+    private fun markCatch(mark: Mark? = null) {
+        val at = mark?.pos ?: lastPos()
+        val depth = mark?.depth ?: at?.let { estimateDepthAt(LatLng(it.lat, it.lon)) }
+        catchDialogs.edit(Catch(lat = at?.lat, lon = at?.lon, markId = mark?.id,
             depth = depth?.takeIf { it != "--" && it != "off screen" && it != "land" }), isNew = true)
     }
 
@@ -956,9 +1014,12 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val all = getSharedPreferences("app", MODE_PRIVATE).getBoolean("trips_all_catches", false)
         // Anything recent is always shown, so a new catch is never invisible.
         val recent = System.currentTimeMillis() - 12 * 3_600_000L
-        overlays.setCatches(if (all) tripLog.catches else
+        val list = if (all) tripLog.catches else
             (currentCatches() + (tripLog.trip(shownTrip)?.let { catchesOf(it) } ?: emptyList()) +
-                tripLog.catches.filter { it.time >= recent }).distinctBy { it.id })
+                tripLog.catches.filter { it.time >= recent }).distinctBy { it.id }
+        // One symbol per spot: a catch with a mark is shown by the mark.
+        val marked = marks.map { it.id }.toSet()
+        overlays.setCatches(list.filter { it.markId !in marked }) { id -> photos.bubble(id) }
     }
 
     private fun showTripOnMap(t: Trip?, points: List<TrackPoint>, zoom: Boolean) {
@@ -1094,7 +1155,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         (hitFeature(point, NavOverlays.MARK_PHOTOS) ?: hitFeature(point, NavOverlays.MARKS))?.getStringProperty("id")?.let { id ->
             marks.firstOrNull { it.id == id }?.let { markMenu(it); return }
         }
-        hitFeature(point, NavOverlays.CATCHES)?.getStringProperty("id")?.let { id ->
+        (hitFeature(point, NavOverlays.CATCH_PHOTOS) ?: hitFeature(point, NavOverlays.CATCHES))?.getStringProperty("id")?.let { id ->
             tripLog.catches.firstOrNull { it.id == id }?.let { catchDialogs.view(it); return }
         }
         hitFeature(point, Ais.LAYER)?.getStringProperty("mmsi")?.toLongOrNull()?.let { mmsi ->
@@ -2098,6 +2159,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
     }
 
     companion object {
+        private val AUTO_NAME = Regex("Mark \\d+")
+        /** Catches listed in a mark's window before they fold into one row. */
+        private const val SHOWN_CATCHES = 4
         private const val GITHUB_URL = "https://github.com/wufle/chompchamp"
         private const val RELIEF_ONLINE =
             "https://public-services.slip.wa.gov.au/public/rest/services/Landgate_Public_Maps/WA_Bathymetry/MapServer/export" +
