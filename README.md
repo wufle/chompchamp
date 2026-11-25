@@ -61,6 +61,11 @@ Four modes (switch with the button at the top of the screen):
 - **Navigate**: steers you waypoint by waypoint with BRG, DTW, XTE, VMG, TTG, ETA to waypoint and destination, and distance remaining. Auto-advances at the arrival radius or when you pass abeam. Previous, stop and next buttons.
 - **Fish**: zooms in close, measures drift over a rolling window and draws where you'll be in N minutes. One-tap **Mark** saves the spot with estimated depth. Sort marks into coloured groups you can show or hide (Menu → Marks), and move or delete many at once. Add photos to marks (camera or gallery); the latest shows as a bubble over the mark on the map. Anchor alarm, nearest-mark distance/bearing, breadcrumb track. **Catch** logs a fish: species, number, length, weight, kept or released, bait, notes, photos, with the time, position and estimated depth filled in.
 
+**Bag & size limits** (fish-in-a-bag button at the top left in Fish mode, or Menu): daily bag, boat and size limits for
+the area you're in, with closed seasons, and a search by species. The area follows your position, or choose one. Works
+offline. The limits are copied from DPIRD's guide by hand and shortened, and they don't update by themselves, so check the
+[current rules](https://www.dpird.wa.gov.au/individuals/recreational-fishing/recreational-fishing-rules/recreational-bag-and-size-limits/).
+
 **Trips & catches** (Menu): every trip is recorded with time and speed at each point. Finished trips keep their full
 track, distance, time under way, average and top speed, catches, and a speed chart you drag along to see when and where
 on the map. Export a trip as GPX, or its speed log or catches as CSV. A new trip starts by itself after a break in
@@ -73,7 +78,7 @@ more behind, and boats without AIS or out of range of a station are missing. It 
 
 Everything is customisable:
 - **Data fields** per mode: SOG, COG, position, depth, waypoint, BRG, DTW, XTE, VMG, TTG, ETAs, remaining, drift speed/direction, nearest mark, anchor distance, trip distance, time, average and top speed, clock. Show/hide them and drag them anywhere (Menu → Display → Move or resize), or combine them into one group (Menu → Display → Arrangement); tap a field while editing to resize or hide just that one. Each mode keeps its own layout.
-- **Display** (Menu): the data field options above, the scale bar on/off, plus size and transparency of data fields, and of buttons and panels.
+- **Display** (Menu): the data field options above, the scale bar and bag limits button on/off (move the button with Move or resize), plus size and transparency of data fields, and of buttons and panels.
 - **Layers** (bottom left): on/off and an opacity slider for every layer: marks and hazards, satellite, 5 m reef relief, depth shading, contours, labels, land, zones, parks, route, marks, drift line, track, saved trip, catches, anchor circle, AIS vessels.
 - **Charts & relief data** (Menu): see what is installed (size, date), import, remove the chart or the offline reef relief pack (relief falls back to online), clear the online tile cache.
 - **Data** (Menu): save and load named snapshots on the phone; export and import a backup file (.json) with routes, marks, current track, saved trips, catch log and settings (merge or replace); export and import GPX to move marks, routes and tracks to and from other chartplotter apps.
@@ -120,6 +125,8 @@ source's licence (including the bundled `hazards.geojson`). If you reuse the cha
 | Wrecks, rocks, obstructions | © OpenStreetMap contributors (OpenSeaMap seamark tags) | ODbL 1.0 |
 | Satellite (online) | [Sentinel-2 cloudless 2016](https://s2maps.eu) by EOX IT Services GmbH (contains modified Copernicus Sentinel data 2016) | CC BY 4.0 |
 | Vessels (online, optional layer) | [Open Waters AIS](https://openwaters.io/ais/), around WA passing on AIS from [AISHub](https://www.aishub.net) contributors and [aisstream.io](https://aisstream.io) | Not open data. Free for personal use and display with credit; AISHub's terms don't allow passing on the raw data, so the app never stores or exports it. aisstream.io publishes no licence |
+| Bag and size limits | Facts from WA DPIRD's [Recreational fishing guide 2026](https://www.dpird.wa.gov.au/siteassets/documents/fisheries/recreational/guides-and-infographics/recreational-fishing-guide.pdf) (June 2026, edition 2), checked 25 November 2026. The guide is © State of Western Australia and has no open licence, so only the limits, dates and places are used, in our own wording | Not open data |
+| Closure areas for bag limits (Abrolhos, Cockburn and Warnbro Sounds, blue swimmer crab) | WA DPIRD Fisheries Guide (DPIRD-061), via SLIP, simplified | CC BY 4.0 |
 | Label fonts (online, cached) | [OpenFreeMap](https://openfreemap.org) | OFL |
 
 **How zones are classified** (`pipeline/scripts/fetch_zones.py`): each area is classified by

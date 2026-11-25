@@ -38,6 +38,11 @@ class Appearance(private val ctx: Context, private val prefs: SharedPreferences)
         get() = prefs.getBoolean("ui_scale_bar", true)
         set(v) = prefs.edit().putBoolean("ui_scale_bar", v).apply()
 
+    /** Bag limits button, in Fish mode. */
+    var showBagButton: Boolean
+        get() = prefs.getBoolean("ui_bag_button", true)
+        set(v) = prefs.edit().putBoolean("ui_bag_button", v).apply()
+
     // ---- Palette ---------------------------------------------------------------
 
     val surface = ContextCompat.getColor(ctx, R.color.ui_surface)

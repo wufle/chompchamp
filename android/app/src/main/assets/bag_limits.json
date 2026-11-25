@@ -1,0 +1,1409 @@
+{
+ "source": "WA DPIRD, Recreational fishing guide 2026 (June 2026, edition 2)",
+ "checked": "2026-11-25",
+ "reviewBy": "2027-06-30",
+ "url": "https://www.dpird.wa.gov.au/individuals/recreational-fishing/recreational-fishing-rules/recreational-bag-and-size-limits/",
+ "categories": [
+  {
+   "id": "demersal",
+   "name": "Demersal scalefish",
+   "total": {
+    "west": 2,
+    "abrolhos": 1,
+    "other": 4
+   },
+   "species": [
+    {
+     "name": "Baldchin groper",
+     "aka": [
+      "bluebone"
+     ],
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 2
+     },
+     "closures": [
+      {
+       "regions": [
+        "abrolhos"
+       ],
+       "area": "abrolhos",
+       "from": "10-01",
+       "to": "12-31",
+       "where": "Abrolhos Islands",
+       "note": "Includes fishing from shore."
+      }
+     ]
+    },
+    {
+     "name": "Barramundi cod",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     }
+    },
+    {
+     "name": "Bass groper",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     }
+    },
+    {
+     "name": "Bight redfish",
+     "aka": [
+      "nannygai",
+      "red snapper"
+     ],
+     "size": "350 mm",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     },
+     "note": {
+      "south": "Separate from the mixed demersal total."
+     }
+    },
+    {
+     "name": "Yelloweye redfish",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     },
+     "note": {
+      "south": "Separate from the mixed demersal total."
+     }
+    },
+    {
+     "name": "Swallowtail",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     },
+     "note": {
+      "south": "Separate from the mixed demersal total."
+     }
+    },
+    {
+     "name": "Blackspot tuskfish",
+     "aka": [
+      "bluebone",
+      "tuskfish"
+     ],
+     "size": "400 mm",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 2
+     }
+    },
+    {
+     "name": "Blue tuskfish",
+     "aka": [
+      "tuskfish"
+     ],
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 2
+     }
+    },
+    {
+     "name": "Tuskfish, other",
+     "aka": [
+      "bluebone",
+      "Choerodon"
+     ],
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 2
+     },
+     "note": "Limit is for each species."
+    },
+    {
+     "name": "Blue morwong",
+     "aka": [
+      "queen snapper"
+     ],
+     "size": "400 mm",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     }
+    },
+    {
+     "name": "Blue-eye trevalla",
+     "aka": [
+      "blue-eyed trevalla"
+     ],
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     },
+     "note": "Limit is for each species."
+    },
+    {
+     "name": "Boarfish",
+     "aka": [
+      "giant boarfish"
+     ],
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     },
+     "note": "Limit is for each species.",
+     "boatOpen": true
+    },
+    {
+     "name": "Breaksea cod",
+     "aka": [
+      "rockcod"
+     ],
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     }
+    },
+    {
+     "name": "Coral trout",
+     "aka": [
+      "common coral trout",
+      "barcheek coral trout",
+      "vermicular cod"
+     ],
+     "size": "450 mm",
+     "bag": {
+      "west": 1,
+      "abrolhos": 1,
+      "other": 1
+     },
+     "note": "Limit is for each species."
+    },
+    {
+     "name": "Coronation trout",
+     "bag": {
+      "west": 1,
+      "abrolhos": 1,
+      "other": 1
+     },
+     "note": "Limit is for each species."
+    },
+    {
+     "name": "Dhufish, West Australian",
+     "aka": [
+      "WA dhufish"
+     ],
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 1
+     },
+     "note": {
+      "west": "Spearfishing for dhufish is not allowed during the boat closure, even from shore."
+     }
+    },
+    {
+     "name": "Dory, John",
+     "aka": [
+      "John dory"
+     ],
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     },
+     "boatOpen": true
+    },
+    {
+     "name": "Dory, mirror",
+     "aka": [
+      "mirror dory"
+     ],
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     },
+     "boatOpen": true
+    },
+    {
+     "name": "Emperor, bluespotted",
+     "aka": [
+      "bluespotted emperor"
+     ],
+     "size": "300 mm",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     }
+    },
+    {
+     "name": "Emperor, grass",
+     "aka": [
+      "grass emperor"
+     ],
+     "size": "300 mm",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     }
+    },
+    {
+     "name": "Emperor, redthroat",
+     "aka": [
+      "redthroat emperor"
+     ],
+     "size": "300 mm",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     }
+    },
+    {
+     "name": "Emperor, spangled",
+     "aka": [
+      "spangled emperor"
+     ],
+     "size": "400 mm",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     }
+    },
+    {
+     "name": "Emperors and seabream, other",
+     "aka": [
+      "Robinson's sea bream",
+      "Lethrinus"
+     ],
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     },
+     "note": "Limit is for each species."
+    },
+    {
+     "name": "Foxfish and pigfish",
+     "aka": [
+      "goldspot pigfish"
+     ],
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     },
+     "note": "Limit is for each species."
+    },
+    {
+     "name": "Goldspotted rockcod",
+     "aka": [
+      "estuary cod"
+     ],
+     "size": "400 mm",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     }
+    },
+    {
+     "name": "Blackspotted rockcod",
+     "aka": [
+      "Malabar cod"
+     ],
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     }
+    },
+    {
+     "name": "Harlequin fish",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     }
+    },
+    {
+     "name": "Hapuku",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     }
+    },
+    {
+     "name": "Pearl perch",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     },
+     "note": "Limit is for each species."
+    },
+    {
+     "name": "Rankin cod",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     }
+    },
+    {
+     "name": "Eightbar grouper",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     }
+    },
+    {
+     "name": "Western wirrah",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     }
+    },
+    {
+     "name": "Rockcods, other",
+     "aka": [
+      "cod",
+      "grouper"
+     ],
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     },
+     "note": "Limit is for each species. Not Chinaman rockcod."
+    },
+    {
+     "name": "Red emperor",
+     "size": "450 mm",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 2
+     }
+    },
+    {
+     "name": "Pink snapper",
+     "aka": [
+      "snapper"
+     ],
+     "size": {
+      "west": "South of Lancelin 500 mm, north of Lancelin 410 mm",
+      "abrolhos": "410 mm",
+      "other": "450 mm"
+     },
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 2
+     },
+     "closures": [
+      {
+       "regions": [
+        "west"
+       ],
+       "area": "cockburn_warnbro",
+       "from": "08-01",
+       "to": "01-31",
+       "where": "Cockburn and Warnbro Sounds, west to Five Fathom Bank",
+       "note": "From boat or shore."
+      },
+      {
+       "regions": [
+        "gascoyne"
+       ],
+       "from": "06-01",
+       "to": "08-31",
+       "where": "Shark Bay, northern Bernier Island"
+      },
+      {
+       "regions": [
+        "gascoyne"
+       ],
+       "from": "05-01",
+       "to": "07-31",
+       "where": "Shark Bay, Eastern Gulf"
+      },
+      {
+       "regions": [
+        "gascoyne"
+       ],
+       "from": "08-15",
+       "to": "09-30",
+       "where": "Shark Bay, Freycinet Estuary"
+      }
+     ]
+    },
+    {
+     "name": "Crimson snapper",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     }
+    },
+    {
+     "name": "Saddletail snapper",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     }
+    },
+    {
+     "name": "Goldband snapper",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     }
+    },
+    {
+     "name": "Ruby snapper",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     }
+    },
+    {
+     "name": "Chinaman fish",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     }
+    },
+    {
+     "name": "Jobfish",
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     }
+    },
+    {
+     "name": "Tropical snappers, other",
+     "aka": [
+      "Lutjanidae"
+     ],
+     "bag": {
+      "west": 2,
+      "abrolhos": 1,
+      "other": 4
+     },
+     "note": "Limit is for each species. Not golden snapper, mangrove jack or stripey snapper."
+    },
+    {
+     "name": "Western blue groper",
+     "size": "500 mm",
+     "bag": {
+      "west": 1,
+      "abrolhos": 1,
+      "other": 1
+     }
+    }
+   ],
+   "totalNote": "mixed, per fisher per day",
+   "boatClosure": {
+    "regions": [
+     "west",
+     "abrolhos"
+    ],
+    "until": "spring 2027",
+    "text": "Closed from boats until spring 2027"
+   },
+   "note": {
+    "south": "You may also take 4 each of Bight redfish, yelloweye redfish and swallowtail.",
+    "*": "Release weight required when line fishing."
+   }
+  },
+  {
+   "id": "pelagic",
+   "name": "Large pelagic finfish",
+   "total": 3,
+   "species": [
+    {
+     "name": "Amberjack",
+     "size": "600 mm",
+     "bag": 3
+    },
+    {
+     "name": "Samson fish",
+     "aka": [
+      "samsonfish"
+     ],
+     "size": "600 mm",
+     "bag": 3
+    },
+    {
+     "name": "Yellowtail kingfish",
+     "size": "600 mm",
+     "bag": 3
+    },
+    {
+     "name": "Great barracuda",
+     "bag": 3
+    },
+    {
+     "name": "Cobia",
+     "size": "750 mm",
+     "bag": 3
+    },
+    {
+     "name": "Barracouta",
+     "bag": 3
+    },
+    {
+     "name": "Mackerel, grey",
+     "aka": [
+      "grey mackerel"
+     ],
+     "size": "750 mm",
+     "bag": 3
+    },
+    {
+     "name": "Mackerel, school",
+     "aka": [
+      "school mackerel"
+     ],
+     "size": "500 mm",
+     "bag": 3
+    },
+    {
+     "name": "Mackerel, shark",
+     "aka": [
+      "shark mackerel"
+     ],
+     "size": "500 mm",
+     "bag": 3
+    },
+    {
+     "name": "Mackerel, Spanish",
+     "aka": [
+      "Spanish mackerel"
+     ],
+     "size": "900 mm",
+     "bag": 3
+    },
+    {
+     "name": "Mackerel, spotted",
+     "aka": [
+      "spotted mackerel"
+     ],
+     "size": "500 mm",
+     "bag": 3
+    },
+    {
+     "name": "Mahi mahi",
+     "aka": [
+      "dolphinfish"
+     ],
+     "size": "500 mm",
+     "bag": 3
+    },
+    {
+     "name": "Billfish",
+     "aka": [
+      "marlin",
+      "blue marlin",
+      "black marlin",
+      "sailfish",
+      "spearfish"
+     ],
+     "bag": 1,
+     "note": "Limit is for each species."
+    },
+    {
+     "name": "Swordfish",
+     "bag": 1
+    },
+    {
+     "name": "Trevally, giant",
+     "aka": [
+      "giant trevally",
+      "GT"
+     ],
+     "bag": 3
+    },
+    {
+     "name": "Trevally, golden",
+     "aka": [
+      "golden trevally"
+     ],
+     "bag": 3
+    },
+    {
+     "name": "Tuna, bigeye",
+     "aka": [
+      "bigeye tuna"
+     ],
+     "bag": 3
+    },
+    {
+     "name": "Tuna, dogtooth",
+     "aka": [
+      "dogtooth tuna"
+     ],
+     "bag": 3
+    },
+    {
+     "name": "Tuna, longtail",
+     "aka": [
+      "longtail tuna"
+     ],
+     "bag": 3
+    },
+    {
+     "name": "Tuna, mackerel",
+     "aka": [
+      "mackerel tuna"
+     ],
+     "bag": 3
+    },
+    {
+     "name": "Tuna, skipjack",
+     "aka": [
+      "skipjack tuna"
+     ],
+     "bag": 3
+    },
+    {
+     "name": "Tuna, southern bluefin",
+     "aka": [
+      "southern bluefin tuna"
+     ],
+     "bag": 3
+    },
+    {
+     "name": "Tuna, yellowfin",
+     "aka": [
+      "yellowfin tuna"
+     ],
+     "bag": 3
+    },
+    {
+     "name": "Wahoo",
+     "size": "900 mm",
+     "bag": 3
+    }
+   ]
+  },
+  {
+   "id": "sharks",
+   "name": "Sharks and rays",
+   "total": 3,
+   "species": [
+    {
+     "name": "Whaler sharks",
+     "aka": [
+      "bronze whaler",
+      "dusky whaler",
+      "bull shark",
+      "sandbar shark"
+     ],
+     "size": {
+      "west": "Max 700 mm, first to second dorsal fin",
+      "south": "Max 700 mm, first to second dorsal fin",
+      "abrolhos": "Max 700 mm, first to second dorsal fin"
+     },
+     "bag": 3,
+     "note": {
+      "west": "Measured from the front of the first dorsal fin to the rear end of the base of the second.",
+      "south": "Measured from the front of the first dorsal fin to the rear end of the base of the second.",
+      "abrolhos": "Measured from the front of the first dorsal fin to the rear end of the base of the second."
+     }
+    },
+    {
+     "name": "Sharks and rays, other",
+     "aka": [
+      "gummy shark",
+      "skate"
+     ],
+     "bag": 3
+    }
+   ]
+  },
+  {
+   "id": "near",
+   "name": "Nearshore and estuarine finfish",
+   "total": 16,
+   "species": [
+    {
+     "name": "Barramundi",
+     "size": "550 to 800 mm",
+     "bag": 2,
+     "note": "Possession limit 2. Land whole."
+    },
+    {
+     "name": "Black bream",
+     "size": "250 mm",
+     "bag": 6,
+     "note": {
+      "west": "Only 2 over 400 mm in the Swan and Canning rivers."
+     }
+    },
+    {
+     "name": "Tarwhine",
+     "size": "250 mm",
+     "bag": 6
+    },
+    {
+     "name": "Northwest black bream",
+     "size": "250 mm",
+     "bag": 6
+    },
+    {
+     "name": "Western yellowfin bream",
+     "size": "300 mm",
+     "bag": 6
+    },
+    {
+     "name": "Bream, other",
+     "size": "250 mm",
+     "bag": 6,
+     "note": "Limit is for each species."
+    },
+    {
+     "name": "Bonito",
+     "bag": 8,
+     "note": "Limit is for each species."
+    },
+    {
+     "name": "Albacore",
+     "bag": 8
+    },
+    {
+     "name": "Estuary cobbler",
+     "aka": [
+      "cobbler",
+      "catfish"
+     ],
+     "size": "430 mm",
+     "bag": 8
+    },
+    {
+     "name": "Catfish, marine",
+     "bag": 8,
+     "note": "Combined with estuary cobbler."
+    },
+    {
+     "name": "Chinaman rockcod",
+     "aka": [
+      "Charlie Court"
+     ],
+     "bag": 4
+    },
+    {
+     "name": "Dart",
+     "bag": 8,
+     "note": "Limit is for each species."
+    },
+    {
+     "name": "Golden snapper",
+     "aka": [
+      "fingermark"
+     ],
+     "size": "300 mm",
+     "bag": 4
+    },
+    {
+     "name": "Flathead",
+     "size": "300 mm",
+     "bag": 8,
+     "note": "Limit is for each species."
+    },
+    {
+     "name": "Flounder",
+     "size": "250 mm",
+     "bag": 8,
+     "note": "Limit is for each species."
+    },
+    {
+     "name": "Javelinfish",
+     "aka": [
+      "spotted javelinfish"
+     ],
+     "size": "300 mm",
+     "bag": 8,
+     "note": "Limit is for each species."
+    },
+    {
+     "name": "Sweetlips",
+     "aka": [
+      "painted sweetlips"
+     ],
+     "size": "300 mm",
+     "bag": 8,
+     "note": "Limit is for each species."
+    },
+    {
+     "name": "Leatherjacket",
+     "size": "250 mm",
+     "bag": 8,
+     "note": "Limit is for each species."
+    },
+    {
+     "name": "Mulloway",
+     "size": "500 mm",
+     "bag": 2
+    },
+    {
+     "name": "Black jewfish",
+     "size": "700 mm",
+     "bag": 2
+    },
+    {
+     "name": "Mangrove jack",
+     "size": "300 mm",
+     "bag": 2
+    },
+    {
+     "name": "Pike, longfin",
+     "aka": [
+      "longfin pike"
+     ],
+     "size": "300 mm",
+     "bag": 8
+    },
+    {
+     "name": "Sea sweep",
+     "bag": 4
+    },
+    {
+     "name": "Snook",
+     "size": "300 mm",
+     "bag": 8,
+     "note": "Combined with striped barracuda."
+    },
+    {
+     "name": "Striped barracuda",
+     "bag": 8,
+     "note": "Combined with snook."
+    },
+    {
+     "name": "Stripey snapper",
+     "size": "300 mm",
+     "bag": 4
+    },
+    {
+     "name": "Tailor",
+     "size": "300 mm",
+     "bag": 8,
+     "note": "Only 2 over 500 mm."
+    },
+    {
+     "name": "Threadfin, king",
+     "aka": [
+      "king threadfin"
+     ],
+     "size": "450 mm",
+     "bag": 2
+    },
+    {
+     "name": "Threadfin, other",
+     "aka": [
+      "blue threadfin"
+     ],
+     "bag": 4,
+     "note": "Limit is for each species."
+    },
+    {
+     "name": "Silver trevally",
+     "aka": [
+      "skippy",
+      "skipjack"
+     ],
+     "size": "250 mm",
+     "bag": 8
+    },
+    {
+     "name": "Queenfish",
+     "bag": 8
+    },
+    {
+     "name": "Trevally, other",
+     "bag": 8,
+     "note": "Limit is for each species. Not needleskin queenfish or yellowtail scad."
+    },
+    {
+     "name": "Tripletail",
+     "size": "300 mm",
+     "bag": 2
+    },
+    {
+     "name": "Western Australian salmon",
+     "aka": [
+      "WA salmon"
+     ],
+     "size": "300 mm",
+     "bag": 4
+    },
+    {
+     "name": "Whiting, King George",
+     "aka": [
+      "King George whiting"
+     ],
+     "size": "280 mm",
+     "bag": 12
+    },
+    {
+     "name": "Wrasse and parrotfish",
+     "aka": [
+      "western king wrasse"
+     ],
+     "bag": 8,
+     "note": "Limit is for each species not listed elsewhere."
+    }
+   ]
+  },
+  {
+   "id": "fresh",
+   "name": "Freshwater finfish",
+   "total": 4,
+   "species": [
+    {
+     "name": "Trout, rainbow and brown",
+     "aka": [
+      "rainbow trout",
+      "brown trout"
+     ],
+     "size": "300 mm",
+     "bag": 4,
+     "note": "South-west freshwater licence needed."
+    },
+    {
+     "name": "Freshwater cobbler and catfish",
+     "bag": 4
+    },
+    {
+     "name": "Sooty grunter",
+     "size": "250 mm",
+     "bag": 4
+    },
+    {
+     "name": "Striped perch, other",
+     "bag": 4
+    },
+    {
+     "name": "Freshwater pest fish",
+     "aka": [
+      "carp",
+      "tilapia",
+      "cichlid",
+      "goldfish",
+      "redfin perch"
+     ],
+     "bag": "No limit",
+     "note": "Best not returned to the water."
+    }
+   ]
+  },
+  {
+   "id": "other",
+   "name": "Other finfish",
+   "total": 30,
+   "species": [
+    {
+     "name": "Australian herring",
+     "aka": [
+      "tommy ruff"
+     ],
+     "bag": 20
+    },
+    {
+     "name": "Blue mackerel",
+     "bag": 30
+    },
+    {
+     "name": "Whiting, other than King George",
+     "aka": [
+      "sand whiting",
+      "yellowfin whiting"
+     ],
+     "bag": 30,
+     "note": "Limit is for each species."
+    },
+    {
+     "name": "Garfish",
+     "aka": [
+      "southern garfish",
+      "robust garfish"
+     ],
+     "bag": 30,
+     "note": "Limit is for each species."
+    },
+    {
+     "name": "Mullet",
+     "aka": [
+      "yelloweye mullet"
+     ],
+     "bag": 30,
+     "note": "Limit is for each species."
+    },
+    {
+     "name": "Any finfish not listed",
+     "bag": 30
+    }
+   ]
+  },
+  {
+   "id": "bait",
+   "name": "Baitfish",
+   "species": [
+    {
+     "name": "Baitfish",
+     "aka": [
+      "sardine",
+      "mulie",
+      "whitebait",
+      "anchovy",
+      "hardyhead",
+      "hardy head",
+      "scaly mackerel"
+     ],
+     "bag": "9 litres"
+    }
+   ]
+  },
+  {
+   "id": "crust",
+   "name": "Crustaceans",
+   "species": [
+    {
+     "name": "Blue swimmer crab",
+     "aka": [
+      "blue manna"
+     ],
+     "size": "127 mm",
+     "bag": {
+      "west": 10,
+      "abrolhos": 10,
+      "other": 20
+     },
+     "note": {
+      "west": "In Geographe Bay, no more than 5 female (boat 20, no more than 10 female). In the Swan and Canning rivers and Cockburn Sound: 5, boat 20 with at least 4 licensed fishers. Release berried females.",
+      "other": "Release berried females."
+     },
+     "boat": {
+      "west": "20 (2 or more licensed)",
+      "abrolhos": "20 (2 or more licensed)",
+      "other": "40 (2 or more licensed)"
+     },
+     "closures": [
+      {
+       "regions": [
+        "west"
+       ],
+       "area": "crab_closure",
+       "from": "09-01",
+       "to": "11-30",
+       "where": "Swan and Canning rivers to Minninup Beach, including Cockburn Sound"
+      }
+     ]
+    },
+    {
+     "name": "Mud crab",
+     "aka": [
+      "green mud crab",
+      "brown mud crab"
+     ],
+     "size": "Green 150 mm, brown 120 mm",
+     "bag": 5,
+     "note": "All mud crabs combined.",
+     "boat": "10 (2 or more licensed)"
+    },
+    {
+     "name": "Western rock lobster",
+     "aka": [
+      "rock lobster",
+      "crayfish",
+      "cray"
+     ],
+     "size": "76 mm",
+     "bag": 8,
+     "note": "All rock lobsters combined. Possession limit 24. Licence needed.",
+     "boat": "24 (3 or more licensed)"
+    },
+    {
+     "name": "Southern rock lobster",
+     "size": "98.5 mm",
+     "bag": 8,
+     "note": "All rock lobsters combined. Possession limit 24. Licence needed.",
+     "boat": "24 (3 or more licensed)"
+    },
+    {
+     "name": "Tropical rock lobster",
+     "aka": [
+      "painted crayfish"
+     ],
+     "size": "76 mm",
+     "bag": 4,
+     "note": "Within a combined limit of 8 rock lobsters. Possession limit 24. Licence needed.",
+     "boat": "24, no more than 12 tropical (3 or more licensed)"
+    },
+    {
+     "name": "Marron",
+     "size": "80 mm (trophy waters 90 mm)",
+     "bag": "8 (trophy waters 5)",
+     "note": "Licence needed. Open noon 8 January to noon 5 February."
+    },
+    {
+     "name": "Prawns",
+     "aka": [
+      "western king prawn"
+     ],
+     "bag": "9 litres",
+     "note": "All prawns combined."
+    },
+    {
+     "name": "Freshwater prawn",
+     "aka": [
+      "cherabin"
+     ],
+     "bag": "9 litres"
+    },
+    {
+     "name": "Redclaw crayfish and yabbies",
+     "bag": "No limit",
+     "note": "Pests. Best not returned to the water."
+    },
+    {
+     "name": "Koonac",
+     "bag": "No limit"
+    },
+    {
+     "name": "Other crustaceans",
+     "aka": [
+      "gilgie",
+      "sand crab",
+      "coral crab",
+      "rock crab"
+     ],
+     "bag": 10,
+     "note": "Combined."
+    }
+   ]
+  },
+  {
+   "id": "moll",
+   "name": "Molluscs and other invertebrates",
+   "species": [
+    {
+     "name": "Roe's abalone",
+     "aka": [
+      "abalone"
+     ],
+     "size": "60 mm",
+     "bag": {
+      "west": 15,
+      "abrolhos": 15,
+      "other": 20
+     },
+     "note": "Licence needed. Open season only: check DPIRD for dates and places."
+    },
+    {
+     "name": "Greenlip and brownlip abalone",
+     "aka": [
+      "abalone"
+     ],
+     "size": "140 mm",
+     "bag": 5,
+     "note": "Combined. Licence needed. Open season only. Greenlip is closed from Busselton Jetty to Shoal Cape.",
+     "boat": "10 (2 or more licensed)"
+    },
+    {
+     "name": "Cockles, pipis, ark shells and venus clams",
+     "bag": "2 litres",
+     "note": "Combined."
+    },
+    {
+     "name": "Clams",
+     "aka": [
+      "giant clam"
+     ],
+     "bag": 2
+    },
+    {
+     "name": "Mussels",
+     "bag": "9 litres",
+     "note": "In the shell."
+    },
+    {
+     "name": "Oysters",
+     "bag": 20,
+     "note": "Pearl oysters may not be taken."
+    },
+    {
+     "name": "Razorshell",
+     "bag": 20
+    },
+    {
+     "name": "Scallops",
+     "bag": 20
+    },
+    {
+     "name": "Sea urchins",
+     "bag": 20
+    },
+    {
+     "name": "Specimen shells",
+     "aka": [
+      "cowrie",
+      "bailer shell",
+      "conch"
+     ],
+     "bag": 10,
+     "note": "Combined."
+    },
+    {
+     "name": "Squid, cuttlefish and octopus",
+     "aka": [
+      "calamari"
+     ],
+     "bag": 15,
+     "note": "Combined.",
+     "boat": "30 (2 or more licensed)"
+    },
+    {
+     "name": "Bloodworms",
+     "bag": "1 litre"
+    },
+    {
+     "name": "Trochus",
+     "size": "65 mm",
+     "bag": 10,
+     "note": "Combined with other shellfish not listed."
+    },
+    {
+     "name": "Other molluscs and invertebrates",
+     "aka": [
+      "snail",
+      "periwinkle",
+      "limpet",
+      "turban",
+      "whelk"
+     ],
+     "bag": 10,
+     "note": "Combined."
+    }
+   ]
+  },
+  {
+   "id": "prot",
+   "name": "Protected: may not be taken",
+   "species": [
+    {
+     "name": "Grey nurse shark",
+     "protected": true
+    },
+    {
+     "name": "White shark",
+     "aka": [
+      "great white"
+     ],
+     "protected": true
+    },
+    {
+     "name": "Speartooth shark",
+     "protected": true
+    },
+    {
+     "name": "Whale shark",
+     "protected": true
+    },
+    {
+     "name": "Sawfish",
+     "protected": true
+    },
+    {
+     "name": "Rays and skates in Hamelin Bay",
+     "protected": true,
+     "regions": [
+      "west"
+     ]
+    },
+    {
+     "name": "Black stingray",
+     "protected": true,
+     "regions": [
+      "west",
+      "abrolhos",
+      "south"
+     ]
+    },
+    {
+     "name": "Smooth stingray",
+     "protected": true,
+     "regions": [
+      "west",
+      "abrolhos",
+      "south"
+     ]
+    },
+    {
+     "name": "Coral and live rock",
+     "protected": true
+    },
+    {
+     "name": "Potato rockcod",
+     "aka": [
+      "potato cod"
+     ],
+     "protected": true
+    },
+    {
+     "name": "Queensland groper",
+     "protected": true
+    },
+    {
+     "name": "Humphead Maori wrasse",
+     "protected": true
+    },
+    {
+     "name": "Common seadragon",
+     "protected": true
+    },
+    {
+     "name": "Leafy seadragon",
+     "protected": true
+    },
+    {
+     "name": "Native freshwater fish",
+     "aka": [
+      "Balston's pygmy perch",
+      "western trout minnow",
+      "mud minnow",
+      "black-stripe minnow",
+      "pouch lamprey",
+      "salamanderfish",
+      "little pygmy perch"
+     ],
+     "protected": true
+    }
+   ]
+  }
+ ]
+}

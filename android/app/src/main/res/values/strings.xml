@@ -13,6 +13,7 @@
     <string name="layers">Map layers</string>
     <string name="follow_boat">Follow boat</string>
     <string name="edit_hint">Drag to move · tap to resize</string>
+    <string name="bag_limits">Bag &amp; size limits</string>
     <string name="done">Done</string>
     <string name="menu_import">Import chart file…</string>
     <string name="menu_fields">Data fields…</string>

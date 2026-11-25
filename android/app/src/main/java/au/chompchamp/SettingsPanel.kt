@@ -32,9 +32,12 @@ class SettingsPanel(private val host: FrameLayout, private val look: Appearance)
     var current: String? = null
         private set
 
+    val maxListHeight get() = (ctx.resources.displayMetrics.heightPixels * 0.40f).toInt()
+
     val isOpen get() = host.visibility == View.VISIBLE
 
-    fun show(title: String, build: (Rows) -> Unit, onClose: (() -> Unit)? = null) {
+    /** [header] stays above the scrolling rows. */
+    fun show(title: String, build: (Rows) -> Unit, onClose: (() -> Unit)? = null, header: View? = null) {
         this.onClose?.invoke()   // whatever was open before
         this.onClose = onClose
         current = title
@@ -64,24 +67,32 @@ class SettingsPanel(private val host: FrameLayout, private val look: Appearance)
             }, LinearLayout.LayoutParams((44 * dp).toInt(), (44 * dp).toInt()))
         })
 
+        header?.let {
+            card.addView(it, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+
         val content = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, 0, (8 * dp).toInt(), 0)
         }
         build(Rows(content))
-        val scroll = ScrollView(ctx).apply { addView(content) }
+        // At most ~40% of the screen height (less when the keyboard is up), and no wider than 480dp on tablets / landscape.
+        val maxH = maxListHeight
+        val scroll = object : ScrollView(ctx) {
+            override fun onMeasure(widthSpec: Int, heightSpec: Int) {
+                val room = if (MeasureSpec.getMode(heightSpec) == MeasureSpec.UNSPECIFIED) maxH
+                else minOf(maxH, MeasureSpec.getSize(heightSpec))
+                super.onMeasure(widthSpec, MeasureSpec.makeMeasureSpec(room, MeasureSpec.AT_MOST))
+            }
+        }
+        scroll.addView(content)
         card.addView(scroll)
 
-        // At most ~40% of the screen height, and no wider than 480dp on tablets / landscape.
-        val maxH = (ctx.resources.displayMetrics.heightPixels * 0.40f).toInt()
         val maxW = (480 * dp).toInt()
         val width = if (ctx.resources.displayMetrics.widthPixels > maxW + 16 * dp) maxW
         else ViewGroup.LayoutParams.MATCH_PARENT
         host.addView(card, FrameLayout.LayoutParams(
             width, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM))
-        scroll.post {
-            if (scroll.height > maxH) scroll.layoutParams = scroll.layoutParams.apply { height = maxH }
-        }
         host.visibility = View.VISIBLE
     }
 
@@ -118,6 +129,10 @@ class SettingsPanel(private val host: FrameLayout, private val look: Appearance)
 
         fun custom(view: View, heightDp: Int) {
             parent.addView(view, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (heightDp * dp).toInt()))
+        }
+
+        fun view(view: View) {
+            parent.addView(view, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
 
         fun button(text: String, onClick: () -> Unit) {

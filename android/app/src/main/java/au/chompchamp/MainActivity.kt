@@ -92,6 +92,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private lateinit var tripLog: TripLog
     private lateinit var tripsPanel: TripsPanel
     private lateinit var catchDialogs: CatchDialogs
+    private lateinit var bagPanel: BagLimitsPanel
+    private lateinit var bagButton: MovableButton
     private lateinit var ais: Ais
     private lateinit var aisLabel: TextView
     /** The saved trip drawn on the map. */
@@ -182,6 +184,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
         marksPanel = createMarksPanel()
         tripsPanel = createTripsPanel()
         catchDialogs = createCatchDialogs()
+        bagPanel = createBagPanel()
+        bagButton = MovableButton(findViewById(R.id.btnBag), prefs, "ui_bag")
+        bagButton.button.setOnClickListener { bagPanel.toggle() }
+        TooltipCompat.setTooltipText(bagButton.button, getString(R.string.bag_limits))
         aisLabel = findViewById(R.id.aisLabel)
         aisLabel.setOnClickListener { showAisInfo() }
         ais = createAis()
@@ -202,11 +208,18 @@ class MainActivity : AppCompatActivity(), LocationListener {
             v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
             barInsets = bars
             applyMapUiMargins()
+            bagButton.button.post { bagButton.place() }
+            // Keep a panel with a search box above the keyboard.
+            val host = findViewById<View>(R.id.panelHost)
+            val keyboard = (insets.getInsets(WindowInsetsCompat.Type.ime()).bottom - bars.bottom).coerceAtLeast(0)
+            host.layoutParams = (host.layoutParams as FrameLayout.LayoutParams).apply {
+                bottomMargin = (8 * resources.displayMetrics.density).toInt() + keyboard
+            }
             insets
         }
 
         controlButtons = listOf(
-            findViewById(R.id.btnMenu), findViewById(R.id.btnLayers), findViewById(R.id.btnLocate))
+            findViewById(R.id.btnMenu), findViewById(R.id.btnLayers), findViewById(R.id.btnLocate), findViewById(R.id.btnBag))
         findViewById<View>(R.id.btnLocate).setOnClickListener { followBoat() }
         findViewById<View>(R.id.btnMenu).setOnClickListener { showMenu(it) }
         findViewById<View>(R.id.btnLayers).setOnClickListener {
@@ -279,10 +292,21 @@ class MainActivity : AppCompatActivity(), LocationListener {
             AppMode.NAVIGATE -> followBoat()
             AppMode.FISH -> { drift.reset(); followBoat(settings.fishZoom) }
         }
+        updateBagButton()
         refreshOverlays()
         refreshModePanel()
         refreshDisplayPanel()   // its data field rows belong to the current mode
     }
+
+    private fun updateBagButton() {
+        val on = mode == AppMode.FISH && look.showBagButton
+        bagButton.button.visibility = if (on) View.VISIBLE else View.GONE
+    }
+
+    private fun createBagPanel() = BagLimitsPanel(this, panel, look, object : BagLimitsPanel.Host {
+        override fun boat() = lastPos()
+        override fun mapCentre() = map?.cameraPosition?.target?.let { LatLon(it.latitude, it.longitude) }
+    })
 
     private fun refreshOverlays() {
         when {
@@ -1176,6 +1200,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val items: List<Pair<String, () -> Unit>> = listOf(
             "Marks…" to { marksPanel.show() },
             "Trips & catches…" to { tripsPanel.show() },
+            "Bag & size limits…" to { bagPanel.show() },
             "Display…" to { showDisplayPanel() },
             "Settings…" to { settings.show(this) { onSettingsChanged() } },
             "Charts & relief data…" to { showChartManager() },
@@ -1458,11 +1483,17 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 updateScaleBar()
                 refreshDisplayPanel()
             }
+            if (mode == AppMode.FISH) rows.actionRow("Bag limits button", if (look.showBagButton) "On" else "Off") {
+                look.showBagButton = !look.showBagButton
+                updateBagButton()
+                refreshDisplayPanel()
+            }
             rows.section("Reset")
             rows.actionRow("Layout · ${mode.label} mode", "Reset") {
                 confirm("Are you sure you want to reset the ${mode.label} layout?\n\nData fields go back to their default " +
                     "position and size. Which fields are shown, and how they're arranged, stays the same.") {
                     fields.resetLayout()
+                    if (mode == AppMode.FISH) bagButton.reset()
                     Toast.makeText(this, R.string.layout_reset_done, Toast.LENGTH_SHORT).show()
                 }
             }
@@ -1534,6 +1565,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         aisLabel.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
         ais.setScale(look.aisScale)
         overlays.setCatchScale(look.catchScale)
+        updateBagButton()
+        bagButton.place()
         fields.applyStyle()
         applyMapUiMargins()
         refreshModePanel()
@@ -1574,6 +1607,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     private fun setEditing(on: Boolean) {
         fields.setEditing(on)
+        bagButton.setEditing(on)
         editBar.visibility = if (on) View.VISIBLE else View.GONE
         // The edit bar sits where the mode pill is.
         modeButton.visibility = if (on) View.GONE else View.VISIBLE
@@ -1880,6 +1914,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
         updateBanner()
         if (started && (mode == AppMode.NAVIGATE || mode == AppMode.FISH)) refreshModePanel()
+        if (started) bagPanel.moved()
     }
 
     @Deprecated("Required on API < 29")

@@ -52,6 +52,8 @@ user which they need. The style must also cope with older charts that lack a new
 | `Trips.kt`, `TripsPanel.kt`, `SpeedChartView.kt` | Trips, stats, catch log storage and export; docked panel; speed chart |
 | `CatchDialogs.kt`, `TrackService.kt` | Catch entry and viewing; foreground service for recording with the screen off |
 | `Ais.kt` | Vessels from Open Waters AIS (polling, parsing, map layers). Never store or export its data (AISHub terms) |
+| `BagLimits.kt`, `BagLimitsPanel.kt` | Bag and size limits: data and area lookup; docked searchable panel |
+| `MovableButton.kt` | A button the user can drag in Edit layout (bag limits) |
 | `ScaleBarView.kt` | Scale bar, bottom right |
 | `Hazards.kt` | Nav marks, wrecks and rocks from `assets/hazards.geojson` |
 | `SettingsPanel.kt`, `Settings.kt`, `Appearance.kt` | Docked panel (Layers, Display); behaviour options; size, opacity, palette |
@@ -70,6 +72,9 @@ Gotchas:
 - Data-field cards are placed with translation; reset it when moving one into the group or it gets clipped.
 - Inside `apply {}` on a View, locals named `alpha` or `value` clash with the View's own properties.
 - `Slider` values must land on the step: use whole percents in steps of 5.
+- `assets/bag_limits.json` is entered by hand from DPIRD's guide, in our own words (the guide isn't open licensed). Check
+  every figure against the guide's tables when it's reissued, and update `checked`, `reviewBy` and the README row.
+  `limit_areas.json` comes from `fetch_limit_areas.py`. Unsure which limit applies? Show the stricter, or all of them.
 - A catch belongs to a trip by its time, not by an id. Trip ids are `trip-<start ms>`, so saving one twice is harmless.
 - Snapshots leave out trips and catches on purpose: loading an old one must not wipe newer trips.
 - `onLocationChanged` also runs with the screen off: no `queryRenderedFeatures` or other map work unless `started`.
@@ -101,7 +106,7 @@ headless Chromium (available locally) before calling it done. Bump `web/VERSION`
    chart, failing the build on a mismatch. (Once, everything over 1000 m deep shipped as land.) Always check a chart
    against the source grid, not just against itself.
 
-`fetch_hazards.py` and `build_relief.py` run separately; the first refreshes the bundled asset.
+`fetch_hazards.py`, `fetch_limit_areas.py` and `build_relief.py` run separately; the first two refresh bundled assets.
 
 Heights are mean sea level (AusBathyTopo) or AHD (DoT), not low-tide chart datum.
 DoT files: `https://s3-ap-southeast-2.amazonaws.com/transport.wa/Bathymetry/{Rasters,PointData}/`.
