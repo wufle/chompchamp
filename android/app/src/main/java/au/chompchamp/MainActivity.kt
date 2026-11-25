@@ -1031,7 +1031,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
     // =========================================================================
 
     private fun createAis() = Ais(
-        userAgent = "chompchamp/" + runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull().orEmpty(),
+        // Open Waters wants a name, version and contact link. Keep the name the same across releases.
+        userAgent = "chompchamp/" + (runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "0") +
+            " ($GITHUB_URL)",
         maxAgeMin = { settings.aisMaxAgeMin },
         view = {
             map?.takeIf { mapView.width > 0 }?.projection?.visibleRegion?.latLngBounds?.let { b ->

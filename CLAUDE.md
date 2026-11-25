@@ -60,7 +60,7 @@ user which they need. The style must also cope with older charts that lack a new
 | `MarkGroups.kt`, `MarksPanel.kt` | Mark groups: storage; show/hide panel and bulk edits. Group "" = Ungrouped |
 | `Trips.kt`, `TripsPanel.kt`, `SpeedChartView.kt` | Trips, stats, catch log storage and export; docked panel; speed chart |
 | `CatchDialogs.kt`, `TrackService.kt` | Catch entry and viewing; foreground service for recording with the screen off |
-| `Ais.kt` | Vessels from Open Waters AIS (polling, parsing, map layers). Never store or export its data (AISHub terms) |
+| `Ais.kt` | Vessels from Open Waters AIS (polling, parsing, map layers). Never store or export its data (AISHub terms). Its User-Agent carries the repo link, which the owner approved and Open Waters requires from 2027 |
 | `BagLimits.kt`, `BagLimitsPanel.kt` | Bag and size limits: data and area lookup; docked searchable panel |
 | `MovableButton.kt` | A button the user can drag in Edit layout (bag limits) |
 | `ScaleBarView.kt` | Scale bar, bottom right |
