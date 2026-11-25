@@ -14,8 +14,11 @@ import kotlin.math.sqrt
 
 data class LatLon(val lat: Double, val lon: Double)
 
-/** A recorded track point. [t] = epoch ms, or 0 for points recorded before timestamps existed. */
-data class TrackPoint(val lat: Double, val lon: Double, val t: Long) {
+/**
+ * A recorded track point. [t] = epoch ms, or 0 for points recorded before timestamps existed.
+ * [sog] = GPS speed in knots, or -1 if it wasn't recorded.
+ */
+data class TrackPoint(val lat: Double, val lon: Double, val t: Long, val sog: Double = -1.0) {
     val pos get() = LatLon(lat, lon)
 }
 

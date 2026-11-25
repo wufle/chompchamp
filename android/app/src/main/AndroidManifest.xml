@@ -6,6 +6,10 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Only for the optional "keep recording when the screen is off" setting. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -40,6 +44,12 @@
                 <data android:mimeType="application/vnd.pmtiles" />
             </intent-filter>
         </activity>
+        <!-- Keeps the trip recording with the screen off, if the user turned that on. -->
+        <service
+            android:name=".TrackService"
+            android:exported="false"
+            android:foregroundServiceType="location"
+            android:stopWithTask="true" />
         <!-- Lets the camera app write a photo for a mark into our cache. -->
         <provider
             android:name="androidx.core.content.FileProvider"

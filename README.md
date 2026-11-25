@@ -41,7 +41,7 @@ imagery always needs internet.
 
 **Updating:** install the new `.apk` over the old one; routes, marks and settings are kept. Import a newer
 `wa.pmtiles` the same way and it replaces the old chart. Uninstalling deletes your data, so export it first
-(☰ → **Data: save, load, export, import…**). Mark photos aren't included in exports yet.
+(☰ → **Data: save, load, export, import…**). Photos aren't included in exports yet.
 
 **Problems?**
 - *Blank map:* no chart is imported, or you're outside Western Australia.
@@ -59,15 +59,25 @@ Four modes (switch with the button at the top of the screen):
 - **Chart**: offline chart with depth shading, contours, labels and land. No-fishing zones in red, restricted areas in orange, marine parks in green. Alerts when you enter a no-fishing zone. Tap a zone for details; long-press anywhere for depth, "Navigate here" or "Add mark".
 - **Route**: tap to drop waypoints, tap a waypoint to move, rename or delete it. Shows distance and time at your planning speed. Save, open, reverse and delete routes. **Check route** (tick button) samples every leg for land, water shallower than your safety depth, and no-fishing zones.
 - **Navigate**: steers you waypoint by waypoint with BRG, DTW, XTE, VMG, TTG, ETA to waypoint and destination, and distance remaining. Auto-advances at the arrival radius or when you pass abeam. Previous, stop and next buttons.
-- **Fish**: zooms in close, measures drift over a rolling window and draws where you'll be in N minutes. One-tap **Mark** saves the spot with estimated depth. Sort marks into coloured groups you can show or hide (Menu → Marks), and move or delete many at once. Add photos to marks (camera or gallery); the latest shows as a bubble over the mark on the map. Anchor alarm, nearest-mark distance/bearing, breadcrumb track.
+- **Fish**: zooms in close, measures drift over a rolling window and draws where you'll be in N minutes. One-tap **Mark** saves the spot with estimated depth. Sort marks into coloured groups you can show or hide (Menu → Marks), and move or delete many at once. Add photos to marks (camera or gallery); the latest shows as a bubble over the mark on the map. Anchor alarm, nearest-mark distance/bearing, breadcrumb track. **Catch** logs a fish: species, number, length, weight, kept or released, bait, notes, photos, with the time, position and estimated depth filled in.
+
+**Trips & catches** (Menu): every trip is recorded with time and speed at each point. Finished trips keep their full
+track, distance, time under way, average and top speed, catches, and a speed chart you drag along to see when and where
+on the map. Export a trip as GPX, or its speed log or catches as CSV. A new trip starts by itself after a break in
+recording (6 hours unless changed in Settings). Recording stops when the app isn't on screen, unless you turn on
+*Keep recording when the screen is off* in Settings (uses more battery and shows a notification).
+
+**Vessels (AIS)** (Layers, off by default, needs internet): boats that transmit AIS, from volunteer shore stations, with
+name, type, speed, course and how long ago each was heard. No account or receiver needed. Positions run a minute or
+more behind, and boats without AIS or out of range of a station are missing. It is for interest, not for avoiding collisions.
 
 Everything is customisable:
-- **Data fields** per mode: SOG, COG, position, depth, waypoint, BRG, DTW, XTE, VMG, TTG, ETAs, remaining, drift speed/direction, nearest mark, anchor distance, trip log, time. Show/hide them and drag them anywhere (Menu → Display → Move or resize), or combine them into one group (Menu → Display → Arrangement); tap a field while editing to resize or hide just that one. Each mode keeps its own layout.
+- **Data fields** per mode: SOG, COG, position, depth, waypoint, BRG, DTW, XTE, VMG, TTG, ETAs, remaining, drift speed/direction, nearest mark, anchor distance, trip distance, time, average and top speed, clock. Show/hide them and drag them anywhere (Menu → Display → Move or resize), or combine them into one group (Menu → Display → Arrangement); tap a field while editing to resize or hide just that one. Each mode keeps its own layout.
 - **Display** (Menu): the data field options above, the scale bar on/off, plus size and transparency of data fields, and of buttons and panels.
-- **Layers** (bottom left): on/off and an opacity slider for every layer: marks and hazards, satellite, 5 m reef relief, depth shading, contours, labels, land, zones, parks, route, marks, drift line, track, anchor circle.
+- **Layers** (bottom left): on/off and an opacity slider for every layer: marks and hazards, satellite, 5 m reef relief, depth shading, contours, labels, land, zones, parks, route, marks, drift line, track, saved trip, catches, anchor circle, AIS vessels.
 - **Charts & relief data** (Menu): see what is installed (size, date), import, remove the chart or the offline reef relief pack (relief falls back to online), clear the online tile cache.
-- **Data** (Menu): save and load named snapshots on the phone; export and import a backup file (.json) with routes, marks, track and settings (merge or replace); export and import GPX to move marks, routes and tracks to and from other chartplotter apps.
-- **Settings**: track history shown (1 min to the entire trip), track point spacing, arrival radius, planning speed, north-up / course-up, drift window and projection, fish-mode zoom, anchor radius, safety depth.
+- **Data** (Menu): save and load named snapshots on the phone; export and import a backup file (.json) with routes, marks, current track, saved trips, catch log and settings (merge or replace); export and import GPX to move marks, routes and tracks to and from other chartplotter apps.
+- **Settings**: track history shown (1 min to the entire trip), track point spacing, when a new trip starts, recording with the screen off, AIS age limit, arrival radius, planning speed, north-up / course-up, drift window and projection, fish-mode zoom, anchor radius, safety depth.
 
 ## Desktop planner
 
@@ -85,10 +95,11 @@ location when you update it, because some browsers tie your saved data to them. 
 
 ## Privacy
 
-No accounts, ads or analytics. Your position, track, marks and photos stay on the phone unless you export
+No accounts, ads or analytics. Your position, trips, catches, marks and photos stay on the phone unless you export
 them (or Android's own device backup copies them). When online, the app requests map imagery and label
 fonts for the area you're viewing from the WA Government (SLIP), EOX and OpenFreeMap, so those servers see
-your IP address and the area on screen.
+your IP address and the area on screen. With the AIS layer on, Open Waters also sees your IP address and the area on screen
+about once a minute; it keeps request logs for 90 days. Your own position is never sent.
 
 ## Data sources and licences
 
@@ -108,6 +119,7 @@ source's licence (including the bundled `hazards.geojson`). If you reuse the cha
 | Navigation marks (beacons, buoys, cardinals, lights, leads) | WA Department of Transport, Navigation Aids (DOT-004), via SLIP | CC BY 4.0 |
 | Wrecks, rocks, obstructions | © OpenStreetMap contributors (OpenSeaMap seamark tags) | ODbL 1.0 |
 | Satellite (online) | [Sentinel-2 cloudless 2016](https://s2maps.eu) by EOX IT Services GmbH (contains modified Copernicus Sentinel data 2016) | CC BY 4.0 |
+| Vessels (online, optional layer) | [Open Waters AIS](https://openwaters.io/ais/), around WA passing on AIS from [AISHub](https://www.aishub.net) contributors and [aisstream.io](https://aisstream.io) | Not open data. Free for personal use and display with credit; AISHub's terms don't allow passing on the raw data, so the app never stores or exports it. aisstream.io publishes no licence |
 | Label fonts (online, cached) | [OpenFreeMap](https://openfreemap.org) | OFL |
 
 **How zones are classified** (`pipeline/scripts/fetch_zones.py`): each area is classified by
@@ -136,8 +148,8 @@ and obstructions known only from hydrographic surveys (AHO ENCs) are not in any 
 - [ ] Zone alerts and depth that work off screen (point-in-polygon against the data, not rendered tiles)
 - [ ] Bundle fonts so labels work fully offline on first launch
 - [ ] Offline satellite imagery for chosen areas
-- [ ] Mark photos in backups
-- [ ] Catch log on marks (species, size, photo, bait)
+- [ ] Photos in backups
+- [ ] Trips and catches in the desktop planner
 - [ ] Sea surface temperature and chlorophyll overlays (IMOS)
 - [ ] Tides (WA Department of Transport tide stations) and marine weather
 - [ ] Bag/size limits and seasonal closures by zone

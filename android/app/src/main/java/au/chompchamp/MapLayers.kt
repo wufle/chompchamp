@@ -35,6 +35,10 @@ enum class MapOverlay(val key: String, val shortLabel: String, val defaultOn: Bo
     DRIFT("drift", "Drift line", true),
     TRACK("track", "Track", true),
     ANCHOR("anchor", "Anchor circle", true),
+    SAVED_TRIP("saved_trip", "Saved trip", true),
+    CATCHES("catches", "Catches", true),
+    /** Off by default: needs internet, and tells the AIS server which area is on screen. */
+    AIS("ais", "Vessels (AIS)", false),
 }
 
 class MapLayers(private val prefs: SharedPreferences) {
@@ -82,6 +86,15 @@ class MapLayers(private val prefs: SharedPreferences) {
             StyleLayer("drift-end", Kind.CIRCLE, 1f),
         ),
         MapOverlay.TRACK to listOf(StyleLayer("track-line", Kind.LINE, 0.75f)),
+        MapOverlay.SAVED_TRIP to listOf(
+            StyleLayer("trip-line", Kind.LINE, 0.9f),
+            StyleLayer("trip-dots", Kind.CIRCLE, 1f),
+        ),
+        MapOverlay.CATCHES to listOf(StyleLayer(NavOverlays.CATCHES, Kind.SYMBOL, 1f)),
+        MapOverlay.AIS to listOf(
+            StyleLayer("ais-vector", Kind.LINE, 0.8f),
+            StyleLayer(Ais.LAYER, Kind.SYMBOL, 1f),
+        ),
         MapOverlay.ANCHOR to listOf(
             StyleLayer("anchor-fill", Kind.FILL, 0.12f),
             StyleLayer("anchor-line", Kind.LINE, 1f),
@@ -136,7 +149,9 @@ class MapLayers(private val prefs: SharedPreferences) {
         "Chart" to listOf(MapOverlay.SATELLITE, MapOverlay.RELIEF, MapOverlay.DEPTH, MapOverlay.CONTOURS,
             MapOverlay.CONTOUR_LABELS, MapOverlay.LAND, MapOverlay.HAZARDS),
         "Zones" to listOf(MapOverlay.NO_TAKE, MapOverlay.RESTRICTED, MapOverlay.PARKS),
-        "My data" to listOf(MapOverlay.ROUTE, MapOverlay.MARKS, MapOverlay.DRIFT, MapOverlay.TRACK, MapOverlay.ANCHOR),
+        "My data" to listOf(MapOverlay.ROUTE, MapOverlay.MARKS, MapOverlay.DRIFT, MapOverlay.TRACK, MapOverlay.SAVED_TRIP,
+            MapOverlay.CATCHES, MapOverlay.ANCHOR),
+        "Live (needs internet)" to listOf(MapOverlay.AIS),
     )
 
     /** Fill the docked settings panel: switch + opacity slider per layer, applied live. */
@@ -148,13 +163,13 @@ class MapLayers(private val prefs: SharedPreferences) {
                     label = o.shortLabel,
                     percent = (opacity(o) * 100).roundToInt(),
                     checked = isOn(o),
-                    onChecked = { on -> setOn(o, on); style?.let { apply(it) } },
+                    onChecked = { on -> setOn(o, on); style?.let { apply(it) }; onToggled?.invoke(o) },
                     onPercent = { p -> setOpacity(o, p / 100f); style?.let { apply(it) } },
                 )
             }
         }
         rows.note("Sliders set each layer's opacity. No-fishing alerts keep working when zones are hidden. " +
-            "Satellite and online reef relief need internet.")
+            "Satellite and online reef relief need internet. AIS asks openwaters.io for vessels in the area on screen.")
         rows.button("Reset layers") {
             val e = prefs.edit()
             MapOverlay.entries.forEach { e.remove("layer_${it.key}").remove("layer_opacity_${it.key}") }
@@ -163,6 +178,9 @@ class MapLayers(private val prefs: SharedPreferences) {
             onReset?.invoke()
         }
     }
+
+    /** Set by the activity: a layer was switched on or off. */
+    var onToggled: ((MapOverlay) -> Unit)? = null
 
     /** Set by the activity to reopen the panel after a reset (so the controls refresh). */
     var onReset: (() -> Unit)? = null

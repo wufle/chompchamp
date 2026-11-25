@@ -17,7 +17,8 @@ import java.util.UUID
 enum class DataPart(val key: String, val label: String) {
     ROUTES("routes", "Routes (saved + current plan)"),
     MARKS("marks", "Marks"),
-    TRACK("track", "Track"),
+    TRACK("track", "Current track"),
+    TRIPS("trips", "Saved trips & catch log"),
     SETTINGS("settings", "Settings, layers & layouts"),
 }
 
@@ -29,11 +30,15 @@ class DataBundle(
     val track: List<TrackPoint> = emptyList(),
     val settings: JSONObject? = null,
     val markGroups: List<MarkGroup> = emptyList(),
+    /** Saved trips with their encoded points, see [TripLog.encode]. */
+    val trips: List<Pair<Trip, String>> = emptyList(),
+    val catches: List<Catch> = emptyList(),
 ) {
     fun available(): List<DataPart> = buildList {
         if (routes.isNotEmpty() || plan?.waypoints?.isNotEmpty() == true) add(DataPart.ROUTES)
         if (marks.isNotEmpty()) add(DataPart.MARKS)
         if (track.isNotEmpty()) add(DataPart.TRACK)
+        if (trips.isNotEmpty() || catches.isNotEmpty()) add(DataPart.TRIPS)
         if (settings != null && settings.length() > 0) add(DataPart.SETTINGS)
     }
 
@@ -41,6 +46,7 @@ class DataBundle(
         DataPart.ROUTES -> "${routes.size} route(s)" + if (plan?.waypoints?.isNotEmpty() == true) " + current plan" else ""
         DataPart.MARKS -> "${marks.size} mark(s)"
         DataPart.TRACK -> "${track.size} track point(s)"
+        DataPart.TRIPS -> "${trips.size} trip(s), ${catches.size} catch(es)"
         DataPart.SETTINGS -> "${settings?.length() ?: 0} setting(s)"
     }
 }
@@ -50,7 +56,10 @@ class DataBundle(
  * Everything goes through [Store] and SharedPreferences, so callers should reload their
  * in-memory copies after [apply].
  */
-class UserData(dir: File, private val store: Store, private val prefs: SharedPreferences) {
+class UserData(dir: File, private val store: Store, private val tripLog: TripLog, private val prefs: SharedPreferences) {
+
+    /** Not the trip history: loading an old snapshot must never wipe newer trips. */
+    val snapshotParts = DataPart.entries.toSet() - DataPart.TRIPS
 
     private val snapshotDir = File(dir, "snapshots").apply { mkdirs() }
 
@@ -69,7 +78,13 @@ class UserData(dir: File, private val store: Store, private val prefs: SharedPre
             o.put("marks", JSONArray().apply { store.marks().forEach { put(it.toJson()) } })
             o.put("markGroups", JSONArray().apply { store.markGroups().forEach { put(it.toJson()) } })
         }
-        if (DataPart.TRACK in parts) o.put("track3", Store.encodeTrack(store.track()))
+        if (DataPart.TRACK in parts) store.track().let {
+            o.put("track3", Store.encodeTrack(it)).put("trackSog", Store.encodeSog(it))
+        }
+        if (DataPart.TRIPS in parts) {
+            o.put("trips", JSONArray().apply { tripLog.trips.forEach { put(it.toJson().put("pts", tripLog.rawPoints(it.id))) } })
+            o.put("catches", JSONArray().apply { tripLog.catches.forEach { put(it.toJson()) } })
+        }
         if (DataPart.SETTINGS in parts) o.put("settings", prefsToJson())
         return o.toString(1)
     }
@@ -80,17 +95,21 @@ class UserData(dir: File, private val store: Store, private val prefs: SharedPre
         val routes = o.optJSONArray("routes")?.let { a -> List(a.length()) { Route.fromJson(a.getJSONObject(it)) } }.orEmpty()
         val plan = o.optJSONObject("plan")?.let { Route.fromJson(it) }
         val marks = o.optJSONArray("marks")?.let { a -> List(a.length()) { Mark.fromJson(a.getJSONObject(it)) } }.orEmpty()
-        val track = o.optJSONArray("track3")?.let { Store.decodeTrack(it, 3) }
+        val track = o.optJSONArray("track3")?.let { Store.decodeTrack(it, 3, o.optJSONArray("trackSog")) }
             ?: o.optJSONArray("track")?.let { Store.decodeTrack(it, 2) }
             ?: emptyList()
         val groups = o.optJSONArray("markGroups")?.let { a -> List(a.length()) { MarkGroup.fromJson(a.getJSONObject(it)) } }.orEmpty()
-        return DataBundle(routes, plan, marks, track, o.optJSONObject("settings"), groups)
+        val trips = o.optJSONArray("trips")?.let { a ->
+            List(a.length()) { a.getJSONObject(it).let { t -> Trip.fromJson(t) to TripLog.encode(TripLog.decode(t.optString("pts"))) } }
+        }.orEmpty()
+        val catches = o.optJSONArray("catches")?.let { a -> List(a.length()) { Catch.fromJson(a.getJSONObject(it)) } }.orEmpty()
+        return DataBundle(routes, plan, marks, track, o.optJSONObject("settings"), groups, trips, catches)
     }
 
     /**
      * Write a bundle into the app's storage.
-     * merge = true: add routes/marks (same id → replaced), append track, overwrite only the
-     * settings present. merge = false: replace each selected part entirely.
+     * merge = true: add routes/marks/trips/catches (same id → replaced), keep an imported track as a
+     * saved trip, overwrite only the settings present. merge = false: replace each selected part entirely.
      */
     fun apply(b: DataBundle, parts: Set<DataPart>, merge: Boolean) {
         if (DataPart.ROUTES in parts) {
@@ -116,7 +135,22 @@ class UserData(dir: File, private val store: Store, private val prefs: SharedPre
             store.saveMarkGroups(groups)
         }
         if (DataPart.TRACK in parts) {
-            store.saveTrack(if (merge) store.track() + b.track else b.track)
+            val here = store.track()
+            when {
+                !merge || here.isEmpty() -> store.saveTrack(b.track)
+                // The same trip again (e.g. this phone's own backup): keep the longer one.
+                b.track.first().t > 0 && b.track.first().t == here.first().t -> if (b.track.size > here.size) store.saveTrack(b.track)
+                else -> tripLog.archive(b.track, null, keepAll = true) { true }
+            }
+        }
+        if (DataPart.TRIPS in parts) {
+            if (!merge) tripLog.clear()
+            b.trips.forEach { (t, raw) -> tripLog.save(t, raw) }
+            for (c in b.catches) {
+                val i = tripLog.catches.indexOfFirst { it.id == c.id }
+                if (i >= 0) tripLog.catches[i] = c else tripLog.catches.add(c)
+            }
+            tripLog.saveCatches()
         }
         if (DataPart.SETTINGS in parts && b.settings != null) {
             jsonToPrefs(b.settings, clearFirst = !merge)
@@ -131,7 +165,7 @@ class UserData(dir: File, private val store: Store, private val prefs: SharedPre
             .map { it.nameWithoutExtension to it.lastModified() }
 
     fun saveSnapshot(name: String) {
-        File(snapshotDir, safeName(name) + ".json").writeText(export(DataPart.entries.toSet()))
+        File(snapshotDir, safeName(name) + ".json").writeText(export(snapshotParts))
     }
 
     fun readSnapshot(name: String): DataBundle = parseBackup(File(snapshotDir, "$name.json").readText())

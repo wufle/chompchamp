@@ -35,6 +35,7 @@ class SettingsPanel(private val host: FrameLayout, private val look: Appearance)
     val isOpen get() = host.visibility == View.VISIBLE
 
     fun show(title: String, build: (Rows) -> Unit, onClose: (() -> Unit)? = null) {
+        this.onClose?.invoke()   // whatever was open before
         this.onClose = onClose
         current = title
         host.removeAllViews()
@@ -113,6 +114,10 @@ class SettingsPanel(private val host: FrameLayout, private val look: Appearance)
                 setTextColor(look.muted)
                 setPadding(0, (8 * dp).toInt(), 0, (4 * dp).toInt())
             })
+        }
+
+        fun custom(view: View, heightDp: Int) {
+            parent.addView(view, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (heightDp * dp).toInt()))
         }
 
         fun button(text: String, onClick: () -> Unit) {

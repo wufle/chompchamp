@@ -45,12 +45,15 @@ enum class DataField(val key: String, val label: String, vararg val defaultIn: A
     MARK("mark", "NEAREST MARK", AppMode.FISH),
     ANCHOR("anchor", "ANCHOR  m"),
     TRIP("trip", "TRIP  nm"),
+    TRIP_TIME("trip_time", "TRIP TIME"),
+    TRIP_AVG("trip_avg", "TRIP AVG  kn"),
+    TRIP_MAX("trip_max", "TRIP MAX  kn"),
     TIME("time", "TIME"),
     ;
 
     val placeholder: String
         get() = when (this) {
-            SOG, VMG, DRIFT -> "--.-"
+            SOG, VMG, DRIFT, TRIP_AVG, TRIP_MAX -> "--.-"
             COG, BRG, DRIFT_DIR -> "---°"
             POSITION -> "No GPS fix"
             else -> "--"

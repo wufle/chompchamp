@@ -119,29 +119,31 @@ class DriftTracker {
     }
 }
 
-/** Breadcrumb trail + trip log. Points carry timestamps so the map can show any time window. */
+/** The current trip's breadcrumb trail. Points carry time and speed. */
 class Track(initial: MutableList<TrackPoint>) {
     val points: MutableList<TrackPoint> = initial
-    var tripNm = 0.0
+    /** Totals survive app restarts: rebuilt from the saved points. */
+    var stats = TripStats.of(points)
         private set
+    val tripNm get() = stats.distanceNm
 
-    init {
-        // Trip distance survives app restarts: rebuild it from the saved points.
-        tripNm = points.zipWithNext().sumOf { (a, b) ->
-            Geo.distanceNm(a.pos, b.pos).let { if (it < 5) it else 0.0 }
-        }
-    }
+    /** Full: the caller should save it as a trip and start a new one. */
+    val isFull get() = points.size >= MAX
 
-    /** Returns true if a point was added. Points closer than [minSpacingM] are skipped. */
-    fun add(p: LatLon, t: Long, minSpacingM: Double): Boolean {
+    /**
+     * Returns true if a point was added. Points closer than [minSpacingM] are skipped, except that while
+     * stopped the last position is repeated every couple of minutes, so the log shows time spent there.
+     */
+    fun add(p: LatLon, t: Long, sog: Double?, minSpacingM: Double): Boolean {
         val last = points.lastOrNull()
-        if (last != null) {
-            val d = Geo.distanceNm(last.pos, p)
-            if (d * Geo.M_PER_NM < minSpacingM) return false
-            if (d < 5) tripNm += d   // ignore GPS jumps
+        val kn = sog ?: -1.0
+        val point = when {
+            last == null || Geo.distanceNm(last.pos, p) * Geo.M_PER_NM >= minSpacingM -> TrackPoint(p.lat, p.lon, t, kn)
+            t - last.t >= HOLD_MS -> TrackPoint(last.lat, last.lon, t, kn)
+            else -> return false
         }
-        points.add(TrackPoint(p.lat, p.lon, t))
-        if (points.size > MAX) points.subList(0, points.size - MAX).clear()
+        points.add(point)
+        stats.add(point)
         return true
     }
 
@@ -153,7 +155,10 @@ class Track(initial: MutableList<TrackPoint>) {
         return if (i < 0) emptyList() else points.subList(i, points.size).map { it.pos }
     }
 
-    fun clear() { points.clear(); tripNm = 0.0 }
+    fun clear() { points.clear(); stats = TripStats() }
 
-    companion object { const val MAX = 50_000 }
+    companion object {
+        const val MAX = 50_000
+        const val HOLD_MS = 120_000L
+    }
 }

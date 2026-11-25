@@ -78,7 +78,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private lateinit var modeButtons: LinearLayout
 
     private var map: MapLibreMap? = null
-    private val overlays = NavOverlays()
+    private val overlays by lazy { NavOverlays(resources.displayMetrics.density) }
     private val hazards by lazy { Hazards(this) }
     private lateinit var navigator: Navigator
     private val drift = DriftTracker()
@@ -89,11 +89,23 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private lateinit var plan: Route
     private lateinit var userData: UserData
     private lateinit var photos: Photos
-    /** Mark waiting for a photo from the camera / gallery. */
+    private lateinit var tripLog: TripLog
+    private lateinit var tripsPanel: TripsPanel
+    private lateinit var catchDialogs: CatchDialogs
+    private lateinit var ais: Ais
+    private lateinit var aisLabel: TextView
+    /** The saved trip drawn on the map. */
+    private var shownTrip: String? = null
+    /** Between onStart and onStop. */
+    private var started = false
+    private var lastTrackSave = 0L
+    /** Id of the mark or catch waiting for a photo from the camera / gallery. */
     private var photoTarget: String? = null
     private var cameraFile: File? = null
     /** What the next "create document" result should contain: (isGpx, parts). */
     private var pendingExport: Pair<Boolean, Set<DataPart>>? = null
+    /** Or this text as it is (a trip or the catch log). */
+    private var pendingText: String? = null
 
     private var mode = AppMode.CHART
     private var locationActive = false
@@ -120,6 +132,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let { writeExport(it) } }
     private val exportGpxFile =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/gpx+xml")) { uri -> uri?.let { writeExport(it) } }
+    private val exportCsvFile =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri -> uri?.let { writeExport(it) } }
+    private val askNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
     private val importDataFile =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { readImport(it) } }
 
@@ -156,7 +171,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         marks = store.marks()
         groups = MarkGroups(store).also { it.reload(marks) }
         plan = store.plan()
-        userData = UserData(File(filesDir, "data"), store, prefs)
+        tripLog = TripLog(File(filesDir, "data"))
+        userData = UserData(File(filesDir, "data"), store, tripLog, prefs)
         photos = Photos(this)
 
         mapView = findViewById(R.id.mapView)
@@ -164,6 +180,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
         look = Appearance(this, prefs)
         panel = SettingsPanel(findViewById(R.id.panelHost), look)
         marksPanel = createMarksPanel()
+        tripsPanel = createTripsPanel()
+        catchDialogs = createCatchDialogs()
+        aisLabel = findViewById(R.id.aisLabel)
+        aisLabel.setOnClickListener { showAisInfo() }
+        ais = createAis()
         fields = DataFieldsOverlay(findViewById<FrameLayout>(R.id.fieldsContainer), prefs, look) { f -> fieldOptions(f) }
         editBar = findViewById(R.id.editBar)
         modeButton = findViewById(R.id.btnMode)
@@ -191,7 +212,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         findViewById<View>(R.id.btnLayers).setOnClickListener {
             if (panel.isOpen) panel.hide() else showLayersPanel()
         }
-        layers.onReset = { showLayersPanel() }
+        layers.onReset = { showLayersPanel(); updateAis() }
+        layers.onToggled = { if (it == MapOverlay.AIS) updateAis() }
         // Back closes the settings panel / layout editor before leaving the app.
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -273,6 +295,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         showMarks()
         overlays.setAnchor(anchor, settings.anchorRadiusM)
         overlays.setTrack(visibleTrack())
+        showCatchesOnMap()
     }
 
     /** A round action button in the bottom row with one [word] under it. Long-press shows [label]. */
@@ -316,6 +339,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 } ?: "Measuring drift…") + (anchor?.let { "\nAnchor alarm ON · ${settings.anchorRadiusM.toInt()} m" } ?: "")
                 actions = listOf(
                     ModeAction(R.drawable.ic_star, "Mark", "Mark this spot") { addMarkAtBoat() },
+                    ModeAction(R.drawable.ic_fish, "Catch", "Log a catch") { logCatch() },
                     ModeAction(R.drawable.ic_anchor, "Anchor", if (anchor == null) "Set anchor alarm" else "Turn anchor alarm off",
                         active = anchor != null) { toggleAnchor() },
                     ModeAction(R.drawable.ic_refresh, "Reset", "Reset drift") { drift.reset(); refreshModePanel() },
@@ -634,18 +658,31 @@ class MainActivity : AppCompatActivity(), LocationListener {
         buzz(short = true)
         // Quick photo of the catch straight after marking.
         Snackbar.make(mapView, "Saved $name", Snackbar.LENGTH_LONG)
-            .setAction("📷 Photo") { takePhotoFor(mark) }
+            .setAction("📷 Photo") { takePhotoFor(mark.id) }
             .setActionTextColor(look.accent)
             .show()
     }
 
-    // ---- Mark photos -------------------------------------------------------------------
+    // ---- Photos of marks and catches -----------------------------------------------------
 
-    private fun takePhotoFor(mark: Mark) {
+    private fun photosOf(id: String): MutableList<String>? =
+        marks.firstOrNull { it.id == id }?.photos ?: tripLog.catches.firstOrNull { it.id == id }?.photos
+
+    private fun photosChanged(id: String) {
+        if (marks.any { it.id == id }) { store.saveMarks(marks); showMarks() } else tripLog.saveCatches()
+    }
+
+    /** Back to the mark or catch a photo belongs to. */
+    private fun openPhotoOwner(id: String) {
+        marks.firstOrNull { it.id == id }?.let { markMenu(it); return }
+        tripLog.catches.firstOrNull { it.id == id }?.let { catchDialogs.view(it) }
+    }
+
+    private fun takePhotoFor(id: String) {
         val dir = File(cacheDir, "camera").apply { mkdirs() }
         val f = File(dir, "${System.currentTimeMillis()}.jpg")
         val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.files", f)
-        photoTarget = mark.id
+        photoTarget = id
         cameraFile = f
         try {
             takePhoto.launch(uri)
@@ -655,14 +692,14 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
     }
 
-    private fun pickPhotoFor(mark: Mark) {
-        photoTarget = mark.id
+    private fun pickPhotoFor(id: String) {
+        photoTarget = id
         pickPhoto.launch(androidx.activity.result.PickVisualMediaRequest(
             ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
 
     private fun attachPhoto(uri: Uri, cleanup: () -> Unit = {}) {
-        val markId = photoTarget ?: return
+        val ownerId = photoTarget ?: return
         photoTarget = null
         Toast.makeText(this, "Adding photo…", Toast.LENGTH_SHORT).show()
         io.execute {
@@ -670,12 +707,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
             cleanup()
             runOnUiThread {
                 result.onSuccess { name ->
-                    val mark = marks.firstOrNull { it.id == markId }
-                    if (mark == null) { photos.delete(name); return@onSuccess }
-                    mark.photos.add(name)
-                    store.saveMarks(marks)
-                    showMarks()
-                    markMenu(mark)
+                    val list = photosOf(ownerId)
+                    if (list == null) { photos.delete(name); return@onSuccess }
+                    list.add(name)
+                    photosChanged(ownerId)
+                    openPhotoOwner(ownerId)
                 }.onFailure {
                     Toast.makeText(this, "Couldn't add photo: ${it.message}", Toast.LENGTH_LONG).show()
                 }
@@ -684,10 +720,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
     }
 
     /** Full-size photo viewer with previous / next / delete. */
-    private fun showPhoto(mark: Mark, index: Int) {
-        if (mark.photos.isEmpty()) return
-        val i = index.coerceIn(0, mark.photos.lastIndex)
-        val name = mark.photos[i]
+    private fun showPhoto(title: String, ownerId: String, index: Int) {
+        val list = photosOf(ownerId) ?: return
+        if (list.isEmpty()) return
+        val i = index.coerceIn(0, list.lastIndex)
+        val name = list[i]
         val maxPx = resources.displayMetrics.widthPixels
         val image = android.widget.ImageView(this).apply {
             adjustViewBounds = true
@@ -697,20 +734,19 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val taken = SimpleDateFormat("d MMM yyyy HH:mm", Locale.getDefault())
             .format(Date(photos.file(name).lastModified()))
         val b = MaterialAlertDialogBuilder(this)
-            .setTitle("${mark.name} · ${i + 1} of ${mark.photos.size}")
+            .setTitle("$title · ${i + 1} of ${list.size}")
             .setMessage(taken)
             .setView(image)
-            .setPositiveButton("Close") { _, _ -> markMenu(mark) }
+            .setPositiveButton("Close") { _, _ -> openPhotoOwner(ownerId) }
             .setNeutralButton("Delete") { _, _ ->
                 confirm("Delete this photo?") {
-                    mark.photos.removeAt(i)
+                    list.removeAt(i)
                     photos.delete(name)
-                    store.saveMarks(marks)
-                    showMarks()
-                    if (mark.photos.isNotEmpty()) showPhoto(mark, i) else markMenu(mark)
+                    photosChanged(ownerId)
+                    if (list.isNotEmpty()) showPhoto(title, ownerId, i) else openPhotoOwner(ownerId)
                 }
             }
-        if (mark.photos.size > 1) b.setNegativeButton("Next ▶") { _, _ -> showPhoto(mark, (i + 1) % mark.photos.size) }
+        if (list.size > 1) b.setNegativeButton("Next ▶") { _, _ -> showPhoto(title, ownerId, (i + 1) % list.size) }
         b.show()
     }
 
@@ -743,7 +779,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                     setImageBitmap(photos.loadScaled(name, 256))
                     background = look.surfaceBg(1f, 8f)
                     clipToOutline = true
-                    setOnClickListener { dialog.dismiss(); showPhoto(mark, i) }
+                    setOnClickListener { dialog.dismiss(); showPhoto(mark.name, mark.id, i) }
                 }, LinearLayout.LayoutParams(size, size).apply { marginEnd = (6 * dp).toInt() })
             }
             body.addView(android.widget.HorizontalScrollView(this).apply {
@@ -757,8 +793,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
             "Navigate to" to {
                 startNavigation(Route(name = mark.name, waypoints = mutableListOf(Waypoint(mark.lat, mark.lon, mark.name))))
             },
-            "📷  Take photo" to { takePhotoFor(mark) },
-            "🖼  Add photo from gallery" to { pickPhotoFor(mark) },
+            "Log a catch here" to { logCatch(mark.pos, mark.depth) },
+            "📷  Take photo" to { takePhotoFor(mark.id) },
+            "🖼  Add photo from gallery" to { pickPhotoFor(mark.id) },
             "Move to group…" to { marksPanel.pickGroup("Move ${mark.name} to") { g -> g?.let { marksPanel.move(listOf(mark), it) } } },
             "Rename" to { askText("Rename mark", mark.name) { mark.name = it; store.saveMarks(marks); showMarks() } },
             "Delete mark" to {
@@ -832,6 +869,192 @@ class MainActivity : AppCompatActivity(), LocationListener {
     }
 
     // =========================================================================
+    // Trips and catches
+    // =========================================================================
+
+    private fun createTripsPanel() = TripsPanel(this, panel, look, tripLog, object : TripsPanel.Host {
+        override val track get() = this@MainActivity.track
+        override val savedTripLayerOn get() = layers.isOn(MapOverlay.SAVED_TRIP)
+        override val shownTrip get() = this@MainActivity.shownTrip
+        override var allCatchesOnMap: Boolean
+            get() = getSharedPreferences("app", MODE_PRIVATE).getBoolean("trips_all_catches", false)
+            set(v) {
+                getSharedPreferences("app", MODE_PRIVATE).edit().putBoolean("trips_all_catches", v).apply()
+                showCatchesOnMap()
+            }
+        override fun beforeShow() { displayPanelOpen = false }
+        override fun currentCatches() = this@MainActivity.currentCatches()
+        override fun catchesOf(t: Trip) = this@MainActivity.catchesOf(t)
+        override fun finishTrip() {
+            val n = archiveTrack(keepAll = true)
+            if (n != null) Toast.makeText(this@MainActivity, if (n == 1) "Trip saved" else "$n trips saved", Toast.LENGTH_SHORT).show()
+            else Toast.makeText(this@MainActivity, "Couldn't save the trip. Nothing was deleted.", Toast.LENGTH_LONG).show()
+        }
+        override fun discardTrip() = clearTrack()
+        override fun showTrip(t: Trip?, points: List<TrackPoint>, zoom: Boolean) = showTripOnMap(t, points, zoom)
+        override fun setCursor(p: LatLon?) = overlays.setTripCursor(p)
+        override fun logCatch() = this@MainActivity.logCatch()
+        override fun showCatches(title: String, list: List<Catch>) = catchDialogs.list(title, list)
+        override fun exportText(fileName: String, csv: Boolean, text: String) = this@MainActivity.exportText(fileName, csv, text)
+        override fun confirm(message: String, onYes: () -> Unit) = this@MainActivity.confirm(message, onYes)
+        override fun askText(title: String, initial: String, onOk: (String) -> Unit) = this@MainActivity.askText(title, initial, onOk)
+    })
+
+    private fun createCatchDialogs() = CatchDialogs(this, look, tripLog, photos, object : CatchDialogs.Host {
+        override fun changed() { showCatchesOnMap(); tripsPanel.refresh() }
+        override fun goTo(p: LatLon) {
+            map?.locationComponent?.takeIf { locationActive }?.cameraMode = CameraMode.NONE
+            map?.animateCamera(CameraUpdateFactory.newLatLng(LatLng(p.lat, p.lon)))
+        }
+        override fun takePhoto(id: String) = takePhotoFor(id)
+        override fun pickPhoto(id: String) = pickPhotoFor(id)
+        override fun showPhoto(title: String, ownerId: String, index: Int) = this@MainActivity.showPhoto(title, ownerId, index)
+        override fun added(c: Catch) {
+            buzz(short = true)
+            Snackbar.make(mapView, "Logged ${c.title}", Snackbar.LENGTH_LONG)
+                .setAction("📷 Photo") { takePhotoFor(c.id) }
+                .setActionTextColor(look.accent)
+                .show()
+        }
+        override fun exportText(fileName: String, csv: Boolean, text: String) = this@MainActivity.exportText(fileName, csv, text)
+        override fun confirm(message: String, onYes: () -> Unit) = this@MainActivity.confirm(message, onYes)
+    })
+
+    /** At the boat, or at [at]. Works without a GPS fix too, just without a position. */
+    private fun logCatch(at: LatLon? = lastPos(), knownDepth: String? = null) {
+        val depth = knownDepth ?: at?.let { estimateDepthAt(LatLng(it.lat, it.lon)) }
+        catchDialogs.edit(Catch(lat = at?.lat, lon = at?.lon,
+            depth = depth?.takeIf { it != "--" && it != "off screen" && it != "land" }), isNew = true)
+    }
+
+    private fun tripSpans() = tripLog.trips.map { it.start to it.end }
+    private fun currentCatches() = track.stats.let { tripLog.catchesIn(it.start, it.end, tripSpans()) }
+    private fun catchesOf(t: Trip) = tripLog.catchesIn(t.start, t.end, tripSpans() + (track.stats.start to track.stats.end))
+
+    private fun showCatchesOnMap() {
+        val all = getSharedPreferences("app", MODE_PRIVATE).getBoolean("trips_all_catches", false)
+        // Anything recent is always shown, so a new catch is never invisible.
+        val recent = System.currentTimeMillis() - 12 * 3_600_000L
+        overlays.setCatches(if (all) tripLog.catches else
+            (currentCatches() + (tripLog.trip(shownTrip)?.let { catchesOf(it) } ?: emptyList()) +
+                tripLog.catches.filter { it.time >= recent }).distinctBy { it.id })
+    }
+
+    private fun showTripOnMap(t: Trip?, points: List<TrackPoint>, zoom: Boolean) {
+        shownTrip = t?.id
+        overlays.setTrip(if (t == null) emptyList() else TripStats.split(points, TripStats.GAP_MS).map { part -> part.map { it.pos } })
+        showCatchesOnMap()
+        val m = map ?: return
+        if (t == null || !zoom || points.size < 2) return
+        if (locationActive) m.locationComponent.cameraMode = CameraMode.NONE
+        runCatching {
+            val b = LatLngBounds.Builder().includes(points.map { LatLng(it.lat, it.lon) }).build()
+            // Leave room for the panel at the bottom.
+            m.animateCamera(CameraUpdateFactory.newLatLngBounds(b, 80, 160, 80, (mapView.height * 0.45).toInt()))
+        }
+    }
+
+    /** Save the track as a finished trip and start afresh. Returns how many trips, or null if saving failed. */
+    private fun archiveTrack(keepAll: Boolean): Int? {
+        val pts = track.points.toList()
+        val saved = runCatching {
+            tripLog.archive(pts, settings.tripSplitMs, keepAll) { t ->
+                tripLog.catchesIn(t.start, t.end, tripSpans()).isNotEmpty() || marks.any { it.time in t.start..t.end }
+            }
+        }.getOrNull() ?: return null
+        clearTrack()
+        return saved.size
+    }
+
+    private fun clearTrack() {
+        track.clear()
+        // After any save that is still waiting, or that would bring the old track back.
+        io.execute { store.saveTrack(emptyList()) }
+        overlays.setTrack(visibleTrack())
+        showCatchesOnMap()
+    }
+
+    /** Add a fix to the trip, starting a new trip after a long break. Returns true if a point was added. */
+    private fun recordTrack(loc: Location, pos: LatLon, sog: Double?): Boolean {
+        if (loc.hasAccuracy() && loc.accuracy > 100f) return false   // too rough for a log
+        val last = track.points.lastOrNull()
+        if (last != null) {
+            if (loc.time <= last.t && last.t - loc.time < 60_000) return false
+            val gap = settings.tripSplitMs
+            when {
+                track.isFull -> archiveTrack(keepAll = true)
+                last.t == 0L || (gap != null && loc.time - last.t > gap) -> archiveTrack(keepAll = false)
+            }
+        }
+        return track.add(pos, loc.time, sog, settings.trackSpacingM)
+    }
+
+    /** Start or stop recording with the screen off, to match the setting. */
+    private fun updateRecording(ask: Boolean) {
+        if (!settings.recordInBackground || !hasLocationPermission()) { TrackService.stop(this); return }
+        if (ask && android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this,
+                Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        if (started) TrackService.start(this)
+    }
+
+    private fun exportText(fileName: String, csv: Boolean, text: String) {
+        pendingExport = null
+        pendingText = text
+        (if (csv) exportCsvFile else exportGpxFile).launch(fileName)
+    }
+
+    // =========================================================================
+    // AIS vessels
+    // =========================================================================
+
+    private fun createAis() = Ais(
+        userAgent = "chompchamp/" + runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull().orEmpty(),
+        maxAgeMin = { settings.aisMaxAgeMin },
+        view = {
+            map?.takeIf { mapView.width > 0 }?.projection?.visibleRegion?.latLngBounds?.let { b ->
+                AisBox(b.southWest.latitude, b.southWest.longitude, b.northEast.latitude, b.northEast.longitude)
+            }?.takeIf { it.s.isFinite() && it.w.isFinite() && it.n > it.s && it.e > it.w }
+        },
+        onChanged = { if (aisLabel.visibility == View.VISIBLE) aisLabel.text = ais.status() },
+    )
+
+    private fun updateAis() {
+        val on = layers.isOn(MapOverlay.AIS)
+        aisLabel.visibility = if (on) View.VISIBLE else View.GONE
+        if (!on) { ais.clear(); return }
+        aisLabel.text = ais.status()
+        if (started) ais.start()
+    }
+
+    private fun showVessel(v: Vessel) {
+        val here = lastPos()
+        val min = (System.currentTimeMillis() - v.seen) / 60_000
+        val size = if (v.lengthM > 0) "${v.lengthM} m" + (if (v.beamM > 0) " × ${v.beamM} m" else "") else null
+        val lines = listOfNotNull(
+            listOfNotNull(v.typeName, size, v.statusName).joinToString(" · "),
+            "Last heard " + if (min < 1) "less than a minute ago" else "$min min ago",
+            v.sog?.let { s -> String.format(Locale.US, "%.1f kn", s) + (v.cog?.takeIf { v.moving }?.let { " → ${Geo.fmtBearing(it)}" } ?: "") },
+            here?.let { "${Geo.fmtNm(Geo.distanceNm(it, v.pos))}${if (Geo.distanceNm(it, v.pos) < 0.1) "" else " nm"} @ ${Geo.fmtBearing(Geo.bearing(it, v.pos))} from boat" },
+            v.destination.takeIf { it.isNotBlank() }?.let { "Destination: $it" },
+            listOfNotNull("MMSI ${v.mmsi}", v.callsign.takeIf { it.isNotBlank() }, v.flag.takeIf { it.isNotBlank() }).joinToString(" · "),
+            "${Geo.formatDdm(v.lat, true)}  ${Geo.formatDdm(v.lon, false)}",
+            "",
+            "Open Waters AIS https://openwaters.io/ais/\n" +
+                if (v.source == "aisstream") "Received by aisstream.io" else "Data: AISHub contributors https://www.aishub.net",
+        )
+        showLinkDialog(v.label, lines.joinToString("\n"))
+    }
+
+    private fun showAisInfo() = showLinkDialog("Vessels (AIS)",
+        "Boats that transmit AIS, picked up by volunteer shore stations and passed on over the internet. Positions run a minute " +
+            "or more behind, and boats without AIS or out of range of a station aren't shown.\n\n" +
+            "Arrow: moving (the line shows 6 minutes ahead). Dot: stopped. Grey: not heard for 10 minutes. " +
+            "Change how long they stay in Settings, the size in Display and the opacity in Layers.\n\n" +
+            "Open Waters AIS https://openwaters.io/ais/\nData: AISHub contributors https://www.aishub.net\naisstream.io https://aisstream.io")
+
+    // =========================================================================
     // Map interaction
     // =========================================================================
 
@@ -847,6 +1070,12 @@ class MainActivity : AppCompatActivity(), LocationListener {
         if (mode == AppMode.ROUTE) { routeTap(point); return }
         (hitFeature(point, NavOverlays.MARK_PHOTOS) ?: hitFeature(point, NavOverlays.MARKS))?.getStringProperty("id")?.let { id ->
             marks.firstOrNull { it.id == id }?.let { markMenu(it); return }
+        }
+        hitFeature(point, NavOverlays.CATCHES)?.getStringProperty("id")?.let { id ->
+            tripLog.catches.firstOrNull { it.id == id }?.let { catchDialogs.view(it); return }
+        }
+        hitFeature(point, Ais.LAYER)?.getStringProperty("mmsi")?.toLongOrNull()?.let { mmsi ->
+            ais.find(mmsi)?.let { showVessel(it); return }
         }
         hitFeature(point, Hazards.LAYER)?.let { showHazard(it); return }
         showZoneInfo(point)
@@ -946,15 +1175,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val popup = PopupMenu(this, anchorView)
         val items: List<Pair<String, () -> Unit>> = listOf(
             "Marks…" to { marksPanel.show() },
+            "Trips & catches…" to { tripsPanel.show() },
             "Display…" to { showDisplayPanel() },
             "Settings…" to { settings.show(this) { onSettingsChanged() } },
             "Charts & relief data…" to { showChartManager() },
             "Data: save, load, export, import…" to { showDataMenu() },
-            "Reset trip & clear track" to {
-                confirm("Clear the track and reset the trip log?") {
-                    track.clear(); store.saveTrack(track.points); overlays.setTrack(visibleTrack())
-                }
-            },
             "About" to { showAbout() },
         )
         items.forEachIndexed { i, (label, _) -> popup.menu.add(0, i, i, label) }
@@ -974,6 +1199,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun onSettingsChanged() {
         overlays.setTrack(visibleTrack())
         overlays.setAnchor(anchor, settings.anchorRadiusM)
+        updateRecording(ask = true)
+        ais.redraw()
         refreshModePanel()
         if (mode == AppMode.NAVIGATE || mode == AppMode.FISH) {
             followBoat(if (mode == AppMode.FISH) settings.fishZoom else null)
@@ -1046,6 +1273,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
         marksPanel.refresh()
         plan = store.plan()
         track = Track(store.track())
+        if (tripLog.trip(shownTrip) == null) showTripOnMap(null, emptyList(), false)
+        tripsPanel.refresh()
+        updateRecording(ask = false)
+        updateAis()
         fields.mode = mode
         map?.style?.let { layers.apply(it) }
         applyAppearance()
@@ -1066,6 +1297,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             "Export backup file (.json)…" to {
                 pickParts("Export backup", DataPart.entries, DataPart.entries.toSet()) { parts ->
                     pendingExport = false to parts
+                    pendingText = null
                     exportJsonFile.launch("chompchamp-backup-${stamp("yyyyMMdd-HHmm")}.json")
                 }
             },
@@ -1073,6 +1305,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 val gpxParts = listOf(DataPart.MARKS, DataPart.ROUTES, DataPart.TRACK)
                 pickParts("Export GPX", gpxParts, setOf(DataPart.MARKS, DataPart.ROUTES)) { parts ->
                     pendingExport = true to parts
+                    pendingText = null
                     exportGpxFile.launch("chompchamp-${stamp("yyyyMMdd-HHmm")}.gpx")
                 }
             },
@@ -1100,11 +1333,14 @@ class MainActivity : AppCompatActivity(), LocationListener {
     }
 
     private fun writeExport(uri: Uri) {
-        val (gpx, parts) = pendingExport ?: return
+        val ready = pendingText
+        val (gpx, parts) = pendingExport ?: (false to emptySet<DataPart>())
+        if (ready == null && parts.isEmpty()) return
         pendingExport = null
+        pendingText = null
         runCatching {
             persistAll()
-            val text = if (gpx) userData.exportGpx(parts) else userData.export(parts)
+            val text = ready ?: if (gpx) userData.exportGpx(parts) else userData.export(parts)
             contentResolver.openOutputStream(uri, "wt").use { out ->
                 requireNotNull(out) { "cannot write file" }.write(text.toByteArray())
             }
@@ -1181,10 +1417,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 val name = snaps[which].first
                 MaterialAlertDialogBuilder(this)
                     .setTitle(name)
-                    .setMessage("Loading replaces the routes, marks, track and settings on this phone with this snapshot.")
+                    .setMessage("Loading replaces the routes, marks, current track and settings on this phone with this snapshot. " +
+                        "Saved trips and the catch log stay as they are.")
                     .setPositiveButton("Load") { _, _ ->
                         runCatching { userData.readSnapshot(name) }
-                            .onSuccess { applyBundle(it, DataPart.entries.toSet(), merge = false) }
+                            .onSuccess { applyBundle(it, userData.snapshotParts, merge = false) }
                             .onFailure { Toast.makeText(this, "Couldn't read snapshot: ${it.message}", Toast.LENGTH_LONG).show() }
                     }
                     .setNeutralButton("Delete") { _, _ ->
@@ -1291,6 +1528,12 @@ class MainActivity : AppCompatActivity(), LocationListener {
         editBar.background = look.surfaceBg(0.9f, 22f)
         scaleBar.setLook(look.surface, scale, bgAlpha)
         scaleBar.visibility = if (look.showScaleBar) View.VISIBLE else View.GONE
+        styleButtonLabel(aisLabel)
+        aisLabel.maxLines = 4
+        aisLabel.gravity = Gravity.END
+        aisLabel.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
+        ais.setScale(look.aisScale)
+        overlays.setCatchScale(look.catchScale)
         fields.applyStyle()
         applyMapUiMargins()
         refreshModePanel()
@@ -1306,6 +1549,13 @@ class MainActivity : AppCompatActivity(), LocationListener {
         if (lp.bottomMargin != margin) {
             lp.bottomMargin = margin
             scaleBar.layoutParams = lp
+        }
+        // Vessel status sits on top of the scale bar.
+        val al = aisLabel.layoutParams as FrameLayout.LayoutParams
+        val above = margin + if (scaleBar.visibility == View.VISIBLE) scaleBar.height + (2 * dp).toInt() else 0
+        if (al.bottomMargin != above) {
+            al.bottomMargin = above
+            aisLabel.layoutParams = al
         }
     }
 
@@ -1357,9 +1607,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
         m.setStyle(Style.Builder().fromJson(json)) { style ->
             hazards.install(style)
+            ais.install(style, resources.displayMetrics.density)
             overlays.install(style)
             layers.apply(style)
             refreshOverlays()
+            tripLog.trip(shownTrip)?.let { showTripOnMap(it, tripLog.points(it.id), zoom = false) }
             startLocation(style)
         }
     }
@@ -1552,6 +1804,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         lc.renderMode = RenderMode.GPS
         locationActive = true
         requestUpdates()
+        updateRecording(ask = false)
         lastFix?.let { lc.forceLocationUpdate(it) }
         if (mode == AppMode.NAVIGATE || mode == AppMode.FISH) {
             followBoat(if (mode == AppMode.FISH) settings.fishZoom else null)
@@ -1577,22 +1830,22 @@ class MainActivity : AppCompatActivity(), LocationListener {
         if (prev != null && prev !== location && location.provider == LocationManager.NETWORK_PROVIDER &&
             prev.provider == LocationManager.GPS_PROVIDER && location.time - prev.time < 10_000) return
         lastFix = location
-        if (locationActive) m.locationComponent.forceLocationUpdate(location)
+        // With the screen off there's no map to update, only the trip log, guidance and anchor alarm.
+        if (locationActive && started) m.locationComponent.forceLocationUpdate(location)
 
         val pos = LatLon(location.latitude, location.longitude)
         val sog = if (location.hasSpeed()) location.speed * Geo.KN_PER_MS else null
         val cog = if (location.hasBearing() && location.speed > 0.5f) location.bearing.toDouble() else null
 
-        val added = track.add(pos, location.time, settings.trackSpacingM)
+        val added = prev !== location && recordTrack(location, pos, sog)
         // Redraw every few fixes: new points arrive and old ones age out of the time window.
-        if (++fixCount % 5 == 0 || (added && settings.trackWindowMin == null && track.points.size % 5 == 0)) {
+        if (started && (++fixCount % 5 == 0 || (added && settings.trackWindowMin == null && track.points.size % 5 == 0))) {
             overlays.setTrack(visibleTrack())
         }
-        if (added) {
-            if (track.points.size % 60 == 0) {
-                val pts = ArrayList(track.points)
-                io.execute { store.saveTrack(pts) }
-            }
+        if (added && (track.points.size % 60 == 0 || location.time - lastTrackSave > 120_000)) {
+            lastTrackSave = location.time
+            val pts = ArrayList(track.points)
+            io.execute { store.saveTrack(pts) }
         }
         drift.add(location.time, pos, settings.driftWindowSec)
 
@@ -1621,10 +1874,12 @@ class MainActivity : AppCompatActivity(), LocationListener {
             overlays.setDrift(null, null)
         }
 
-        updateFields(location, pos, sog, cog, d)
-        checkZone(location)
+        if (started) {
+            updateFields(location, pos, sog, cog, d)
+            checkZone(location)
+        }
         updateBanner()
-        if (mode == AppMode.NAVIGATE || mode == AppMode.FISH) refreshModePanel()
+        if (started && (mode == AppMode.NAVIGATE || mode == AppMode.FISH)) refreshModePanel()
     }
 
     @Deprecated("Required on API < 29")
@@ -1651,6 +1906,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
         fields.set(DataField.DEPTH, estimateDepthAt(LatLng(loc.latitude, loc.longitude)))
         fields.set(DataField.TIME, SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date()))
         fields.set(DataField.TRIP, Geo.fmtNm(track.tripNm))
+        val trip = track.stats
+        fields.set(DataField.TRIP_TIME, if (trip.durationMs > 0) Geo.fmtDuration(trip.durationMs / 3_600_000.0) else "--")
+        fields.set(DataField.TRIP_AVG, trip.avgMovingKn?.let { String.format(Locale.US, "%.1f", it) } ?: "--.-")
+        fields.set(DataField.TRIP_MAX, if (trip.maxKn > 0) String.format(Locale.US, "%.1f", trip.maxKn) else "--.-")
 
         val n = lastNav
         if (n != null && navigator.isActive) {
@@ -1770,11 +2029,19 @@ class MainActivity : AppCompatActivity(), LocationListener {
     // Lifecycle
     // =========================================================================
 
-    override fun onStart() { super.onStart(); mapView.onStart() }
-    override fun onResume() { super.onResume(); mapView.onResume(); if (locationActive) requestUpdates() }
+    override fun onStart() {
+        super.onStart()
+        mapView.onStart()
+        started = true
+        overlays.setTrack(visibleTrack())   // may have grown while the screen was off
+        updateAis()
+    }
+    override fun onResume() { super.onResume(); mapView.onResume(); if (locationActive) { requestUpdates(); updateRecording(ask = false) } }
     override fun onPause() { super.onPause(); mapView.onPause() }
     override fun onStop() {
         super.onStop()
+        started = false
+        ais.stop()
         mapView.onStop()
         val pts = ArrayList(track.points)
         io.execute { store.saveTrack(pts) }
@@ -1783,6 +2050,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
     override fun onSaveInstanceState(outState: Bundle) { super.onSaveInstanceState(outState); mapView.onSaveInstanceState(outState) }
     override fun onDestroy() {
         getSystemService(LocationManager::class.java)?.removeUpdates(this)
+        TrackService.stop(this)
+        ais.close()
         io.shutdown()
         mapView.onDestroy()
         super.onDestroy()

@@ -97,26 +97,32 @@ class Store(dir: File) {
     fun markGroups(): List<MarkGroup> = readArray(groupsFile).map { MarkGroup.fromJson(it) }
     fun saveMarkGroups(list: List<MarkGroup>) = writeArray(groupsFile, list.map { it.toJson() })
 
-    /** v2: {"v":2,"pts":[lat,lon,t,...]}. v1 (old): [lat,lon,...] without times. */
+    /** v2: {"v":2,"pts":[lat,lon,t,...],"sog":[kn or -1,...]} (sog may be missing). v1 (old): [lat,lon,...] without times. */
     fun track(): MutableList<TrackPoint> = runCatching {
         val text = trackFile.readText().trimStart()
-        if (text.startsWith("{")) decodeTrack(JSONObject(text).getJSONArray("pts"), 3)
+        if (text.startsWith("{")) JSONObject(text).let { decodeTrack(it.getJSONArray("pts"), 3, it.optJSONArray("sog")) }
         else decodeTrack(JSONArray(text), 2)
     }.getOrElse { mutableListOf() }
 
     fun saveTrack(points: List<TrackPoint>) =
-        write(trackFile, JSONObject().put("v", 2).put("pts", encodeTrack(points)).toString())
+        write(trackFile, JSONObject().put("v", 2).put("pts", encodeTrack(points)).put("sog", encodeSog(points)).toString())
 
     companion object {
         fun encodeTrack(points: List<TrackPoint>) = JSONArray().apply {
             points.forEach { put(it.lat); put(it.lon); put(it.t) }
         }
 
+        /** Speeds go in their own list, so older versions and the planner can still read the points. */
+        fun encodeSog(points: List<TrackPoint>) = JSONArray().apply {
+            points.forEach { put(if (it.sog >= 0) Math.round(it.sog * 10) / 10.0 else -1.0) }
+        }
+
         /** [stride] 3 = lat,lon,t; 2 = old lat,lon (time unknown → 0). */
-        fun decodeTrack(a: JSONArray, stride: Int): MutableList<TrackPoint> =
+        fun decodeTrack(a: JSONArray, stride: Int, sog: JSONArray? = null): MutableList<TrackPoint> =
             MutableList(a.length() / stride) { i ->
                 TrackPoint(a.getDouble(i * stride), a.getDouble(i * stride + 1),
-                    if (stride == 3) a.getLong(i * stride + 2) else 0L)
+                    if (stride == 3) a.getLong(i * stride + 2) else 0L,
+                    sog?.optDouble(i, -1.0) ?: -1.0)
             }
     }
 
@@ -128,6 +134,7 @@ class Store(dir: File) {
     private fun writeArray(f: File, items: List<JSONObject>) =
         write(f, JSONArray().apply { items.forEach { put(it) } }.toString())
 
+    @Synchronized
     private fun write(f: File, text: String) {
         val tmp = File(f.parentFile, f.name + ".tmp")
         tmp.writeText(text)

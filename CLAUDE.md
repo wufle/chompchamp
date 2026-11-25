@@ -49,6 +49,9 @@ user which they need. The style must also cope with older charts that lack a new
 | `MapLayers.kt` | Layer toggles and opacity |
 | `NavOverlays.kt` | Track, route, drift, marks, anchor (drawn in code) |
 | `MarkGroups.kt`, `MarksPanel.kt` | Mark groups: storage; show/hide panel and bulk edits. Group "" = Ungrouped |
+| `Trips.kt`, `TripsPanel.kt`, `SpeedChartView.kt` | Trips, stats, catch log storage and export; docked panel; speed chart |
+| `CatchDialogs.kt`, `TrackService.kt` | Catch entry and viewing; foreground service for recording with the screen off |
+| `Ais.kt` | Vessels from Open Waters AIS (polling, parsing, map layers). Never store or export its data (AISHub terms) |
 | `ScaleBarView.kt` | Scale bar, bottom right |
 | `Hazards.kt` | Nav marks, wrecks and rocks from `assets/hazards.geojson` |
 | `SettingsPanel.kt`, `Settings.kt`, `Appearance.kt` | Docked panel (Layers, Display); behaviour options; size, opacity, palette |
@@ -67,6 +70,9 @@ Gotchas:
 - Data-field cards are placed with translation; reset it when moving one into the group or it gets clipped.
 - Inside `apply {}` on a View, locals named `alpha` or `value` clash with the View's own properties.
 - `Slider` values must land on the step: use whole percents in steps of 5.
+- A catch belongs to a trip by its time, not by an id. Trip ids are `trip-<start ms>`, so saving one twice is harmless.
+- Snapshots leave out trips and catches on purpose: loading an old one must not wipe newer trips.
+- `onLocationChanged` also runs with the screen off: no `queryRenderedFeatures` or other map work unless `started`.
 - A mark with no `group` key came from an older file: on merge keep the existing group (`groupKnown`).
 - Pref keys (`f.<mode>.*`, `layer_*`, `set_*`), overlay keys and the track format are stored on the
   user's phone. Don't rename them; keep reading old formats.
