@@ -74,11 +74,14 @@ the area you're in, with closed seasons, pictures, and a search by species. The 
 offline. The limits are copied from DPIRD's guide by hand and shortened, and they don't update by themselves, so check the
 [current rules](https://www.dpird.wa.gov.au/individuals/recreational-fishing/recreational-fishing-rules/recreational-bag-and-size-limits/).
 
-**Trips & catches** (Menu): every trip is recorded with time and speed at each point. Finished trips keep their full
-track, distance, time under way, average and top speed, catches, and a speed chart you drag along to see when and where
-on the map. Export a trip as GPX, or its speed log or catches as CSV. A new trip starts by itself after a break in
-recording (6 hours unless changed in Settings). Recording stops when the app isn't on screen, unless you turn on
-*Keep recording when the screen is off* in Settings (uses more battery and shows a notification).
+**Trips & catches** (Menu): a trip records your track with the time and speed at each point. Recording starts when you
+tap **Record a trip** (the mode button at the top, or Trips & catches), start a route, or mark a catch; set it to
+start only when you tap Record in Settings. While it records, the mode button shows **● REC** and the time, and Android
+shows a notification. To stop, tap the mode button → **Stop recording trip…** and choose to save or discard it. Saved
+trips keep their full track, distance, time under way, average and top speed, catches, and a speed chart you drag along
+to see when and where on the map. Export a trip as GPX, or its speed log or catches as CSV. Recording carries on with the
+screen off or another app in front (turn that off in Settings to save battery). A trip left with no GPS for longer than
+the break in Settings (6 hours) is saved and stopped by itself.
 
 **Vessels (AIS)** (Layers, off by default, needs internet): boats that transmit AIS, from volunteer shore stations, with
 name, type, speed, course and how long ago each was heard. No account or receiver needed. Positions run a minute or
@@ -90,7 +93,7 @@ Everything is customisable:
 - **Layers** (bottom left): on/off and an opacity slider for every layer: marks and hazards, satellite, 5 m reef relief, depth shading, contours, labels, land, zones, parks, route, marks, drift line, track, saved trip, catches, anchor circle, AIS vessels.
 - **Charts, offline areas & updates** (Menu): save satellite and reef relief imagery for an area, check GitHub for a new app, chart or relief pack, see what is installed (size, date), import, remove the chart or the offline reef relief pack (relief falls back to online), clear the online tile cache.
 - **Data** (Menu): save and load named snapshots on the phone; export and import a backup file (.json) with routes, marks, current track, saved trips, catch log and settings (merge or replace); export and import GPX to move marks, routes and tracks to and from other chartplotter apps.
-- **Settings**: track history shown (1 min to the entire trip), track point spacing, when a new trip starts, recording with the screen off, AIS age limit, arrival radius, planning speed, north-up / course-up, drift window and projection, fish-mode zoom, anchor radius, safety depth.
+- **Settings**: when trip recording starts, recording with the screen off, when a forgotten trip is finished, track history shown (1 min to the entire trip), track point spacing, AIS age limit, arrival radius, planning speed, north-up / course-up, drift window and projection, fish-mode zoom, anchor radius, safety depth.
 
 ## Desktop planner
 

@@ -48,10 +48,12 @@ class Settings(private val prefs: SharedPreferences) {
         Option("track_spacing", "Track point spacing",
             listOf(5f, 10f, 25f, 50f, 100f),
             listOf("5 m (most detail)", "10 m", "25 m", "50 m", "100 m (longest history)"), 10f),
-        Option("trip_split", "Start a new trip after a break of",
+        Option("trip_start", "Start recording a trip",
+            listOf(1f, 0f), listOf("When I start a route or mark a catch", "Only when I tap Record"), 1f),
+        Option("trip_split", "Finish a trip by itself after a break of",
             listOf(2f, 4f, 6f, 12f, -1f), listOf("2 hours", "4 hours", "6 hours", "12 hours", "Never"), 6f),
         Option("background", "Keep recording when the screen is off or you leave the app",
-            listOf(0f, 1f), listOf("Off", "On"), 0f),
+            listOf(0f, 1f), listOf("Off", "On"), 1f),
         Option("ais_age", "Hide AIS vessels not heard for",
             listOf(10f, 30f, 60f), listOf("10 min", "30 min", "60 min"), 30f),
         Option("update_days", "Check GitHub for app and chart updates",
@@ -73,9 +75,11 @@ class Settings(private val prefs: SharedPreferences) {
     /** Minutes of track to draw, or null for the entire trip. */
     val trackWindowMin: Double? get() = get("track_window").let { if (it < 0) null else it.toDouble() }
     val trackSpacingM get() = get("track_spacing").toDouble()
-    /** A gap this long in the recording starts a new trip; null = never. */
+    /** A gap this long in the recording finishes the trip; null = never. */
     val tripSplitMs: Long? get() = get("trip_split").let { if (it < 0) null else (it * 3_600_000).toLong() }
     val recordInBackground get() = get("background") > 0.5f
+    /** Start recording by itself when a route is started or a catch is marked. */
+    val autoStartTrip get() = get("trip_start") > 0.5f
     val aisMaxAgeMin get() = get("ais_age").toInt()
     /** 0 = only from the menu. */
     val updateCheckDays get() = get("update_days").toInt()
@@ -84,7 +88,7 @@ class Settings(private val prefs: SharedPreferences) {
     private val sections = listOf(
         "Navigation" to listOf("arrival_nm", "plan_kn", "course_up", "safety_m"),
         "Fishing" to listOf("fish_zoom", "drift_window", "drift_project", "anchor_m"),
-        "Trips and track" to listOf("track_window", "track_spacing", "trip_split", "background"),
+        "Trips and track" to listOf("trip_start", "background", "trip_split", "track_window", "track_spacing"),
         "Vessels" to listOf("ais_age"),
         "Updates" to listOf("update_days"),
     )

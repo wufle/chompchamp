@@ -24,8 +24,10 @@ class TripsPanel(
         fun beforeShow()
         fun currentCatches(): List<Catch>
         fun catchesOf(t: Trip): List<Catch>
-        fun finishTrip()
-        fun discardTrip()
+        val recording: Boolean
+        fun startTrip()
+        /** Asks first. */
+        fun stopTrip()
         /** Draw a saved trip (null = none), moving the map to it if [zoom]. */
         fun showTrip(t: Trip?, points: List<TrackPoint>, zoom: Boolean)
         fun setCursor(p: LatLon?)
@@ -51,20 +53,18 @@ class TripsPanel(
     fun show() {
         host.beforeShow()
         panel.show(TITLE, { rows ->
-            rows.section("This trip")
             val s = host.track.stats
-            rows.note(if (host.track.points.size < 2) "Nothing recorded yet. Recording starts by itself once there's a GPS fix."
-            else summary(s.start, s.end, s.durationMs, s.distanceNm, s.movingMs, s.avgMovingKn, s.maxKn, host.currentCatches().size))
-            rows.actionRow("Mark a catch", "Add") { host.logCatch() }
-            if (host.track.points.size >= 2) {
-                rows.actionRow("Speed log and details", "Open") { showDetails(null) }
-                rows.actionRow("Finish this trip", "Save") { host.finishTrip(); show() }
-                rows.actionRow("Throw this trip away", "Discard") {
-                    host.confirm("Discard the track of this trip? This can't be undone. Catches you logged are kept.") {
-                        host.discardTrip()
-                        show()
-                    }
-                }
+            if (host.recording) {
+                rows.section("Recording this trip")
+                rows.note(if (host.track.points.size < 2) "Recording. Waiting for the boat to move…"
+                else summary(s.start, s.end, s.durationMs, s.distanceNm, s.movingMs, s.avgMovingKn, s.maxKn, host.currentCatches().size))
+                rows.actionRow("Mark a catch", "Add") { host.logCatch() }
+                if (host.track.points.size >= 2) rows.actionRow("Speed log and details", "Open") { showDetails(null) }
+                rows.actionRow("Stop recording", "Stop…") { host.stopTrip() }
+            } else {
+                rows.section("Not recording")
+                rows.actionRow("Record a trip", "Start") { host.startTrip() }
+                rows.actionRow("Mark a catch", "Add") { host.logCatch() }
             }
             rows.section("Saved trips")
             log.trip(host.shownTrip)?.let { t ->
@@ -94,8 +94,9 @@ class TripsPanel(
                     "top speed ${kn(log.trips.maxOf { it.maxKn })}\n${catches(log.catches.sumOf { it.count })} (fish), " +
                     "${log.catches.filter { it.released }.sumOf { it.count }} released")
             }
-            rows.note("A new trip starts after a break in recording (Settings). Trips that stay within 200 m and have no " +
-                "catches or marks aren't saved automatically.")
+            rows.note("Recording starts when you tap Record, start a route, or mark a catch (Settings: Start recording a " +
+                "trip). It shows at the top of the map; tap there to stop. A trip left with no GPS for longer than the break " +
+                "in Settings is saved and stopped by itself.")
         }, onClose = { open = false })
         open = true
     }

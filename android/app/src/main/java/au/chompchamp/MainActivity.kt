@@ -107,6 +107,15 @@ class MainActivity : AppCompatActivity(), LocationListener {
     }
     /** The automatic update check runs once per launch. */
     private var updateChecked = false
+    private lateinit var prefs: android.content.SharedPreferences
+    /** A trip is being recorded. Only the user, a started route or a marked catch turns it on. */
+    private var recording: Boolean
+        get() = prefs.getBoolean("trip_recording", false)
+        set(v) { prefs.edit().putBoolean("trip_recording", v).apply() }
+    private val ticker = android.os.Handler(android.os.Looper.getMainLooper())
+    private val tick = object : Runnable {
+        override fun run() { updateModeLabel(); ticker.postDelayed(this, 30_000) }
+    }
     /** The saved trip drawn on the map. */
     private var shownTrip: String? = null
     /** Between onStart and onStop. */
@@ -175,12 +184,14 @@ class MainActivity : AppCompatActivity(), LocationListener {
         setContentView(R.layout.activity_main)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        val prefs = getSharedPreferences("app", MODE_PRIVATE)
+        prefs = getSharedPreferences("app", MODE_PRIVATE)
         settings = Settings(prefs)
         layers = MapLayers(prefs)
         store = Store(File(filesDir, "data"))
         navigator = Navigator(settings)
         track = Track(store.track())
+        // 0.16 and older recorded whenever the app was open: carry on with a trip already under way.
+        if (!prefs.contains("trip_recording")) recording = track.points.isNotEmpty()
         marks = store.marks()
         groups = MarkGroups(store).also { it.reload(marks) }
         plan = store.plan()
@@ -284,7 +295,13 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun showModePicker(anchorView: View) {
         val popup = PopupMenu(this, anchorView)
         AppMode.entries.forEachIndexed { i, m -> popup.menu.add(0, i, i, m.label) }
-        popup.setOnMenuItemClickListener { setMode(AppMode.entries[it.itemId]); true }
+        val trip = AppMode.entries.size
+        popup.menu.add(1, trip, trip, if (recording) "■  Stop recording trip…" else "●  Record a trip")
+        popup.setOnMenuItemClickListener {
+            if (it.itemId == trip) { if (recording) askStopTrip() else startTrip(null) }
+            else setMode(AppMode.entries[it.itemId])
+            true
+        }
         popup.show()
     }
 
@@ -297,7 +314,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         if (fields.editing) setEditing(false)
         mode = m
         movingWaypoint = null
-        modeButton.text = "${m.label} ▾"
+        updateModeLabel()
         fields.mode = m
         val lc = map?.locationComponent?.takeIf { locationActive }
         when (m) {
@@ -630,6 +647,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         navigator.start(r, lastPos())
         lastNav = null
         setMode(AppMode.NAVIGATE)
+        if (settings.autoStartTrip && !recording) startTrip("Recording this trip")
         lastFix?.let { onLocationChanged(it) }
     }
 
@@ -955,12 +973,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
         override fun beforeShow() { displayPanelOpen = false }
         override fun currentCatches() = this@MainActivity.currentCatches()
         override fun catchesOf(t: Trip) = this@MainActivity.catchesOf(t)
-        override fun finishTrip() {
-            val n = archiveTrack(keepAll = true)
-            if (n != null) Toast.makeText(this@MainActivity, if (n == 1) "Trip saved" else "$n trips saved", Toast.LENGTH_SHORT).show()
-            else Toast.makeText(this@MainActivity, "Couldn't save the trip. Nothing was deleted.", Toast.LENGTH_LONG).show()
-        }
-        override fun discardTrip() = clearTrack()
+        override val recording get() = this@MainActivity.recording
+        override fun startTrip() = this@MainActivity.startTrip(null)
+        override fun stopTrip() = askStopTrip()
         override fun showTrip(t: Trip?, points: List<TrackPoint>, zoom: Boolean) = showTripOnMap(t, points, zoom)
         override fun setCursor(p: LatLon?) = overlays.setTripCursor(p)
         override fun logCatch() = markCatch()
@@ -1001,8 +1016,15 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
         override fun added(c: Catch, photo: Boolean) {
             buzz(short = true)
-            if (photo) { takePhotoFor(c.id); return }
-            Snackbar.make(mapView, (if (c.markId == null) "No GPS fix, so logged without a mark: " else "Marked ") + c.title, Snackbar.LENGTH_LONG)
+            val started = settings.autoStartTrip && !recording && c.pos != null
+            if (started) startTrip(quiet = true)
+            if (photo) {
+                if (started) Toast.makeText(this@MainActivity, "Trip recording started", Toast.LENGTH_SHORT).show()
+                takePhotoFor(c.id)
+                return
+            }
+            Snackbar.make(mapView, (if (c.markId == null) "No GPS fix, so logged without a mark: " else "Marked ") + c.title +
+                if (started) ". Trip recording started." else "", Snackbar.LENGTH_LONG)
                 .setAction("📷 Photo") { takePhotoFor(c.id) }
                 .setActionTextColor(look.accent)
                 .show()
@@ -1069,24 +1091,119 @@ class MainActivity : AppCompatActivity(), LocationListener {
         showCatchesOnMap()
     }
 
-    /** Add a fix to the trip, starting a new trip after a long break. Returns true if a point was added. */
+    /** Add a fix to the trip being recorded. Returns true if a point was added. */
     private fun recordTrack(loc: Location, pos: LatLon, sog: Double?): Boolean {
+        if (!recording) return false
         if (loc.hasAccuracy() && loc.accuracy > 100f) return false   // too rough for a log
+        if (finishStaleTrip(loc.time)) return false
         val last = track.points.lastOrNull()
         if (last != null) {
             if (loc.time <= last.t && last.t - loc.time < 60_000) return false
-            val gap = settings.tripSplitMs
-            when {
-                track.isFull -> archiveTrack(keepAll = true)
-                last.t == 0L || (gap != null && loc.time - last.t > gap) -> archiveTrack(keepAll = false)
-            }
+            if (track.isFull) archiveTrack(keepAll = true)   // carries on as a new trip
         }
         return track.add(pos, loc.time, sog, settings.trackSpacingM)
     }
 
-    /** Start or stop recording with the screen off, to match the setting. */
+    /**
+     * A trip left recording with no fixes for longer than the break in Settings (phone off, app closed):
+     * save it and stop, rather than join it to whatever happens next. Returns true if it did.
+     */
+    private fun finishStaleTrip(now: Long = System.currentTimeMillis()): Boolean {
+        val gap = settings.tripSplitMs ?: return false
+        val last = track.points.lastOrNull() ?: return false
+        if (!recording || now - last.t <= gap) return false
+        val n = archiveTrack(keepAll = true)
+        recording = false
+        recordingChanged()
+        if (n != null) Toast.makeText(this, "Your last trip was saved and recording stopped: nothing was recorded for " +
+            "over ${Geo.fmtDuration(gap / 3_600_000.0)}.", Toast.LENGTH_LONG).show()
+        return true
+    }
+
+    /** Start recording a trip. [message] is shown with an Undo; [quiet] shows nothing (the caller says it). */
+    private fun startTrip(message: String?, quiet: Boolean = false) {
+        if (recording) return
+        if (!hasLocationPermission()) {
+            Toast.makeText(this, R.string.location_needed, Toast.LENGTH_LONG).show()
+            return
+        }
+        // A track left over while not recording (from a loaded backup, say) is its own trip, not the start of this one.
+        if (track.points.size >= 2) archiveTrack(keepAll = true) else if (track.points.isNotEmpty()) clearTrack()
+        recording = true
+        recordingChanged(ask = true)
+        lastFix?.let { recordTrack(it, LatLon(it.latitude, it.longitude), if (it.hasSpeed()) it.speed * Geo.KN_PER_MS else null) }
+        if (quiet) return
+        Snackbar.make(mapView, message ?: "Recording a trip. Stop it from the button at the top.", Snackbar.LENGTH_LONG)
+            .setAction("Undo") { recording = false; clearTrack(); recordingChanged() }
+            .setActionTextColor(look.accent)
+            .show()
+    }
+
+    /** Stopping always asks: save, keep going, or throw the track away. */
+    private fun askStopTrip() {
+        if (!recording) return
+        val s = track.stats
+        if (track.points.size < 2) {
+            confirm("Stop recording? Nothing has been recorded yet.") {
+                recording = false; clearTrack(); recordingChanged()
+            }
+            return
+        }
+        val n = currentCatches().size
+        val what = listOfNotNull(
+            if (s.durationMs > 0) Geo.fmtDuration(s.durationMs / 3_600_000.0) else null,
+            Geo.fmtDist(s.distanceNm),
+            if (n > 0) "$n catch" + (if (n == 1) "" else "es") else null).joinToString(" · ")
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Stop recording this trip?")
+            .setMessage("$what
+
+It's saved in Trips & catches, where you can look back at it or export it.")
+            .setPositiveButton("Stop and save") { _, _ ->
+                val saved = archiveTrack(keepAll = true)
+                if (saved == null) {
+                    Toast.makeText(this, "Couldn't save the trip, so it's still recording.", Toast.LENGTH_LONG).show()
+                    return@setPositiveButton
+                }
+                recording = false
+                recordingChanged()
+                Toast.makeText(this, "Trip saved", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Keep recording", null)
+            .setNeutralButton("Discard…") { _, _ ->
+                confirm("Throw away the track of this trip? This can't be undone. Catches and marks are kept.") {
+                    recording = false; clearTrack(); recordingChanged()
+                }
+            }
+            .show()
+    }
+
+    /** Everything that shows or depends on whether a trip is recording. */
+    private fun recordingChanged(ask: Boolean = false) {
+        updateRecording(ask)
+        updateModeLabel()
+        overlays.setTrack(visibleTrack())
+        tripsPanel.refresh()
+    }
+
+    /** "● REC 1:23 · CHART ▾" while recording, so it's always obvious. */
+    private fun updateModeLabel() {
+        if (!::modeButton.isInitialized) return
+        val label = "${mode.label} ▾"
+        if (!recording) { modeButton.text = label; modeButton.contentDescription = "Mode: ${mode.label}"; return }
+        val ms = track.stats.durationMs.coerceAtLeast(0)
+        val time = String.format(Locale.US, "%d:%02d", ms / 3_600_000, ms / 60_000 % 60)
+        val rec = "●  REC $time"
+        val text = android.text.SpannableString("$rec   $label")
+        text.setSpan(android.text.style.ForegroundColorSpan(ContextCompat.getColor(this, R.color.ui_danger_text)),
+            0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        modeButton.text = text
+        modeButton.contentDescription = "Mode: ${mode.label}. Recording a trip, $time"
+    }
+
+    /** Keep GPS coming with the screen off while recording, if the user wants that. */
     private fun updateRecording(ask: Boolean) {
-        if (!settings.recordInBackground || !hasLocationPermission()) { TrackService.stop(this); return }
+        if (!recording || !settings.recordInBackground || !hasLocationPermission()) { TrackService.stop(this); return }
         if (ask && android.os.Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this,
                 Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -1331,6 +1448,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     /** Track for the chosen history window, always joined up to the boat's current position. */
     private fun visibleTrack(): List<LatLon> {
         val pts = track.window(settings.trackWindowMin)
+        if (!recording) return pts
         val here = lastPos() ?: return pts
         return if (pts.isEmpty() || pts.last() != here) pts + here else pts
     }
@@ -2195,8 +2313,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
         super.onStart()
         mapView.onStart()
         started = true
+        finishStaleTrip()
         overlays.setTrack(visibleTrack())   // may have grown while the screen was off
         updateAis()
+        updateModeLabel()
+        ticker.post(tick)
         if (!updateChecked) {
             updateChecked = true
             updater.checkIfDue(settings.updateCheckDays) { message, open ->
@@ -2216,6 +2337,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         started = false
         ais.stop()
         updater.stopPolling()
+        ticker.removeCallbacks(tick)
         mapView.onStop()
         val pts = ArrayList(track.points)
         io.execute { store.saveTrack(pts) }

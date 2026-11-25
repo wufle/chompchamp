@@ -13,28 +13,23 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 
 /**
- * Keeps GPS fixes coming to [MainActivity] while the screen is off or another app is in front.
- * Does no work itself; the notification shows it's on, and Stop turns it off until the app is next opened.
+ * Keeps GPS fixes coming to [MainActivity] while a trip is recording and the screen is off or another
+ * app is in front. Does no work itself; the notification shows it's on. Stopping a trip asks the user to
+ * confirm, so it's done in the app: tapping the notification opens it.
  */
 class TrackService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == STOP) {
-            stopSelf()
-            return START_NOT_STICKY
-        }
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Trip recording", NotificationManager.IMPORTANCE_LOW))
         val open = PendingIntent.getActivity(this, 0,
             Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE)
-        val stop = PendingIntent.getService(this, 1,
-            Intent(this, TrackService::class.java).setAction(STOP), PendingIntent.FLAG_IMMUTABLE)
         val n = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_my_location)
-            .setContentTitle("Recording trip")
+            .setContentTitle("Recording a trip")
+            .setContentText("Tap to open ChompChamp. Stop the trip from the button at the top of the map.")
             .setContentIntent(open)
-            .addAction(0, "Stop", stop)
             .setOngoing(true)
             .build()
         runCatching {
@@ -46,7 +41,6 @@ class TrackService : Service() {
 
     companion object {
         private const val CHANNEL = "trip"
-        private const val STOP = "au.chompchamp.STOP_RECORDING"
 
         /** Call while the app is on screen: Android doesn't allow starting it from the background. */
         fun start(ctx: Context) {
