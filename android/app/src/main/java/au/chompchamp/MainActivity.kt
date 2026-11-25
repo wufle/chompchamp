@@ -97,6 +97,16 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private lateinit var bagButton: MovableButton
     private lateinit var ais: Ais
     private lateinit var aisLabel: TextView
+    private lateinit var offlineAreas: OfflineAreas
+    private lateinit var offlinePanel: OfflinePanel
+    private lateinit var updater: Updater
+    /** Name, version and project link, for servers we ask for data. Keep the name the same across releases. */
+    private val userAgent by lazy {
+        "chompchamp/" + (runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "0") +
+            " ($GITHUB_URL)"
+    }
+    /** The automatic update check runs once per launch. */
+    private var updateChecked = false
     /** The saved trip drawn on the map. */
     private var shownTrip: String? = null
     /** Between onStart and onStop. */
@@ -186,6 +196,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
         tripsPanel = createTripsPanel()
         catchDialogs = createCatchDialogs()
         bagPanel = createBagPanel()
+        offlineAreas = OfflineAreas(File(filesDir, "offline"), userAgent)
+        offlinePanel = createOfflinePanel(prefs)
+        updater = createUpdater(prefs)
         bagButton = MovableButton(findViewById(R.id.btnBag), prefs, "ui_bag")
         bagButton.button.setOnClickListener { bagPanel.toggle() }
         TooltipCompat.setTooltipText(bagButton.button, getString(R.string.bag_limits))
@@ -254,7 +267,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 .zoom(8.0)
                 .build()
             m.addOnCameraMoveListener { updateScaleBar() }
-            m.addOnCameraIdleListener { updateScaleBar() }
+            m.addOnCameraIdleListener { updateScaleBar(); offlinePanel.onCameraIdle() }
             m.addOnMapClickListener { p -> onMapTap(p); true }
             m.addOnMapLongClickListener { p -> onMapLongPress(p); true }
             loadStyle()
@@ -1088,13 +1101,54 @@ class MainActivity : AppCompatActivity(), LocationListener {
     }
 
     // =========================================================================
+    // Offline areas and updates
+    // =========================================================================
+
+    private fun createOfflinePanel(prefs: android.content.SharedPreferences) =
+        OfflinePanel(this, panel, look, prefs, offlineAreas, object : OfflinePanel.Host {
+            override fun screenBox(): DoubleArray? {
+                val m = map ?: return null
+                if (mapView.width == 0) return null
+                val b = m.projection.visibleRegion.latLngBounds
+                return doubleArrayOf(b.longitudeWest, b.latitudeSouth, b.longitudeEast, b.latitudeNorth)
+            }
+            override fun templates() = offlineTemplates()
+            override fun zoomTo(a: OfflineArea) {
+                map?.locationComponent?.takeIf { locationActive }?.cameraMode = CameraMode.NONE
+                map?.animateCamera(CameraUpdateFactory.newLatLngBounds(LatLngBounds.from(a.north, a.east, a.south, a.west), 40))
+            }
+            override fun savedChanged() { locationActive = false; loadStyle() }
+            override fun beforeShow() { displayPanelOpen = false }
+            override fun confirm(message: String, onYes: () -> Unit) = this@MainActivity.confirm(message, onYes)
+            override fun askText(title: String, initial: String, onOk: (String) -> Unit) = this@MainActivity.askText(title, initial, onOk)
+        })
+
+    /** Tile URL of each layer that can be saved, as the online map uses it. */
+    private fun offlineTemplates(): Map<OfflineLayer, String> {
+        val sources = JSONObject(assets.open("chart-style.json").bufferedReader().use { it.readText() }).getJSONObject("sources")
+        fun tiles(id: String) = sources.getJSONObject(id).getJSONArray("tiles").getString(0)
+        return mapOf(
+            OfflineLayer.SATELLITE to tiles("satellite"),
+            OfflineLayer.SATELLITE_LAND to tiles("satellite-land"),
+            OfflineLayer.RELIEF to RELIEF_ONLINE,
+        )
+    }
+
+    private fun createUpdater(prefs: android.content.SharedPreferences) =
+        Updater(this, prefs, userAgent, io, object : Updater.Host {
+            override val chartFile get() = this@MainActivity.chartFile
+            override val reliefFile get() = this@MainActivity.reliefFile
+            override fun importDownloaded(f: File, onDone: (Boolean) -> Unit) =
+                importChartFile(Uri.fromFile(f)) { ok -> f.delete(); onDone(ok) }
+        })
+
+    // =========================================================================
     // AIS vessels
     // =========================================================================
 
     private fun createAis() = Ais(
-        // Open Waters wants a name, version and contact link. Keep the name the same across releases.
-        userAgent = "chompchamp/" + (runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: "0") +
-            " ($GITHUB_URL)",
+        // Open Waters wants a name, version and contact link.
+        userAgent = userAgent,
         maxAgeMin = { settings.aisMaxAgeMin },
         view = {
             map?.takeIf { mapView.width > 0 }?.projection?.visibleRegion?.latLngBounds?.let { b ->
@@ -1263,7 +1317,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             "Bag & size limits…" to { bagPanel.open() },
             "Display…" to { showDisplayPanel() },
             "Settings…" to { settings.show(this) { onSettingsChanged() } },
-            "Charts & relief data…" to { showChartManager() },
+            "Charts, offline areas & updates…" to { showChartManager() },
             "Data: save, load, export, import…" to { showDataMenu() },
             "About" to { showAbout() },
         )
@@ -1334,6 +1388,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(GITHUB_URL))) }
                     .onFailure { Toast.makeText(this, "No app found to open the link", Toast.LENGTH_SHORT).show() }
             }
+            .setNeutralButton("Updates") { _, _ -> updater.checkNow() }
             .setNegativeButton("Close", null)
             .show()
     }
@@ -1715,6 +1770,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
             assets.open("chart-style.json").bufferedReader().use { it.readText() }
                 .replace("{{CHART_URL}}", "pmtiles://file://${chartFile.absolutePath}")
         )
+        // Label fonts ship with the app, so labels work offline from the first launch.
+        style.put("glyphs", "asset://glyphs/{fontstack}/{range}.pbf")
         // Reef relief: offline pack if imported, otherwise straight from the DoT server.
         val relief = JSONObject().put("type", "raster").put("tileSize", 256)
         if (reliefFile.exists()) {
@@ -1736,6 +1793,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             }
         }
         style.put("layers", out)
+        offlineAreas.addToStyle(style)
         return style.toString()
     }
 
@@ -1750,6 +1808,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     private fun showChartManager() {
         val items = mutableListOf<Pair<String, () -> Unit>>()
+        items += "Save an area for offline use…" to { offlinePanel.show() }
+        items += "Check for updates…" to { updater.checkNow() }
         items += "Import chart or relief file…" to { openChartPicker() }
         if (chartFile.exists()) {
             items += "Remove chart\n   ${fileInfo(chartFile)}" to {
@@ -1779,7 +1839,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
         val title = when {
             !chartFile.exists() -> "Charts · no chart installed"
-            reliefFile.exists() -> "Charts · reef relief offline"
+            reliefFile.exists() -> "Charts · reef relief pack installed"
             else -> "Charts · reef relief online"
         }
         MaterialAlertDialogBuilder(this)
@@ -1837,7 +1897,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     }
 
     /** Vector tiles → main chart. Raster tiles → reef relief pack. */
-    private fun importChartFile(uri: Uri) {
+    private fun importChartFile(uri: Uri, then: ((Boolean) -> Unit)? = null) {
         Toast.makeText(this, R.string.importing, Toast.LENGTH_SHORT).show()
         io.execute {
             val result = runCatching {
@@ -1865,6 +1925,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 }.onFailure {
                     Toast.makeText(this, getString(R.string.import_failed, it.message), Toast.LENGTH_LONG).show()
                 }
+                then?.invoke(result.isSuccess)
             }
         }
     }
@@ -2136,13 +2197,25 @@ class MainActivity : AppCompatActivity(), LocationListener {
         started = true
         overlays.setTrack(visibleTrack())   // may have grown while the screen was off
         updateAis()
+        if (!updateChecked) {
+            updateChecked = true
+            updater.checkIfDue(settings.updateCheckDays) { message, open ->
+                Snackbar.make(mapView, message, Snackbar.LENGTH_LONG).setAction("View") { open() }.show()
+            }
+        }
     }
-    override fun onResume() { super.onResume(); mapView.onResume(); if (locationActive) { requestUpdates(); updateRecording(ask = false) } }
+    override fun onResume() {
+        super.onResume()
+        mapView.onResume()
+        if (locationActive) { requestUpdates(); updateRecording(ask = false) }
+        updater.resume()
+    }
     override fun onPause() { super.onPause(); mapView.onPause() }
     override fun onStop() {
         super.onStop()
         started = false
         ais.stop()
+        updater.stopPolling()
         mapView.onStop()
         val pts = ArrayList(track.points)
         io.execute { store.saveTrack(pts) }

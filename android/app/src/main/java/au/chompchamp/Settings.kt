@@ -54,6 +54,8 @@ class Settings(private val prefs: SharedPreferences) {
             listOf(0f, 1f), listOf("Off", "On"), 0f),
         Option("ais_age", "Hide AIS vessels not heard for",
             listOf(10f, 30f, 60f), listOf("10 min", "30 min", "60 min"), 30f),
+        Option("update_days", "Check GitHub for app and chart updates",
+            listOf(0f, 7f, 1f), listOf("Only when I ask", "Weekly", "Daily"), 0f),
         Option("safety_m", "Safety depth (route check)",
             listOf(2f, 3f, 5f, 10f, 20f), listOf("2 m", "3 m", "5 m", "10 m", "20 m"), 5f),
     )
@@ -75,6 +77,8 @@ class Settings(private val prefs: SharedPreferences) {
     val tripSplitMs: Long? get() = get("trip_split").let { if (it < 0) null else (it * 3_600_000).toLong() }
     val recordInBackground get() = get("background") > 0.5f
     val aisMaxAgeMin get() = get("ais_age").toInt()
+    /** 0 = only from the menu. */
+    val updateCheckDays get() = get("update_days").toInt()
 
     /** Option keys grouped under headings on the settings page. */
     private val sections = listOf(
@@ -82,6 +86,7 @@ class Settings(private val prefs: SharedPreferences) {
         "Fishing" to listOf("fish_zoom", "drift_window", "drift_project", "anchor_m"),
         "Trips and track" to listOf("track_window", "track_spacing", "trip_split", "background"),
         "Vessels" to listOf("ais_age"),
+        "Updates" to listOf("update_days"),
     )
 
     private fun valueLabel(o: Option): String {

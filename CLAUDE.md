@@ -20,6 +20,7 @@ README.md covers features, signing, data sources/licences and zone classificatio
 - **Free data only, and it must work offline** once imported. Check the licence and add the source to
   the README table and the style/tile attribution.
 - The signing key is kept outside the repo. Don't read, move or commit it.
+- **Don't test on the tablet unless the owner asks** for that task. Don't run `adb` or connect to it otherwise.
 
 ## Building
 
@@ -33,7 +34,8 @@ There is no Java, Android SDK, GDAL or tippecanoe on the dev machine, so **CI is
 Bump `versionCode` and `versionName` in `android/app/build.gradle.kts` for every APK the user will install.
 A `-tempkey` filename means the signing secrets were missing, and it won't update an installed app.
 
-The Android app has no automated tests, but it can be tested on the owner's tablet (Android 15) over wireless `adb`:
+The Android app has no automated tests. When the owner asks, it can be tested on their tablet (Android 15) over
+wireless `adb`:
 
 - Run `adb devices` first. If the tablet isn't listed, ask for the address on its Wireless debugging screen and
   `adb connect` to it (the port changes; pairing is remembered). Don't put its address in the repo.
@@ -42,7 +44,7 @@ The Android app has no automated tests, but it can be tested on the owner's tabl
   Put back anything you move or change. Screenshots show the owner's position, so keep them out of the repo and artifacts.
 - The app isn't debuggable, so `run-as` doesn't work. Charts go in `/sdcard/Download`, then import them in the app.
 
-When reporting, say what was tested on the tablet and what wasn't. If it isn't connected, say the app wasn't run.
+When reporting, say what was tested on the tablet and what wasn't. If it wasn't tested, say the app wasn't run.
 Pipeline Python can be tested locally: `uv venv` + `pipeline/requirements.txt` in a scratch directory,
 then plot the GeoJSON and look at it before spending CI time.
 
@@ -62,6 +64,8 @@ user which they need. The style must also cope with older charts that lack a new
 | `CatchDialogs.kt`, `TrackService.kt` | Catch entry and viewing; foreground service for recording with the screen off |
 | `Ais.kt` | Vessels from Open Waters AIS (polling, parsing, map layers). Never store or export its data (AISHub terms). Its User-Agent carries the repo link, which the owner approved and Open Waters requires from 2027 |
 | `BagLimits.kt`, `BagLimitsPanel.kt` | Bag and size limits: data and area lookup; docked searchable panel |
+| `OfflineAreas.kt`, `OfflinePanel.kt` | Save online imagery (satellite, reef relief) for a box as MBTiles, one file per area and layer, never written after; docked panel |
+| `Updater.kt` | Checks the latest GitHub release, downloads with DownloadManager, installs the APK or imports the chart |
 | `MovableButton.kt` | A button the user can drag in Edit layout (bag limits) |
 | `ScaleBarView.kt` | Scale bar, bottom right |
 | `Hazards.kt` | Nav marks, wrecks and rocks from `assets/hazards.geojson` |
@@ -71,7 +75,8 @@ user which they need. The style must also cope with older charts that lack a new
 
 App icon: edit the shapes in `branding/make_icon.py` and re-run it; it writes the launcher vectors and `branding/logo.svg`.
 
-`assets/chart-style.json` is the base style; `buildStyleJson()` injects the relief layer after `land`.
+`assets/chart-style.json` is the base style; `buildStyleJson()` injects the relief layer after `land`, points glyphs at the
+bundled `assets/glyphs` (from `pipeline/fetch_glyphs.sh`) and adds saved offline areas as `<layer>@<area id>` layers.
 
 Gotchas:
 

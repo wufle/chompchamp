@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="camera" path="camera/" />
+    <!-- Downloaded app updates, handed to Android's installer. -->
+    <external-files-path name="updates" path="updates/" />
 </paths>

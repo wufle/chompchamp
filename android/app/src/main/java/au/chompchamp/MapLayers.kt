@@ -44,7 +44,10 @@ enum class MapOverlay(val key: String, val shortLabel: String, val defaultOn: Bo
 class MapLayers(private val prefs: SharedPreferences) {
 
     private val layers: Map<MapOverlay, List<StyleLayer>> = mapOf(
-        MapOverlay.SATELLITE to listOf(StyleLayer("satellite", Kind.RASTER, 1f)),
+        MapOverlay.SATELLITE to listOf(
+            StyleLayer("satellite-land", Kind.RASTER, 1f),
+            StyleLayer("satellite", Kind.RASTER, 1f),
+        ),
         MapOverlay.RELIEF to listOf(StyleLayer("relief", Kind.RASTER, 0.9f)),
         MapOverlay.DEPTH to listOf(
             StyleLayer("water-fill", Kind.FILL, 1f),
@@ -121,6 +124,7 @@ class MapLayers(private val prefs: SharedPreferences) {
     /** Apply saved toggles and opacities to a loaded style. */
     fun apply(style: Style) {
         val sat = isOn(MapOverlay.SATELLITE)
+        val saved = style.layers.map { it.id }.filter { '@' in it }
         for ((overlay, styleLayers) in layers) {
             val on = isOn(overlay)
             var factor = opacity(overlay)
@@ -128,23 +132,27 @@ class MapLayers(private val prefs: SharedPreferences) {
             if (sat && overlay == MapOverlay.DEPTH) factor *= 0.4f
             val hiddenBySatellite = sat && overlay == MapOverlay.LAND
             for (l in styleLayers) {
-                val layer = style.getLayer(l.id) ?: continue
-                val show = on && !hiddenBySatellite
-                if (!show && !l.queried) {
-                    layer.setProperties(PropertyFactory.visibility(Property.NONE))
-                    continue
-                }
-                layer.setProperties(PropertyFactory.visibility(Property.VISIBLE))
-                val a = if (show) l.base * factor else 0f
-                when (l.kind) {
-                    Kind.FILL -> layer.setProperties(PropertyFactory.fillOpacity(a))
-                    Kind.LINE -> layer.setProperties(PropertyFactory.lineOpacity(a))
-                    Kind.RASTER -> layer.setProperties(PropertyFactory.rasterOpacity(a))
-                    Kind.SYMBOL -> layer.setProperties(PropertyFactory.textOpacity(a), PropertyFactory.iconOpacity(a))
-                    Kind.CIRCLE -> layer.setProperties(
-                        PropertyFactory.circleOpacity(a), PropertyFactory.circleStrokeOpacity(a))
-                }
+                // Saved offline copies ("<id>@<area>") follow their online layer.
+                val ids = listOf(l.id) + saved.filter { it.startsWith(l.id + "@") }
+                for (id in ids) applyTo(style.getLayer(id) ?: continue, l, on && !hiddenBySatellite, factor)
             }
+        }
+    }
+
+    private fun applyTo(layer: org.maplibre.android.style.layers.Layer, l: StyleLayer, show: Boolean, factor: Float) {
+        if (!show && !l.queried) {
+            layer.setProperties(PropertyFactory.visibility(Property.NONE))
+            return
+        }
+        layer.setProperties(PropertyFactory.visibility(Property.VISIBLE))
+        val a = if (show) l.base * factor else 0f
+        when (l.kind) {
+            Kind.FILL -> layer.setProperties(PropertyFactory.fillOpacity(a))
+            Kind.LINE -> layer.setProperties(PropertyFactory.lineOpacity(a))
+            Kind.RASTER -> layer.setProperties(PropertyFactory.rasterOpacity(a))
+            Kind.SYMBOL -> layer.setProperties(PropertyFactory.textOpacity(a), PropertyFactory.iconOpacity(a))
+            Kind.CIRCLE -> layer.setProperties(
+                PropertyFactory.circleOpacity(a), PropertyFactory.circleStrokeOpacity(a))
         }
     }
 
@@ -172,7 +180,8 @@ class MapLayers(private val prefs: SharedPreferences) {
             }
         }
         rows.note("Sliders set each layer's opacity. No-fishing alerts keep working when zones are hidden. " +
-            "Satellite and online reef relief need internet. AIS asks openwaters.io for vessels in the area on screen.")
+            "Satellite and online reef relief need internet, except in areas you've saved (☰ → Charts, offline areas & updates). " +
+            "AIS asks openwaters.io for vessels in the area on screen.")
         rows.button("Reset layers") {
             val e = prefs.edit()
             MapOverlay.entries.forEach { e.remove("layer_${it.key}").remove("layer_opacity_${it.key}") }
