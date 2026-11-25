@@ -112,8 +112,11 @@ class NavOverlays(private val dp: Float) {
             textHaloColor("#ffffff"), textHaloWidth(1.5f)))
     }
 
+    /** MapLibre throws if a style is touched while a newer one is loading. */
+    private fun loaded() = style?.takeIf { it.isFullyLoaded }
+
     private fun set(id: String, features: List<Feature>) {
-        style?.getSourceAs<GeoJsonSource>(id)?.setGeoJson(FeatureCollection.fromFeatures(features))
+        loaded()?.getSourceAs<GeoJsonSource>(id)?.setGeoJson(FeatureCollection.fromFeatures(features))
     }
 
     private fun pt(p: LatLon) = Point.fromLngLat(p.lon, p.lat)
@@ -148,7 +151,7 @@ class NavOverlays(private val dp: Float) {
 
     /** [bubble] supplies the map bubble image for a photo id (null if unavailable). */
     fun setMarks(marks: List<Mark>, color: (Mark) -> String, bubble: (String) -> android.graphics.Bitmap? = { null }) {
-        val s = style
+        val s = loaded()
         set(MARKS, marks.map { m ->
             Feature.fromGeometry(pt(m.pos)).apply {
                 addStringProperty("id", m.id)
@@ -187,7 +190,7 @@ class NavOverlays(private val dp: Float) {
 
     fun setCatchScale(v: Float) {
         catchScale = v
-        style?.getLayer(CATCHES)?.setProperties(iconSize(v))
+        loaded()?.getLayer(CATCHES)?.setProperties(iconSize(v))
     }
 
     /** A little fish on a round badge. */

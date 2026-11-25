@@ -296,7 +296,7 @@ class Ais(
 
     fun setScale(v: Float) {
         scale = v
-        style?.getLayer(LAYER)?.setProperties(iconSize(v))
+        style?.takeIf { it.isFullyLoaded }?.getLayer(LAYER)?.setProperties(iconSize(v))
     }
 
     /** Settings changed. */
