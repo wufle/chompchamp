@@ -27,21 +27,29 @@ You need an Android 8.0 or newer phone and these files from the
 browser or file manager when Android asks. ChompChamp isn't on the Play Store, so Play Protect may
 warn you.
 
-**2. Add the chart.** In ChompChamp, tap **☰ → Charts & relief data… → Import chart or relief file…**
-and pick `wa.pmtiles`. Don't unzip or rename it.
+**2. Add the chart.** In ChompChamp, tap **☰ → Charts, offline areas & updates… → Check for updates… → Download…**
+and tick the chart. Or download `wa.pmtiles` yourself and pick it with **Import chart or relief file…**.
+Don't unzip or rename it.
 
-**3. Add the seabed imagery (optional).** Do the same again with `wa-relief.pmtiles`. The app works out
-which file is which.
+**3. Add the seabed imagery (optional).** Do the same again with the reef relief pack (`wa-relief.pmtiles`).
+The app works out which file is which.
 
-**4. Allow location** when asked, and open the map once while online so the chart labels are saved for
-offline use.
+**4. Allow location** when asked.
 
-After that the chart, zones, hazards and (if imported) seabed imagery work with no signal. Satellite
-imagery always needs internet.
+After that the chart, zones, hazards, labels and (if imported) seabed imagery work with no signal.
 
-**Updating:** install the new `.apk` over the old one; routes, marks and settings are kept. Import a newer
-`wa.pmtiles` the same way and it replaces the old chart. Uninstalling deletes your data, so export it first
-(☰ → **Data: save, load, export, import…**). Photos aren't included in exports yet.
+**5. Save satellite imagery for your areas (optional).** Tap **☰ → Charts, offline areas & updates… → Save
+an area for offline use…**, move the map so your fishing area fills the screen, and tap **Download this area**.
+The panel shows the size first. Saved satellite and reef relief imagery shows with no signal whenever those
+layers are on.
+
+**Updating:** tap **☰ → Charts, offline areas & updates… → Check for updates…** (or **About → Updates**). It
+looks at the latest GitHub release, shows what's new, and downloads the app, chart or relief pack you tick.
+Android asks you to allow ChompChamp to install apps the first time, then asks again before each update.
+Routes, marks and settings are kept. To be told about updates, set **Settings → Check GitHub for app and chart
+updates** to weekly or daily; it's off by default. You can still install a new `.apk` or import a new
+`wa.pmtiles` by hand. Uninstalling deletes your data, so export it first (☰ → **Data: save, load, export,
+import…**). Photos aren't included in exports yet.
 
 **Problems?**
 - *Blank map:* no chart is imported, or you're outside Western Australia.
@@ -80,7 +88,7 @@ Everything is customisable:
 - **Data fields** per mode: SOG, COG, position, depth, waypoint, BRG, DTW, XTE, VMG, TTG, ETAs, remaining, drift speed/direction, nearest mark, anchor distance, trip distance, time, average and top speed, clock. Show/hide them and drag them anywhere (Menu → Display → Move or resize), or combine them into one group (Menu → Display → Arrangement); tap a field while editing to resize or hide just that one. Each mode keeps its own layout.
 - **Display** (Menu): the data field options above, the scale bar and bag limits button on/off (move the button with Move or resize), plus size and transparency of data fields, and of buttons and panels.
 - **Layers** (bottom left): on/off and an opacity slider for every layer: marks and hazards, satellite, 5 m reef relief, depth shading, contours, labels, land, zones, parks, route, marks, drift line, track, saved trip, catches, anchor circle, AIS vessels.
-- **Charts & relief data** (Menu): see what is installed (size, date), import, remove the chart or the offline reef relief pack (relief falls back to online), clear the online tile cache.
+- **Charts, offline areas & updates** (Menu): save satellite and reef relief imagery for an area, check GitHub for a new app, chart or relief pack, see what is installed (size, date), import, remove the chart or the offline reef relief pack (relief falls back to online), clear the online tile cache.
 - **Data** (Menu): save and load named snapshots on the phone; export and import a backup file (.json) with routes, marks, current track, saved trips, catch log and settings (merge or replace); export and import GPX to move marks, routes and tracks to and from other chartplotter apps.
 - **Settings**: track history shown (1 min to the entire trip), track point spacing, when a new trip starts, recording with the screen off, AIS age limit, arrival radius, planning speed, north-up / course-up, drift window and projection, fish-mode zoom, anchor radius, safety depth.
 
@@ -101,9 +109,11 @@ location when you update it, because some browsers tie your saved data to them. 
 ## Privacy
 
 No accounts, ads or analytics. Your position, trips, catches, marks and photos stay on the phone unless you export
-them (or Android's own device backup copies them). When online, the app requests map imagery and label
-fonts for the area you're viewing from the WA Government (SLIP), EOX and OpenFreeMap, so those servers see
-your IP address and the area on screen. With the AIS layer on, Open Waters also sees your IP address and the area on screen
+them (or Android's own device backup copies them). When online, the app requests map imagery for the area
+you're viewing from the WA Government (SLIP) and Digital Earth Australia (Geoscience Australia), so those servers
+see your IP address and the area on screen. Saving an area for offline use downloads from the same servers.
+Checking for updates asks GitHub for the latest release; it only happens when you ask, unless you turn on
+automatic checks. With the AIS layer on, Open Waters also sees your IP address and the area on screen
 about once a minute; it keeps request logs for 90 days. Your own position is never sent.
 
 ## Data sources and licences
@@ -123,11 +133,11 @@ source's licence (including the bundled `hazards.geojson`). If you reuse the cha
 | Reef relief (5 m, about 30 nearshore areas) | WA Department of Transport bathymetry imagery, via [SLIP](https://public-services.slip.wa.gov.au/public/rest/services/Landgate_Public_Maps/WA_Bathymetry/MapServer) | CC BY 4.0 |
 | Navigation marks (beacons, buoys, cardinals, lights, leads) | WA Department of Transport, Navigation Aids (DOT-004), via SLIP | CC BY 4.0 |
 | Wrecks, rocks, obstructions | © OpenStreetMap contributors (OpenSeaMap seamark tags) | ODbL 1.0 |
-| Satellite (online) | [Sentinel-2 cloudless 2016](https://s2maps.eu) by EOX IT Services GmbH (contains modified Copernicus Sentinel data 2016) | CC BY 4.0 |
+| Satellite (online, or saved for chosen areas) | © Geoscience Australia, [Digital Earth Australia](https://www.dea.ga.gov.au): coast from [DEA Tidal Composites](https://knowledge.dea.ga.gov.au/data/product/dea-tidal-composites/) (Sentinel-2, low tide, 2024), inland from [DEA GeoMAD](https://knowledge.dea.ga.gov.au/data/product/dea-geometric-median-and-median-absolute-deviation-landsat/) (Landsat 8 and 9, 2025). Contains modified Copernicus Sentinel and USGS Landsat data | CC BY 4.0 |
 | Vessels (online, optional layer) | [Open Waters AIS](https://openwaters.io/ais/), around WA passing on AIS from [AISHub](https://www.aishub.net) contributors and [aisstream.io](https://aisstream.io) | Not open data. Free for personal use and display with credit; AISHub's terms don't allow passing on the raw data, so the app never stores or exports it. aisstream.io publishes no licence |
 | Bag and size limits | Facts from WA DPIRD's [Recreational fishing guide 2026](https://www.dpird.wa.gov.au/siteassets/documents/fisheries/recreational/guides-and-infographics/recreational-fishing-guide.pdf) (June 2026, edition 2), checked 25 November 2026. The guide is © State of Western Australia and has no open licence, so only the limits, dates and places are used, in our own wording | Not open data |
 | Closure areas for bag limits (Abrolhos, Cockburn and Warnbro Sounds, blue swimmer crab) | WA DPIRD Fisheries Guide (DPIRD-061), via SLIP, simplified | CC BY 4.0 |
-| Label fonts (online, cached) | [OpenFreeMap](https://openfreemap.org) | OFL |
+| Label font (bundled with the app) | Noto Sans, via [OpenFreeMap](https://openfreemap.org) glyphs (`pipeline/fetch_glyphs.sh`) | SIL OFL 1.1 |
 
 **How zones are classified** (`pipeline/scripts/fetch_zones.py`): each area is classified by
 its own schedule heading, not by the title of the order. Marine park orders typically ban
@@ -153,8 +163,9 @@ and obstructions known only from hydrographic surveys (AHO ENCs) are not in any 
 - [ ] Newer national depth grid (AusBathyTopo 2026), and GA's 30 m Northern Australia grid
 - [ ] Depths adjusted to low-tide chart datum
 - [ ] Zone alerts and depth that work off screen (point-in-polygon against the data, not rendered tiles)
-- [ ] Bundle fonts so labels work fully offline on first launch
-- [ ] Offline satellite imagery for chosen areas
+- [x] Bundle fonts so labels work fully offline on first launch
+- [x] Offline satellite imagery for chosen areas
+- [x] Update the app and chart from GitHub inside the app
 - [ ] Photos in backups
 - [ ] Trips and catches in the desktop planner
 - [ ] Sea surface temperature and chlorophyll overlays (IMOS)

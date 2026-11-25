@@ -115,7 +115,7 @@
   const L = (id, prop, base) => ({ id, prop, base });
   const LAYERS = [
     ['Chart', [
-      ['satellite', 'Satellite (online)', false, [L('satellite', 'raster-opacity', 1)]],
+      ['satellite', 'Satellite (online)', false, [L('satellite-land', 'raster-opacity', 1), L('satellite', 'raster-opacity', 1)]],
       ['relief', 'Reef relief (5 m)', true, [L('relief', 'raster-opacity', 0.9)]],
       ['depth', 'Depth shading', true, [L('water-fill', 'fill-opacity', 1), L('depth-fill', 'fill-opacity', 1)]],
       ['contours', 'Contours', true, [L('contour', 'line-opacity', 0.8)]],

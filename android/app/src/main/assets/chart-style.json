@@ -8,14 +8,25 @@
       "url": "{{CHART_URL}}",
       "attribution": "Depth: \u00a9 Geoscience Australia (AusBathyTopo, incorporating AHO data), WA Department of Transport (CC BY 4.0). Coast: \u00a9 OpenStreetMap contributors. Zones: WA DPIRD, DBCA (CC BY-NC 4.0), Parks Australia."
     },
+    "satellite-land": {
+      "type": "raster",
+      "tileSize": 256,
+      "minzoom": 7,
+      "maxzoom": 12,
+      "tiles": [
+        "https://ows.dea.ga.gov.au/?service=WMS&version=1.3.0&request=GetMap&layers=ga_ls8cls9c_gm_cyear_3&styles=simple_rgb&crs=EPSG:3857&bbox={bbox-epsg-3857}&width=256&height=256&format=image/png&transparent=true&time=2025-01-01"
+      ],
+      "attribution": "Satellite: \u00a9 Geoscience Australia, Digital Earth Australia (CC BY 4.0), with Copernicus Sentinel-2 and USGS Landsat data"
+    },
     "satellite": {
       "type": "raster",
       "tileSize": 256,
+      "minzoom": 5,
       "maxzoom": 14,
       "tiles": [
-        "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg"
+        "https://ows.dea.ga.gov.au/?service=WMS&version=1.3.0&request=GetMap&layers=ga_s2_tidal_composites_cyear_3&styles=low_true&crs=EPSG:3857&bbox={bbox-epsg-3857}&width=256&height=256&format=image/png&transparent=true&time=2024-01-01"
       ],
-      "attribution": "Sentinel-2 cloudless by EOX IT Services GmbH (contains modified Copernicus Sentinel data 2016), CC BY 4.0"
+      "attribution": "Satellite: \u00a9 Geoscience Australia, Digital Earth Australia (CC BY 4.0), with Copernicus Sentinel-2 and USGS Landsat data"
     }
   },
   "layers": [
@@ -24,6 +35,14 @@
       "type": "background",
       "paint": {
         "background-color": "#f5f9fd"
+      }
+    },
+    {
+      "id": "satellite-land",
+      "type": "raster",
+      "source": "satellite-land",
+      "layout": {
+        "visibility": "none"
       }
     },
     {
