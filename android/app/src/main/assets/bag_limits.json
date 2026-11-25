@@ -1191,19 +1191,16 @@
      "note": "Pests. Best not returned to the water."
     },
     {
-     "name": "Koonac",
-     "bag": "No limit"
-    },
-    {
      "name": "Other crustaceans",
      "aka": [
       "gilgie",
+      "koonac",
       "sand crab",
       "coral crab",
       "rock crab"
      ],
      "bag": 10,
-     "note": "Combined."
+     "note": "Combined. The guide gives no limit for koonacs."
     }
    ]
   },

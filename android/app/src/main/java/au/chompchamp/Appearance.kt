@@ -50,6 +50,8 @@ class Appearance(private val ctx: Context, private val prefs: SharedPreferences)
     val muted = ContextCompat.getColor(ctx, R.color.ui_muted)
     val accent = ContextCompat.getColor(ctx, R.color.ui_accent)
     val danger = ContextCompat.getColor(ctx, R.color.alert_danger)
+    /** Red that reads well as small text on the dark panels. */
+    val dangerText = ContextCompat.getColor(ctx, R.color.ui_danger_text)
     val warn = ContextCompat.getColor(ctx, R.color.alert_warn)
     val info = ContextCompat.getColor(ctx, R.color.alert_info)
 

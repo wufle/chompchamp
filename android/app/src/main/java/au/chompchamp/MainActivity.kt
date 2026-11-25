@@ -1200,7 +1200,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val items: List<Pair<String, () -> Unit>> = listOf(
             "Marks…" to { marksPanel.show() },
             "Trips & catches…" to { tripsPanel.show() },
-            "Bag & size limits…" to { bagPanel.show() },
+            "Bag & size limits…" to { bagPanel.open() },
             "Display…" to { showDisplayPanel() },
             "Settings…" to { settings.show(this) { onSettingsChanged() } },
             "Charts & relief data…" to { showChartManager() },

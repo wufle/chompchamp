@@ -46,12 +46,15 @@ class BagLimitsPanel(
 
     val isOpen get() = panel.isOpen && panel.current == TITLE
 
-    fun toggle() { if (isOpen) panel.hide() else show() }
+    fun toggle() { if (isOpen) panel.hide() else open() }
+
+    /** Fresh, with no old search left in it. */
+    fun open() { query = ""; show() }
 
     /** The boat moved: follow it into the next area. */
     fun moved() { if (isOpen && chosen == null && area() != shownArea) show() }
 
-    fun show() {
+    private fun show() {
         val area = area()
         shownArea = area
         val search = EditText(ctx).apply {
@@ -108,7 +111,7 @@ class BagLimitsPanel(
         }
         for (g in groups) {
             text(box, g.name.uppercase() + (g.total?.let { " · $it IN TOTAL" } ?: ""), 11f, look.muted, 12).letterSpacing = 0.08f
-            g.boatClosed?.let { text(box, it, 13f, look.danger, 2, bold = true) }
+            g.boatClosed?.let { text(box, it, 13f, look.dangerText, 2, bold = true) }
             g.note?.let { text(box, it, 12f, look.muted, 2) }
             for (e in g.entries) row(box, e, g.boatClosed)
         }
@@ -147,10 +150,11 @@ class BagLimitsPanel(
             text = when {
                 e.isProtected -> "Protected"
                 e.bag == null -> ""
+                closedBoat -> "Shore only: ${e.bag}"
                 else -> "Bag ${e.bag}"
             }
             textSize = 13f
-            setTextColor(if (e.isProtected) look.danger else look.accent)
+            setTextColor(if (e.isProtected) look.dangerText else look.accent)
             setTypeface(typeface, android.graphics.Typeface.BOLD)
             gravity = Gravity.END
             setPadding(px(10), 0, 0, 0)
@@ -158,9 +162,8 @@ class BagLimitsPanel(
         line.addView(top)
         val size = if (e.isProtected) "May not be taken" else "Size: " + (e.size ?: "no minimum")
         text(line, size + (e.boat?.let { " · Boat limit $it" } ?: ""), 12f, look.muted, 0)
-        if (closedBoat) text(line, "Closed from boats. Limit shown is for fishing from shore.", 12f, look.danger, 1)
-        else if (boatClosed != null && e.boatOpen) text(line, "Open from boats", 12f, look.muted, 1)
-        for (w in warn) text(line, w, 12f, look.danger, 1)
+        if (boatClosed != null && e.boatOpen) text(line, "Open from boats", 12f, look.muted, 1)
+        for (w in warn) text(line, w, 12f, look.dangerText, 1)
         e.note?.let { text(line, it, 12f, look.muted, 1) }
         box.addView(line)
         box.addView(View(ctx).apply { setBackgroundColor(look.muted); alpha = 0.2f },
