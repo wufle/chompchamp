@@ -1826,7 +1826,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             }
         }
         items += "Clear online map cache" to {
-            confirm("Clear cached satellite, online relief and label tiles? They'll download again when needed.") {
+            confirm("Clear cached online satellite and reef relief tiles? They'll download again when needed. Areas you saved for offline use are kept.") {
                 OfflineManager.getInstance(this).clearAmbientCache(object : OfflineManager.FileSourceCallback {
                     override fun onSuccess() {
                         Toast.makeText(this@MainActivity, "Online cache cleared", Toast.LENGTH_SHORT).show()

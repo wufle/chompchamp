@@ -175,16 +175,19 @@ class Updater(
                 inside = line.contains("what's new", ignoreCase = true) || line.contains("what’s new", ignoreCase = true)
                 continue
             }
-            if (inside && line.isNotEmpty()) {
-                out += line.replace(Regex("\\*\\*|`|\\[([^]]*)]\\([^)]*\\)"), "").let { if (it.startsWith("- ")) "• " + it.drop(2) else it }
-            }
+            // Only the list itself: notes after it ("The seabed imagery is the same…") aren't news.
+            if (inside && line.startsWith("- ")) {
+                out += "• " + line.drop(2).replace(Regex("\\[([^]]*)]\\([^)]*\\)"), "$1").replace(Regex("\\*\\*|`"), "")
+            } else if (inside && line.isNotEmpty() && out.isNotEmpty()) break
+
         }
         return out.joinToString("\n").take(1500)
     }
 
     private fun pick(r: Release) {
         val options = listOfNotNull(
-            r.apk?.let { Triple(Kind.APK, it, "App ${r.version} (${mb(it.size)})") to appNewer(r) },
+            // Never offer an older app: Android would refuse it anyway.
+            r.apk?.takeIf { appNewer(r) }?.let { Triple(Kind.APK, it, "App ${r.version} (${mb(it.size)})") to true },
             r.chart?.let { Triple(Kind.CHART, it, "Chart (${mb(it.size)})") to chartNewer(r) },
             r.relief?.let { Triple(Kind.RELIEF, it, "Reef relief pack (${mb(it.size)})") to reliefNewer(r) },
         )
