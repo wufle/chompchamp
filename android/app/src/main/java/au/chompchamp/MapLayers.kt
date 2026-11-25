@@ -90,7 +90,10 @@ class MapLayers(private val prefs: SharedPreferences) {
             StyleLayer("trip-line", Kind.LINE, 0.9f),
             StyleLayer("trip-dots", Kind.CIRCLE, 1f),
         ),
-        MapOverlay.CATCHES to listOf(StyleLayer(NavOverlays.CATCHES, Kind.SYMBOL, 1f)),
+        MapOverlay.CATCHES to listOf(
+            StyleLayer(NavOverlays.CATCHES, Kind.SYMBOL, 1f),
+            StyleLayer(NavOverlays.CATCH_PHOTOS, Kind.SYMBOL, 1f),
+        ),
         MapOverlay.AIS to listOf(
             StyleLayer("ais-vector", Kind.LINE, 0.8f),
             StyleLayer(Ais.LAYER, Kind.SYMBOL, 1f),

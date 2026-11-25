@@ -1,0 +1,1060 @@
+{
+"Baldchin groper": {
+"species": "Choerodon rubescens",
+"by": "Debra Baker",
+"licence": "CC BY 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Choerodon_rubescens_465904243_(cropped).jpg",
+"file": "baldchin-groper"
+},
+"Barramundi cod": {
+"species": "Cromileptes altivelis",
+"by": "Udo Schröter",
+"licence": "CC BY-SA 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Cromileptes_altivelis_skansen_2006.jpg",
+"file": "barramundi-cod"
+},
+"Bass groper": {
+"species": "Polyprion americanus",
+"by": "",
+"licence": "Public domain",
+"page": "https://commons.wikimedia.org/wiki/File:Polyprion_americanus.png",
+"file": "bass-groper"
+},
+"Bight redfish": {
+"species": "Centroberyx gerrardi",
+"by": "Rolf Lawrenz",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/17092446",
+"file": "bight-redfish"
+},
+"Swallowtail": {
+"species": "Centroberyx lineatus",
+"by": "Bruce Deagle",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/112510021",
+"file": "swallowtail"
+},
+"Blackspot tuskfish": {
+"species": "Choerodon schoenleinii",
+"by": "(c) Paul Asman and Jill Lenoble, some rights reserved (CC BY)",
+"licence": "CC BY 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Blackspot_Tuskfish,_,_Queensland,_Australia_imported_from_iNaturalist_photo_162485848.jpg",
+"file": "blackspot-tuskfish"
+},
+"Blue tuskfish": {
+"species": "Choerodon cyanodus",
+"by": "no rights reserved",
+"licence": "CC0",
+"page": "https://www.inaturalist.org/observations/36871242",
+"file": "blue-tuskfish"
+},
+"Tuskfish, other": {
+"species": "Choerodon cauteroma",
+"by": "Rick Stuart-Smith / Reef Life Survey",
+"licence": "CC BY 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:ChoerodCauteromaRLS.jpg",
+"example": true,
+"file": "tuskfish-other"
+},
+"Blue morwong": {
+"species": "Nemadactylus valenciennesi",
+"by": "Peter Southwood",
+"licence": "CC BY-SA 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Nemadactylus_valenciennesi_Queen_snapper_P1031273.JPG",
+"file": "blue-morwong"
+},
+"Blue-eye trevalla": {
+"species": "Hyperoglyphe antarctica",
+"by": "NOAA",
+"licence": "Public domain",
+"page": "https://commons.wikimedia.org/wiki/File:Hyperoglyphe_antarctica.jpg",
+"example": true,
+"file": "blue-eye-trevalla"
+},
+"Boarfish": {
+"species": "Paristiopterus labiosus",
+"by": "Shaun Lee",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/334555852",
+"example": true,
+"file": "boarfish"
+},
+"Breaksea cod": {
+"species": "Epinephelides armatus",
+"by": "Rick Stuart-Smith",
+"licence": "CC BY 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Epinephelides_armatus.jpg",
+"file": "breaksea-cod"
+},
+"Coral trout": {
+"species": "Plectropomus leopardus",
+"by": "portioid",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/188665950",
+"example": true,
+"file": "coral-trout"
+},
+"Coronation trout": {
+"species": "Variola louti",
+"by": "Georgina Jones",
+"licence": "CC BY-SA 4.0",
+"page": "https://www.inaturalist.org/observations/11094569",
+"example": true,
+"file": "coronation-trout"
+},
+"Dhufish, West Australian": {
+"species": "Glaucosoma hebraicum",
+"by": "Rick Stuart-Smith / Reef Life Survey.",
+"licence": "CC BY 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:GlaucosomHebraicRLS.jpg",
+"file": "dhufish-west-australian"
+},
+"Dory, John": {
+"species": "Zeus faber",
+"by": "Kleines.Opossum",
+"licence": "CC BY-SA 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Zeus.faber.jpg",
+"file": "dory-john"
+},
+"Dory, mirror": {
+"species": "Zenopsis nebulosa",
+"by": "",
+"licence": "Public domain",
+"page": "https://commons.wikimedia.org/wiki/File:Mirror_dory.png",
+"file": "dory-mirror"
+},
+"Emperor, grass": {
+"species": "Lethrinus laticaudis",
+"by": "Luke Lythgoe",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/251288711",
+"file": "emperor-grass"
+},
+"Emperor, redthroat": {
+"species": "Lethrinus miniatus",
+"by": "Jean-Lou Justine",
+"licence": "CC BY-SA 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Lethrinus_miniatus_JNC2161.JPG",
+"file": "emperor-redthroat"
+},
+"Emperor, spangled": {
+"species": "Lethrinus nebulosus",
+"by": "Andrew Parker",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/109658861",
+"file": "emperor-spangled"
+},
+"Emperors and seabream, other": {
+"species": "Lethrinus olivaceus",
+"by": "Rickard Zerpe",
+"licence": "CC BY 2.0",
+"page": "https://commons.wikimedia.org/wiki/File:Longface_emperor_(Lethrinus_olivaceus)_(32168521527).jpg",
+"example": true,
+"file": "emperors-and-seabream-other"
+},
+"Foxfish and pigfish": {
+"species": "Bodianus frenchii",
+"by": "Debra Baker",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/259610976",
+"example": true,
+"file": "foxfish-and-pigfish"
+},
+"Goldspotted rockcod": {
+"species": "Epinephelus coioides",
+"by": "Sahat Ratmuangkhwang",
+"licence": "CC BY 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Epinephelus_coioides_Thailand.jpg",
+"file": "goldspotted-rockcod"
+},
+"Blackspotted rockcod": {
+"species": "Epinephelus malabaricus",
+"by": "portioid",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/190298297",
+"file": "blackspotted-rockcod"
+},
+"Harlequin fish": {
+"species": "Othos dentex",
+"by": "Peter Southwood",
+"licence": "CC BY-SA 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Orthos_dentex_Harlequin_fish_PC260005.JPG",
+"file": "harlequin-fish"
+},
+"Hapuku": {
+"species": "Polyprion oxygeneios",
+"by": "Nholtzha",
+"licence": "CC BY-SA 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Hapuka.jpg",
+"file": "hapuku"
+},
+"Pearl perch": {
+"species": "Glaucosoma buergeri",
+"by": "no rights reserved",
+"licence": "CC0",
+"page": "https://www.inaturalist.org/observations/411166681",
+"example": true,
+"file": "pearl-perch"
+},
+"Rankin cod": {
+"species": "Epinephelus multinotatus",
+"by": "Amada44",
+"licence": "CC BY-SA 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Epinephelus_multinotatus_2566.jpg",
+"file": "rankin-cod"
+},
+"Eightbar grouper": {
+"species": "Hyporthodus octofasciatus",
+"by": "Jerome Huet (IFREMER, Délégation océan Indien (DOI), Département Ressources Biol",
+"licence": "CC BY 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:M%C3%A9rou_huit_raies_(Hyporthodus_octofasciatus)_(Ifremer_00761-87275).jpg",
+"file": "eightbar-grouper"
+},
+"Rockcods, other": {
+"species": "Epinephelus fasciatus",
+"by": "Bernard DUPONT",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/307984900",
+"example": true,
+"file": "rockcods-other"
+},
+"Red emperor": {
+"species": "Lutjanus sebae",
+"by": "apteryx54",
+"licence": "CC BY 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Lutjanus_sebae_338164026.jpg",
+"file": "red-emperor"
+},
+"Pink snapper": {
+"species": "Chrysophrys auratus",
+"by": "Debra Baker",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/108151007",
+"file": "pink-snapper"
+},
+"Crimson snapper": {
+"species": "Lutjanus erythropterus",
+"by": "Hamid Badar Osmany",
+"licence": "CC BY 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:LutjErthy.png",
+"file": "crimson-snapper"
+},
+"Saddletail snapper": {
+"species": "Lutjanus malabaricus",
+"by": "The U.S. Food and Drug Administration",
+"licence": "Public domain",
+"page": "https://commons.wikimedia.org/wiki/File:Lutjanus_malabaricus_(FDA_164).jpg",
+"file": "saddletail-snapper"
+},
+"Goldband snapper": {
+"species": "Pristipomoides multidens",
+"by": "Hugues Evano (IFREMER, Délégation océan Indien (DOI), Département Ressources Bio",
+"licence": "CC BY 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Colas_%C3%A0_bandes_dor%C3%A9es_(Pristipomoides_multidens)_(Ifremer_00762-87385).jpg",
+"file": "goldband-snapper"
+},
+"Ruby snapper": {
+"species": "Etelis carbunculus",
+"by": "Jean-Lou Justine",
+"licence": "CC BY-SA 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Etelis_carbunculus_JNC2427_(Lutjanidae).JPG",
+"example": true,
+"file": "ruby-snapper"
+},
+"Chinaman fish": {
+"species": "Symphorus nematophorus",
+"by": "desertnaturalist",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/27680705",
+"file": "chinaman-fish"
+},
+"Jobfish": {
+"species": "Aprion virescens",
+"by": "Jean-Lou Justine",
+"licence": "CC BY-SA 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Aprion_virescens_JNC2568.JPG",
+"example": true,
+"file": "jobfish"
+},
+"Tropical snappers, other": {
+"species": "Lutjanus bohar",
+"by": "Diego Delso",
+"licence": "CC BY-SA 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Pargo_de_dos_manchas_(Lutjanus_bohar),_parque_nacional_Ras_Muhammad,_Egipto,_2022-03-26,_DD_133.jpg",
+"example": true,
+"file": "tropical-snappers-other"
+},
+"Western blue groper": {
+"species": "Achoerodus gouldii",
+"by": "Pbsouthwood",
+"licence": "CC BY-SA 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Achoerodus_gouldii_Western_blue_groper_m_PC290561.JPG",
+"file": "western-blue-groper"
+},
+"Amberjack": {
+"species": "Seriola dumerili",
+"by": "Roberto Pillon",
+"licence": "CC BY 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Seriola_dumerili_Minorca.jpg",
+"file": "amberjack"
+},
+"Samson fish": {
+"species": "Seriola hippos",
+"by": "Kare Kare",
+"licence": "CC BY-SA 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Samson_fish.JPG",
+"file": "samson-fish"
+},
+"Yellowtail kingfish": {
+"species": "Seriola lalandi",
+"by": "Nholtzha",
+"licence": "CC BY-SA 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Kingfish.jpg",
+"file": "yellowtail-kingfish"
+},
+"Great barracuda": {
+"species": "Sphyraena barracuda",
+"by": "",
+"licence": "Public domain",
+"page": "https://commons.wikimedia.org/wiki/File:Barracuda_laban.jpg",
+"file": "great-barracuda"
+},
+"Cobia": {
+"species": "Rachycentron canadum",
+"by": "Jorge Alarcon or Dr. Daniel Benetti",
+"licence": "Public domain",
+"page": "https://commons.wikimedia.org/wiki/File:Rachycentron_canadum.jpg",
+"file": "cobia"
+},
+"Barracouta": {
+"species": "Thyrsites atun",
+"by": "Steve Kerr",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/10193793",
+"example": true,
+"file": "barracouta"
+},
+"Mackerel, school": {
+"species": "Scomberomorus queenslandicus",
+"by": "Alan Couch from Canberra, ACT, Australia",
+"licence": "CC BY 2.0",
+"page": "https://commons.wikimedia.org/wiki/File:Queensland_School_Mackerel_(Scomberomorus_queenslandicus)_in_a_sink.jpg",
+"file": "mackerel-school"
+},
+"Mackerel, shark": {
+"species": "Grammatorcynus bicarinatus",
+"by": "jamesh111",
+"licence": "CC BY 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Grammatorcynus_bicarinatus.jpg",
+"file": "mackerel-shark"
+},
+"Mackerel, Spanish": {
+"species": "Scomberomorus commerson",
+"by": "Hamid Badar Osmany",
+"licence": "CC BY 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Scomberomorus_commerson_Pakistan.jpg",
+"file": "mackerel-spanish"
+},
+"Mackerel, spotted": {
+"species": "Scomberomorus munroi",
+"by": "",
+"licence": "Public domain",
+"page": "https://commons.wikimedia.org/wiki/File:Scmun_u0.gif",
+"file": "mackerel-spotted"
+},
+"Mahi mahi": {
+"species": "Coryphaena hippurus",
+"by": "",
+"licence": "Public domain",
+"page": "https://commons.wikimedia.org/wiki/File:Coryphaena_hippurus.png",
+"example": true,
+"file": "mahi-mahi"
+},
+"Billfish": {
+"species": "Istiompax indica",
+"by": "Queensland State Archives from Runcorn, Queensland, Australia",
+"licence": "Public domain",
+"page": "https://commons.wikimedia.org/wiki/File:Black_Marlin_Artwork_by_Frank_Olsen.jpg",
+"example": true,
+"file": "billfish"
+},
+"Swordfish": {
+"species": "Xiphias gladius",
+"by": "",
+"licence": "Public domain",
+"page": "https://commons.wikimedia.org/wiki/File:Xiphias_gladius1.jpg",
+"file": "swordfish"
+},
+"Trevally, giant": {
+"species": "Caranx ignobilis",
+"by": "Dr. Dwayne Meadows, NOAA/NMFS/OPR",
+"licence": "Public domain",
+"page": "https://commons.wikimedia.org/wiki/File:Caranx_ignobilis.jpg",
+"file": "trevally-giant"
+},
+"Trevally, golden": {
+"species": "Gnathanodon speciosus",
+"by": "https://www.flickr.com/photos/maveric2003/2090061297/in/photostream/",
+"licence": "CC BY 2.0",
+"page": "https://commons.wikimedia.org/wiki/File:Golden_trevally_Barcelona_Aquarium.jpg",
+"file": "trevally-golden"
+},
+"Tuna, bigeye": {
+"species": "Thunnus obesus",
+"by": "Allen Shimada, NOAA NMFS OST",
+"licence": "Public domain",
+"page": "https://commons.wikimedia.org/wiki/File:Thunnus_obesus_(bigeye_tuna).jpg",
+"file": "tuna-bigeye"
+},
+"Tuna, dogtooth": {
+"species": "Gymnosarda unicolor",
+"by": "Daniel Benák",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/134590194",
+"file": "tuna-dogtooth"
+},
+"Tuna, longtail": {
+"species": "Thunnus tonggol",
+"by": "Muhammad Moazzam Khan",
+"licence": "CC BY 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Thunnus_tonggol.jpg",
+"file": "tuna-longtail"
+},
+"Tuna, mackerel": {
+"species": "Euthynnus affinis",
+"by": "Mohammad Moazzam Khan",
+"licence": "CC BY 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Euthynnus_affinis.jpg",
+"file": "tuna-mackerel"
+},
+"Tuna, skipjack": {
+"species": "Katsuwonus pelamis",
+"by": "Sahat Ratmuangkhwang",
+"licence": "CC BY 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Katsuwonus_pelamis_Thailand.jpg",
+"file": "tuna-skipjack"
+},
+"Tuna, southern bluefin": {
+"species": "Thunnus maccoyii",
+"by": "Gustavo200897",
+"licence": "CC BY-SA 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Thunnus_maccoyii.jpg",
+"file": "tuna-southern-bluefin"
+},
+"Tuna, yellowfin": {
+"species": "Thunnus albacares",
+"by": "Michel Frisch",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/39110541",
+"file": "tuna-yellowfin"
+},
+"Wahoo": {
+"species": "Acanthocybium solandri",
+"by": "Michael Bommerer",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/250469347",
+"file": "wahoo"
+},
+"Whaler sharks": {
+"species": "Carcharhinus brachyurus",
+"by": "Robert Nyman",
+"licence": "CC BY 2.0",
+"page": "https://commons.wikimedia.org/wiki/File:Bronze_whaler_auckland.jpg",
+"example": true,
+"file": "whaler-sharks"
+},
+"Sharks and rays, other": {
+"species": "Mustelus antarcticus",
+"by": "Bryce Watts-Parker",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/280132342",
+"example": true,
+"file": "sharks-and-rays-other"
+},
+"Barramundi": {
+"species": "Lates calcarifer",
+"by": "Mitch Ames",
+"licence": "CC BY-SA 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Lates_calcarifer,_2014-09-19a.jpg",
+"file": "barramundi"
+},
+"Black bream": {
+"species": "Acanthopagrus butcheri",
+"by": "Lek Khauv",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/104692671",
+"file": "black-bream"
+},
+"Tarwhine": {
+"species": "Rhabdosargus sarba",
+"by": "James K. Douch",
+"licence": "CC BY-SA 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Rhabdosargus_sarba_302655426_(cropped).jpg",
+"file": "tarwhine"
+},
+"Bonito": {
+"species": "Sarda orientalis",
+"by": "Hamid Badar Osmany",
+"licence": "CC BY 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Sarda_orientalis.png",
+"example": true,
+"file": "bonito"
+},
+"Albacore": {
+"species": "Thunnus alalunga",
+"by": "User:Pvmoutside",
+"licence": "Public domain",
+"page": "https://commons.wikimedia.org/wiki/File:Thunnus_alalunga.jpg",
+"file": "albacore"
+},
+"Estuary cobbler": {
+"species": "Cnidoglanis macrocephalus",
+"by": "Sylke Rohrlach",
+"licence": "CC BY-SA 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Estuary_Catfish-Cnidoglanis_macrocephalus.JPG",
+"file": "estuary-cobbler"
+},
+"Catfish, marine": {
+"species": "Neoarius graeffei",
+"by": "Richard Shirky",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/197522871",
+"example": true,
+"file": "catfish-marine"
+},
+"Chinaman rockcod": {
+"species": "Epinephelus rivulatus",
+"by": "Philippe Bourjon",
+"licence": "CC BY-SA 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Epinephelus_rivulatus_adulte.jpg",
+"file": "chinaman-rockcod"
+},
+"Dart": {
+"species": "Trachinotus botla",
+"by": "Kare Kare",
+"licence": "CC BY-SA 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Trachinotus_botla.jpg",
+"example": true,
+"file": "dart"
+},
+"Golden snapper": {
+"species": "Lutjanus johnii",
+"by": "Rick Stuart-Smith / Reef Life Survey",
+"licence": "CC BY 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:LutjanusJohniiRLS.jpg",
+"file": "golden-snapper"
+},
+"Flathead": {
+"species": "Platycephalus speculator",
+"by": "Lek Khauv",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/18082652",
+"example": true,
+"file": "flathead"
+},
+"Javelinfish": {
+"species": "Pomadasys kaakan",
+"by": "Dinh D. Tran, FiMSeA / http://ffish.asia",
+"licence": "CC BY 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:PomadasKaakanffish.asia_(1).jpg",
+"example": true,
+"file": "javelinfish"
+},
+"Sweetlips": {
+"species": "Diagramma pictum",
+"by": "portioid",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/176435926",
+"example": true,
+"file": "sweetlips"
+},
+"Leatherjacket": {
+"species": "Meuschenia freycineti",
+"by": "Richard ling",
+"licence": "CC BY 2.0",
+"page": "https://commons.wikimedia.org/wiki/File:Meuscheniafreycineti.jpg",
+"example": true,
+"file": "leatherjacket"
+},
+"Mulloway": {
+"species": "Argyrosomus japonicus",
+"by": "Show_ryu",
+"licence": "CC BY-SA 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Argyrosomus_japonicus.JPG",
+"file": "mulloway"
+},
+"Black jewfish": {
+"species": "Protonibea diacanthus",
+"by": "Hamid Badar Osmany",
+"licence": "CC BY 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Protonibea.png",
+"file": "black-jewfish"
+},
+"Mangrove jack": {
+"species": "Lutjanus argentimaculatus",
+"by": "Jean-Lou Justine",
+"licence": "CC BY-SA 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Lutjanus_argentimaculatus_JNC2123_New_Caledonia.JPG",
+"file": "mangrove-jack"
+},
+"Pike, longfin": {
+"species": "Dinolestes lewini",
+"by": "Thomas Mesaglio",
+"licence": "CC BY 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Dinolestes_lewini_30421755.jpg",
+"file": "pike-longfin"
+},
+"Sea sweep": {
+"species": "Scorpis aequipinnis",
+"by": "Peter Southwood",
+"licence": "CC BY-SA 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Scorpis_aequipinnis_P1020949.JPG",
+"file": "sea-sweep"
+},
+"Snook": {
+"species": "Sphyraena novaehollandiae",
+"by": "Lek Khauv",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/66494750",
+"file": "snook"
+},
+"Striped barracuda": {
+"species": "Sphyraena obtusata",
+"by": "Philippe Bourjon",
+"licence": "CC BY-SA 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Sphyraena_obtusata.JPG",
+"file": "striped-barracuda"
+},
+"Stripey snapper": {
+"species": "Lutjanus carponotatus",
+"by": "Rickard Zerpe",
+"licence": "CC BY 2.0",
+"page": "https://commons.wikimedia.org/wiki/File:Spanish_flag_snapper_(Lutjanus_carponotatus).jpg",
+"file": "stripey-snapper"
+},
+"Tailor": {
+"species": "Pomatomus saltatrix",
+"by": "SEFSC Pascagoula Laboratory; Collection of Brandi Noble, NOAA/NMFS/SEFSC.",
+"licence": "Public domain",
+"page": "https://commons.wikimedia.org/wiki/File:Fish4397_-_Flickr_-_NOAA_Photo_Library.jpg",
+"file": "tailor"
+},
+"Threadfin, other": {
+"species": "Eleutheronema tetradactylum",
+"by": "BEDO (Thailand)",
+"licence": "CC BY-SA 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Eleutheronema_tetradactylum(Shaw,_1804).jpg",
+"example": true,
+"file": "threadfin-other"
+},
+"Silver trevally": {
+"species": "Pseudocaranx georgianus",
+"by": "Kare Kare",
+"licence": "CC BY-SA 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Silver_trevally.jpg",
+"file": "silver-trevally"
+},
+"Queenfish": {
+"species": "Scomberoides commersonnianus",
+"by": "portioid",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/184674738",
+"example": true,
+"file": "queenfish"
+},
+"Trevally, other": {
+"species": "Caranx sexfasciatus",
+"by": "zsispeo",
+"licence": "CC BY-SA 2.0",
+"page": "https://commons.wikimedia.org/wiki/File:Bigeye_trevally_BoraBora.jpg",
+"example": true,
+"file": "trevally-other"
+},
+"Tripletail": {
+"species": "Lobotes surinamensis",
+"by": "Totti",
+"licence": "CC BY-SA 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Lobotes_surinamensis_Gobius.jpg",
+"file": "tripletail"
+},
+"Western Australian salmon": {
+"species": "Arripis truttaceus",
+"by": "leonie_rennie",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/104020886",
+"file": "western-australian-salmon"
+},
+"Whiting, King George": {
+"species": "Sillaginodes punctatus",
+"by": "Lek Khauv",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/65803809",
+"file": "whiting-king-george"
+},
+"Wrasse and parrotfish": {
+"species": "Coris auricularis",
+"by": "Peter Southwood",
+"licence": "CC BY-SA 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Coris_auricuaris_m_King_wrasse_PC079049.JPG",
+"example": true,
+"file": "wrasse-and-parrotfish"
+},
+"Trout, rainbow and brown": {
+"species": "Oncorhynchus mykiss",
+"by": "Jonathunder",
+"licence": "CC BY-SA 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Trout.jpg",
+"example": true,
+"file": "trout-rainbow-and-brown"
+},
+"Sooty grunter": {
+"species": "Hephaestus fuliginosus",
+"by": "Bryce Watts-Parker",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/240913958",
+"file": "sooty-grunter"
+},
+"Striped perch, other": {
+"species": "Leiopotherapon unicolor",
+"by": "Tom Ferguson",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/382883636",
+"example": true,
+"file": "striped-perch-other"
+},
+"Freshwater pest fish": {
+"species": "Perca fluviatilis",
+"by": "George Chernilevsky",
+"licence": "Public domain",
+"page": "https://commons.wikimedia.org/wiki/File:Perca_fluviatilis_2008_G1.jpg",
+"example": true,
+"file": "freshwater-pest-fish"
+},
+"Australian herring": {
+"species": "Arripis georgianus",
+"by": "Kare Kare",
+"licence": "Public domain",
+"page": "https://commons.wikimedia.org/wiki/File:Tommy_Ruff_1.PNG",
+"file": "australian-herring"
+},
+"Blue mackerel": {
+"species": "Scomber australasicus",
+"by": "",
+"licence": "Public domain",
+"page": "https://commons.wikimedia.org/wiki/File:Scaus_u0.gif",
+"file": "blue-mackerel"
+},
+"Whiting, other than King George": {
+"species": "Sillago schomburgkii",
+"by": "leonie_rennie",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/33116734",
+"example": true,
+"file": "whiting-other-than-king-george"
+},
+"Garfish": {
+"species": "Hyporhamphus melanochir",
+"by": "Frank Edward Clarke",
+"licence": "Public domain",
+"page": "https://commons.wikimedia.org/wiki/File:Hyporhamphus_melanochir_by_Frank_Edward_Clarke.jpg",
+"example": true,
+"file": "garfish"
+},
+"Mullet": {
+"species": "Aldrichetta forsteri",
+"by": "StellaMcQ",
+"licence": "CC BY-SA 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Yellow-eye_mullet.jpg",
+"example": true,
+"file": "mullet"
+},
+"Baitfish": {
+"species": "Sardinops sagax",
+"by": "NOAA",
+"licence": "Public domain",
+"page": "https://commons.wikimedia.org/wiki/File:Sardine_photo4_exp.jpg",
+"example": true,
+"file": "baitfish"
+},
+"Blue swimmer crab": {
+"species": "Portunus armatus",
+"by": "no rights reserved",
+"licence": "CC0",
+"page": "https://www.inaturalist.org/observations/257466475",
+"file": "blue-swimmer-crab"
+},
+"Mud crab": {
+"species": "Scylla serrata",
+"by": "Mark Liptrot",
+"licence": "CC BY-SA 4.0",
+"page": "https://www.inaturalist.org/observations/191742913",
+"example": true,
+"file": "mud-crab"
+},
+"Western rock lobster": {
+"species": "Panulirus cygnus",
+"by": "Debra Baker",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/260778727",
+"file": "western-rock-lobster"
+},
+"Southern rock lobster": {
+"species": "Jasus edwardsii",
+"by": "Zureks",
+"licence": "CC BY-SA 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Southern_rock_lobster,_Jasus_edwardsii.JPG",
+"file": "southern-rock-lobster"
+},
+"Tropical rock lobster": {
+"species": "Panulirus ornatus",
+"by": "Robert Kerton, CSIRO",
+"licence": "CC BY 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:CSIRO_ScienceImage_2518_Ornate_Lobster.jpg",
+"example": true,
+"file": "tropical-rock-lobster"
+},
+"Marron": {
+"species": "Cherax cainii",
+"by": "pimelea",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/206340400",
+"example": true,
+"file": "marron"
+},
+"Prawns": {
+"species": "Melicertus latisulcatus",
+"by": "Unknown photographer Source: Museums Victoria  Copyright Museums Victoria / CC B",
+"licence": "CC BY 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Melicertus_latisulcatus_Museums_Victoria.jpg",
+"example": true,
+"file": "prawns"
+},
+"Freshwater prawn": {
+"species": "Macrobrachium spinipes",
+"by": "Kristof Zyskowski",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/9816629",
+"example": true,
+"file": "freshwater-prawn"
+},
+"Redclaw crayfish and yabbies": {
+"species": "Cherax quadricarinatus",
+"by": "Bleckdraco",
+"licence": "CC BY-SA 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Notte_da_grande.jpg",
+"example": true,
+"file": "redclaw-crayfish-and-yabbies"
+},
+"Other crustaceans": {
+"species": "Ovalipes australiensis",
+"by": "Photographed by Michael Marmach; identified by Robin S. Wilson.",
+"licence": "CC BY 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Ovalipes_australiensis_dorsal.jpg",
+"example": true,
+"file": "other-crustaceans"
+},
+"Roe's abalone": {
+"species": "Haliotis roei",
+"by": "Jan Delsing",
+"licence": "Public domain",
+"page": "https://commons.wikimedia.org/wiki/File:Haliotis_roei_001.jpg",
+"file": "roe-s-abalone"
+},
+"Greenlip and brownlip abalone": {
+"species": "Haliotis laevigata",
+"by": "Peter Crowcroft",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/189917702",
+"example": true,
+"file": "greenlip-and-brownlip-abalone"
+},
+"Cockles, pipis, ark shells and venus clams": {
+"species": "Donax deltoides",
+"by": "Oscar Dove",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/133313311",
+"example": true,
+"file": "cockles-pipis-ark-shells-and-venus-clams"
+},
+"Clams": {
+"species": "Tridacna maxima",
+"by": "RevolverOcelot",
+"licence": "CC BY-SA 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:MaximaClam.jpg",
+"example": true,
+"file": "clams"
+},
+"Mussels": {
+"species": "Mytilus galloprovincialis",
+"by": "Nicola van Berkel",
+"licence": "CC BY-SA 4.0",
+"page": "https://www.inaturalist.org/observations/248925018",
+"example": true,
+"file": "mussels"
+},
+"Oysters": {
+"species": "Saccostrea cuccullata",
+"by": "Clarice Dorocinski",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/262963277",
+"example": true,
+"file": "oysters"
+},
+"Razorshell": {
+"species": "Pinna bicolor",
+"by": "ふうけ",
+"licence": "CC BY-SA 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Pinna_bicolor.jpg",
+"example": true,
+"file": "razorshell"
+},
+"Scallops": {
+"species": "Ylistrum balloti",
+"by": "T Carter, CSIRO",
+"licence": "CC BY 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:CSIRO_ScienceImage_8761_Ballots_Saucer_Scallop.jpg",
+"example": true,
+"file": "scallops"
+},
+"Sea urchins": {
+"species": "Heliocidaris erythrogramma",
+"by": "no rights reserved",
+"licence": "CC0",
+"page": "https://www.inaturalist.org/observations/207128098",
+"example": true,
+"file": "sea-urchins"
+},
+"Specimen shells": {
+"species": "Melo amphora",
+"by": "Hugo Innes",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/343636597",
+"example": true,
+"file": "specimen-shells"
+},
+"Squid, cuttlefish and octopus": {
+"species": "Sepioteuthis australis",
+"by": "Luca Davenport-Thomas",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/346085059",
+"example": true,
+"file": "squid-cuttlefish-and-octopus"
+},
+"Trochus": {
+"species": "Rochia nilotica",
+"by": "Marie HENNION",
+"licence": "CC BY 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Rochia_nilotica_(MNHN-IM-2012-24832)_003.jpeg",
+"file": "trochus"
+},
+"Other molluscs and invertebrates": {
+"species": "Lunella torquata",
+"by": "Mitch Van Dyke",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/37290881",
+"example": true,
+"file": "other-molluscs-and-invertebrates"
+},
+"Grey nurse shark": {
+"species": "Carcharias taurus",
+"by": "Amada44",
+"licence": "CC BY 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Carcharias_taurus_in_UShaka_Sea_World_1079-a.jpg",
+"file": "grey-nurse-shark"
+},
+"White shark": {
+"species": "Carcharodon carcharias",
+"by": "Pterantula (Terry Goss) at en.wikipedia",
+"licence": "CC BY 2.5",
+"page": "https://commons.wikimedia.org/wiki/File:White_shark.jpg",
+"file": "white-shark"
+},
+"Speartooth shark": {
+"species": "Glyphis glyphis",
+"by": "CSIRO National Fish Collection",
+"licence": "CC BY 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Glyphis_glyphis_csiro-nfc.jpg",
+"example": true,
+"file": "speartooth-shark"
+},
+"Whale shark": {
+"species": "Rhincodon typus",
+"by": "User:Zac Wolf (original), en:User:Stefan (cropping)",
+"licence": "CC BY-SA 2.5",
+"page": "https://commons.wikimedia.org/wiki/File:Whale_shark_Georgia_aquarium.jpg",
+"file": "whale-shark"
+},
+"Sawfish": {
+"species": "Pristis pristis",
+"by": "Peter Kyne, Charles Darwin University",
+"licence": "CC BY 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Pristis_pristis_-_Daly_River.JPG",
+"example": true,
+"file": "sawfish"
+},
+"Rays and skates in Hamelin Bay": {
+"species": "Myliobatis tenuicaudatus",
+"by": "Oscar Dove",
+"licence": "CC BY 4.0",
+"page": "https://commons.wikimedia.org/wiki/File:Myliobatis_tenuicaudatus_186845675.jpg",
+"example": true,
+"file": "rays-and-skates-in-hamelin-bay"
+},
+"Black stingray": {
+"species": "Bathytoshia lata",
+"by": "Claire Fackler, NOAA National Marine Sanctuaries",
+"licence": "Public domain",
+"page": "https://commons.wikimedia.org/wiki/File:Dasyatis_lata_maui.jpg",
+"file": "black-stingray"
+},
+"Smooth stingray": {
+"species": "Bathytoshia brevicaudata",
+"by": "Alpha from Melbourne, Australia",
+"licence": "CC BY-SA 2.0",
+"page": "https://commons.wikimedia.org/wiki/File:Dasyatis_brevicaudata_schnapper.jpg",
+"file": "smooth-stingray"
+},
+"Coral and live rock": {
+"species": "Acropora",
+"by": "no rights reserved",
+"licence": "CC0",
+"page": "https://www.inaturalist.org/observations/71393156",
+"example": true,
+"file": "coral-and-live-rock"
+},
+"Potato rockcod": {
+"species": "Epinephelus tukula",
+"by": "Tom Heijnen",
+"licence": "CC BY 4.0",
+"page": "https://www.inaturalist.org/observations/144321401",
+"file": "potato-rockcod"
+},
+"Queensland groper": {
+"species": "Epinephelus lanceolatus",
+"by": "The Cosmonaut",
+"licence": "CC BY-SA 2.5 ca",
+"page": "https://commons.wikimedia.org/wiki/File:Epinephelus_lanceolatus.jpeg",
+"file": "queensland-groper"
+},
+"Humphead Maori wrasse": {
+"species": "Cheilinus undulatus",
+"by": "Stan Shebs",
+"licence": "CC BY-SA 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Cheilinus_undulatus_1.jpg",
+"file": "humphead-maori-wrasse"
+},
+"Common seadragon": {
+"species": "Phyllopteryx taeniolatus",
+"by": "Richard Ling -->Rling",
+"licence": "CC BY-SA 3.0",
+"page": "https://commons.wikimedia.org/wiki/File:Phyllopteryx_taeniolatus1.jpg",
+"file": "common-seadragon"
+},
+"Leafy seadragon": {
+"species": "Phycodurus eques",
+"by": "Photo by and (C)2007 Derek Ramsey (Ram-Man); derivative edit by Papa Lima Whiske",
+"licence": "CC BY-SA 2.5",
+"page": "https://commons.wikimedia.org/wiki/File:Leafy_Seadragon_Phycodurus_eques_2500px_PLW_edit.jpg",
+"file": "leafy-seadragon"
+}
+}

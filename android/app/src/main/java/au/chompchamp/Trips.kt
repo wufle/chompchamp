@@ -134,6 +134,8 @@ data class Catch(
     var notes: String = "",
     var depth: String? = null,
     val photos: MutableList<String> = mutableListOf(),
+    /** Id of the [Mark] it was caught at, if any. */
+    var markId: String? = null,
 ) {
     val pos: LatLon? get() { val a = lat; val b = lon; return if (a != null && b != null) LatLon(a, b) else null }
     val title get() = (if (count > 1) "$count × " else "") + species.ifBlank { "Fish" }
@@ -152,6 +154,7 @@ data class Catch(
             weightKg?.let { put("kg", it) }
             depth?.let { put("depth", it) }
             if (photos.isNotEmpty()) put("photos", JSONArray().apply { photos.forEach { put(it) } })
+            markId?.let { put("mark", it) }
         }
 
     companion object {
@@ -173,6 +176,7 @@ data class Catch(
                 o.optJSONArray("photos")?.let { a ->
                     (0 until a.length()).map { a.getString(it) }.filter { it == Trip.cleanId(it) }.toMutableList()
                 } ?: mutableListOf(),
+                o.optString("mark").ifEmpty { null },
             )
         }
 

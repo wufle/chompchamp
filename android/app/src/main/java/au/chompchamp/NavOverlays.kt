@@ -55,6 +55,7 @@ class NavOverlays(private val dp: Float) {
         const val MARKS = "marks"
         const val MARK_PHOTOS = "marks-photo"
         const val CATCHES = "catches"
+        const val CATCH_PHOTOS = "catches-photo"
         private const val TRIP_BLUE = "#1e88e5"
         private const val FONT = "Noto Sans Regular"
         private const val MAGENTA = "#d81b60"
@@ -98,6 +99,12 @@ class NavOverlays(private val dp: Float) {
         if (s.getImage("catch") == null) s.addImage("catch", catchIcon())
         s.addLayer(SymbolLayer(CATCHES, CATCHES).withProperties(
             iconImage("catch"), iconSize(catchScale), iconAllowOverlap(true), iconIgnorePlacement(true)))
+        s.addLayer(SymbolLayer(CATCH_PHOTOS, CATCHES).withProperties(
+            iconImage(Expression.get("photo")), iconSize(catchScale),
+            iconAnchor(Property.ICON_ANCHOR_BOTTOM),
+            iconOffset(arrayOf(0f, -8f)),
+            iconAllowOverlap(true), iconIgnorePlacement(true),
+        ).withFilter(Expression.has("photo")))
         s.addLayer(CircleLayer(MARKS, MARKS).withProperties(
             circleRadius(7f), circleColor(Expression.toColor(Expression.get("color"))), circleStrokeColor("#4e342e"), circleStrokeWidth(2f)))
         s.addLayer(SymbolLayer(MARK_PHOTOS, MARKS).withProperties(
@@ -149,22 +156,23 @@ class NavOverlays(private val dp: Float) {
         set("drift-end", listOf(Feature.fromGeometry(pt(to))))
     }
 
-    /** [bubble] supplies the map bubble image for a photo id (null if unavailable). */
-    fun setMarks(marks: List<Mark>, color: (Mark) -> String, bubble: (String) -> android.graphics.Bitmap? = { null }) {
-        val s = loaded()
+    /** [photo] picks the photo to show over a mark; [bubble] makes its map bubble (null if unavailable). */
+    fun setMarks(marks: List<Mark>, color: (Mark) -> String, photo: (Mark) -> String?, bubble: (String) -> Bitmap?) {
         set(MARKS, marks.map { m ->
             Feature.fromGeometry(pt(m.pos)).apply {
                 addStringProperty("id", m.id)
                 addStringProperty("name", m.name)
                 addStringProperty("color", color(m))
-                val latest = m.photos.lastOrNull()
-                if (latest != null && s != null) {
-                    val imageId = "photo-$latest"
-                    if (s.getImage(imageId) == null) bubble(latest)?.let { s.addImage(imageId, it) }
-                    if (s.getImage(imageId) != null) addStringProperty("photo", imageId)
-                }
+                photo(m)?.let { addPhoto(it, bubble) }
             }
         })
+    }
+
+    private fun Feature.addPhoto(name: String, bubble: (String) -> Bitmap?) {
+        val s = loaded() ?: return
+        val imageId = "photo-$name"
+        if (s.getImage(imageId) == null) bubble(name)?.let { s.addImage(imageId, it) }
+        if (s.getImage(imageId) != null) addStringProperty("photo", imageId)
     }
 
     /** A saved trip: one line per stretch, a small dot at the start and a bigger one at the end. */
@@ -184,13 +192,18 @@ class NavOverlays(private val dp: Float) {
     /** Where the boat was at the moment picked on the speed chart. */
     fun setTripCursor(p: LatLon?) = set("trip-dots", tripEnds + listOfNotNull(p?.let { dot(it, 7, MAGENTA) }))
 
-    fun setCatches(list: List<Catch>) = set(CATCHES, list.mapNotNull { c ->
-        c.pos?.let { Feature.fromGeometry(pt(it)).apply { addStringProperty("id", c.id) } }
+    fun setCatches(list: List<Catch>, bubble: (String) -> Bitmap?) = set(CATCHES, list.mapNotNull { c ->
+        c.pos?.let {
+            Feature.fromGeometry(pt(it)).apply {
+                addStringProperty("id", c.id)
+                c.photos.lastOrNull()?.let { name -> addPhoto(name, bubble) }
+            }
+        }
     })
 
     fun setCatchScale(v: Float) {
         catchScale = v
-        loaded()?.getLayer(CATCHES)?.setProperties(iconSize(v))
+        for (id in listOf(CATCHES, CATCH_PHOTOS)) loaded()?.getLayer(id)?.setProperties(iconSize(v))
     }
 
     /** A little fish on a round badge. */

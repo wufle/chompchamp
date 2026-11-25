@@ -35,8 +35,17 @@ class CatchDialogs(
         fun takePhoto(id: String)
         fun pickPhoto(id: String)
         fun showPhoto(title: String, ownerId: String, index: Int)
-        /** A new catch was just saved. */
-        fun added(c: Catch)
+        /** About to be stored: give a new catch its mark. */
+        fun adding(c: Catch)
+        /** A new catch was just saved; [photo] = go straight to the camera. */
+        fun added(c: Catch, photo: Boolean)
+        /** Its title was [oldTitle] before this edit. */
+        fun edited(c: Catch, oldTitle: String)
+        fun markOf(c: Catch): Mark?
+        /** Catches logged at [m]. */
+        fun catchesAt(m: Mark): List<Catch>
+        fun openMark(m: Mark)
+        fun deleteMark(m: Mark)
         fun exportText(fileName: String, csv: Boolean, text: String)
         fun confirm(message: String, onYes: () -> Unit)
     }
@@ -118,25 +127,30 @@ class CatchDialogs(
             setTextColor(look.muted)
         })
         fun number(e: EditText) = e.text.toString().trim().replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() && it > 0 }
-        MaterialAlertDialogBuilder(ctx)
-            .setTitle(if (isNew) "Log a catch" else "Edit catch")
+        fun save(photo: Boolean) {
+            val oldTitle = c.title
+            c.species = species.text.toString().trim().take(60)
+            c.count = (count.text.toString().trim().toIntOrNull() ?: 1).coerceIn(1, 999)
+            c.lengthCm = number(length)
+            c.weightKg = number(weight)
+            c.bait = bait.text.toString().trim().take(100)
+            c.notes = notes.text.toString().trim().take(1000)
+            c.released = released.isChecked
+            c.time = whenMs
+            if (isNew) { host.adding(c); log.catches.add(c) }
+            log.saveCatches()
+            if (!isNew) host.edited(c, oldTitle)
+            host.changed()
+            if (isNew) host.added(c, photo)
+        }
+        val b = MaterialAlertDialogBuilder(ctx)
+            .setTitle(if (isNew) "Mark" else "Edit catch")
             .setView(ScrollView(ctx).apply { addView(box) })
-            .setPositiveButton("Save") { _, _ ->
-                c.species = species.text.toString().trim().take(60)
-                c.count = (count.text.toString().trim().toIntOrNull() ?: 1).coerceIn(1, 999)
-                c.lengthCm = number(length)
-                c.weightKg = number(weight)
-                c.bait = bait.text.toString().trim().take(100)
-                c.notes = notes.text.toString().trim().take(1000)
-                c.released = released.isChecked
-                c.time = whenMs
-                if (isNew) log.catches.add(c)
-                log.saveCatches()
-                host.changed()
-                if (isNew) host.added(c)
-            }
+            .setPositiveButton("Save") { _, _ -> save(false) }
             .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        // The spot was taken when the button was pressed: a stray tap outside mustn't lose it.
+        if (isNew) b.setNeutralButton("📷 Save & photo") { _, _ -> save(true) }.setCancelable(false)
+        b.show()
     }
 
     private fun button(parent: LinearLayout, label: String, danger: Boolean = false, onClick: () -> Unit) =
@@ -186,16 +200,24 @@ class CatchDialogs(
             })
         }
         button(body, "Edit") { dialog.dismiss(); edit(c, isNew = false) }
+        host.markOf(c)?.let { m -> button(body, "Open its mark") { dialog.dismiss(); host.openMark(m) } }
         button(body, "📷  Take photo") { dialog.dismiss(); host.takePhoto(c.id) }
         button(body, "🖼  Add photo from gallery") { dialog.dismiss(); host.pickPhoto(c.id) }
         button(body, "Delete catch", danger = true) {
-            host.confirm("Delete this catch" + (if (c.photos.isNotEmpty()) " and its ${c.photos.size} photo(s)" else "") + "? This can't be undone.") {
+            fun delete() {
                 dialog.dismiss()
                 c.photos.forEach { photos.delete(it) }
                 log.catches.removeAll { it.id == c.id }
                 log.saveCatches()
                 host.changed()
             }
+            val what = "Delete this catch" + (if (c.photos.isNotEmpty()) " and its ${c.photos.size} photo(s)" else "") + "? This can't be undone."
+            val mark = host.markOf(c)?.takeIf { m -> host.catchesAt(m).none { it.id != c.id } }
+            if (mark == null) host.confirm(what) { delete() }
+            else MaterialAlertDialogBuilder(ctx).setMessage(what)
+                .setPositiveButton("Delete catch and mark") { _, _ -> delete(); host.deleteMark(mark) }
+                .setNeutralButton("Catch only") { _, _ -> delete() }
+                .setNegativeButton(android.R.string.cancel, null).show()
         }
         dialog = MaterialAlertDialogBuilder(ctx).setTitle(c.title)
             .setView(ScrollView(ctx).apply { addView(body) })

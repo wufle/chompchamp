@@ -2,6 +2,7 @@ package au.chompchamp
 
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import android.text.Editable
 import android.text.InputType
@@ -13,6 +14,7 @@ import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
@@ -165,9 +167,43 @@ class BagLimitsPanel(
         if (boatClosed != null && e.boatOpen) text(line, "Open from boats", 12f, look.muted, 1)
         for (w in warn) text(line, w, 12f, look.dangerText, 1)
         e.note?.let { text(line, it, 12f, look.muted, 1) }
-        box.addView(line)
+        val whole = LinearLayout(ctx)
+        // Same width with or without a picture, so the names line up.
+        val pic = e.picture?.let { p -> limits.bitmap(p)?.let { p to it } }
+        whole.addView(ImageView(ctx).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            if (pic != null) {
+                setImageBitmap(pic.second)
+                background = look.surfaceBg(1f, 8f)
+                clipToOutline = true
+                contentDescription = "Picture of ${e.name}"
+                setOnClickListener { showPicture(e, pic.first, pic.second) }
+            }
+        }, LinearLayout.LayoutParams(px(72), px(50)).apply { topMargin = px(8); bottomMargin = px(8); marginEnd = px(10) })
+        whole.addView(line, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        box.addView(whole)
         box.addView(View(ctx).apply { setBackgroundColor(look.muted); alpha = 0.2f },
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1))
+    }
+
+    private fun showPicture(e: BagLimits.Entry, p: BagLimits.Picture, bitmap: Bitmap) {
+        val body = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(px(20), px(8), px(20), 0)
+        }
+        body.addView(ImageView(ctx).apply {
+            setImageBitmap(bitmap)
+            adjustViewBounds = true
+            scaleType = ImageView.ScaleType.FIT_CENTER
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(240)))
+        text(body, (if (p.example) "Example: " else "") + p.species, 14f, look.onSurface, 10)
+            .setTypeface(null, android.graphics.Typeface.ITALIC)
+        text(body, "Colour and markings vary. If you can't be sure what it is, let it go.", 12f, look.muted, 4)
+        text(body, listOf(p.by, p.licence).filter { it.isNotBlank() }.joinToString(", ") + ", resized", 12f, look.accent, 4).apply {
+            setPadding(0, px(8), 0, px(8))
+            setOnClickListener { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(p.page))) } }
+        }
+        MaterialAlertDialogBuilder(ctx).setTitle(e.name).setView(body).setPositiveButton("Close", null).show()
     }
 
     private fun text(box: LinearLayout, s: String, size: Float, color: Int, top: Int, bold: Boolean = false) = TextView(ctx).apply {
