@@ -33,7 +33,16 @@ There is no Java, Android SDK, GDAL or tippecanoe on the dev machine, so **CI is
 Bump `versionCode` and `versionName` in `android/app/build.gradle.kts` for every APK the user will install.
 A `-tempkey` filename means the signing secrets were missing, and it won't update an installed app.
 
-The Android app has no automated tests. It can't be run on a device from here, so say so when reporting.
+The Android app has no automated tests, but it can be tested on the owner's tablet (Android 15) over wireless `adb`:
+
+- Run `adb devices` first. If the tablet isn't listed, ask for the address on its Wireless debugging screen and
+  `adb connect` to it (the port changes; pairing is remembered). Don't put its address in the repo.
+- Check the tablet isn't in use, then install the CI APK with `adb install -r`. It must be signed with the official key.
+- Drive it with `input tap` and `uiautomator dump`, look with `exec-out screencap -p`, and read `logcat -b crash`.
+  Put back anything you move or change. Screenshots show the owner's position, so keep them out of the repo and artifacts.
+- The app isn't debuggable, so `run-as` doesn't work. Charts go in `/sdcard/Download`, then import them in the app.
+
+When reporting, say what was tested on the tablet and what wasn't. If it isn't connected, say the app wasn't run.
 Pipeline Python can be tested locally: `uv venv` + `pipeline/requirements.txt` in a scratch directory,
 then plot the GeoJSON and look at it before spending CI time.
 
