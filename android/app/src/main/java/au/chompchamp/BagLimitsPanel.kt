@@ -171,7 +171,7 @@ class BagLimitsPanel(
         // Same width with or without a picture, so the names line up.
         val pic = e.picture?.let { p -> limits.bitmap(p)?.let { p to it } }
         whole.addView(ImageView(ctx).apply {
-            scaleType = ImageView.ScaleType.CENTER_CROP
+            scaleType = ImageView.ScaleType.FIT_CENTER
             if (pic != null) {
                 setImageBitmap(pic.second)
                 background = look.surfaceBg(1f, 8f)

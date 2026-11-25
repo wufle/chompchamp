@@ -210,13 +210,6 @@
 "page": "https://commons.wikimedia.org/wiki/File:M%C3%A9rou_huit_raies_(Hyporthodus_octofasciatus)_(Ifremer_00761-87275).jpg",
 "file": "eightbar-grouper"
 },
-"Western wirrah": {
-"species": "Acanthistius serratus",
-"by": "leonie_rennie",
-"licence": "CC BY 4.0",
-"page": "https://www.inaturalist.org/observations/344883779",
-"file": "western-wirrah"
-},
 "Rockcods, other": {
 "species": "Epinephelus fasciatus",
 "by": "Bernard DUPONT",
@@ -499,13 +492,6 @@
 "page": "https://commons.wikimedia.org/wiki/File:Rhabdosargus_sarba_302655426_(cropped).jpg",
 "file": "tarwhine"
 },
-"Western yellowfin bream": {
-"species": "Acanthopagrus morrisoni",
-"by": "Belinda Forbes",
-"licence": "CC BY 4.0",
-"page": "https://www.inaturalist.org/observations/231378938",
-"file": "western-yellowfin-bream"
-},
 "Bonito": {
 "species": "Sarda orientalis",
 "by": "Hamid Badar Osmany",
@@ -652,13 +638,6 @@
 "licence": "Public domain",
 "page": "https://commons.wikimedia.org/wiki/File:Fish4397_-_Flickr_-_NOAA_Photo_Library.jpg",
 "file": "tailor"
-},
-"Threadfin, king": {
-"species": "Polydactylus macrochir",
-"by": "David C Cook",
-"licence": "CC BY 3.0",
-"page": "https://commons.wikimedia.org/wiki/File:Polydactylus_macrochir.png",
-"file": "threadfin-king"
 },
 "Threadfin, other": {
 "species": "Eleutheronema tetradactylum",
