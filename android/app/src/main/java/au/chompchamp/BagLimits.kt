@@ -1,6 +1,8 @@
 package au.chompchamp
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Calendar
@@ -19,7 +21,10 @@ enum class LimitArea(val key: String, val label: String) {
  * assets/bag_limits.json is entered by hand from the DPIRD guide; assets/limit_areas.json holds
  * the closure areas (pipeline/scripts/fetch_limit_areas.py).
  */
-class BagLimits(ctx: Context) {
+class BagLimits(private val ctx: Context) {
+
+    /** A bundled picture; [example] = one species standing for a whole group. */
+    class Picture(val file: String, val species: String, val by: String, val licence: String, val page: String, val example: Boolean)
 
     class Closure(val where: String, val from: Int, val to: Int, val area: String?, val regions: List<String>, val note: String) {
         /** Dates are month * 100 + day, both inclusive, and may run over new year. */
@@ -36,6 +41,7 @@ class BagLimits(ctx: Context) {
         val note: String?,
         val closures: List<Closure>,
         val isProtected: Boolean,
+        val picture: Picture?,
         /** Stays open to boats while the rest of its group is closed to them. */
         val boatOpen: Boolean,
         private val search: String,
@@ -52,6 +58,22 @@ class BagLimits(ctx: Context) {
                 o.getJSONArray(k).objects<JSONArray>().map { ring -> ring.objects<JSONArray>().map { LatLon(it.getDouble(1), it.getDouble(0)) } }
             }
         }
+
+    private val pictures: Map<String, Picture> =
+        JSONObject(ctx.assets.open("species/credits.json").bufferedReader().use { it.readText() }).let { o ->
+            o.keys().asSequence().associateWith { n ->
+                val c = o.getJSONObject(n)
+                Picture(c.getString("file"), c.getString("species"), c.optString("by"), c.getString("licence"),
+                    c.getString("page"), c.optBoolean("example"))
+            }
+        }
+
+    private val bitmaps = HashMap<String, Bitmap?>()
+
+    /** About 10 KB each, kept once read. */
+    fun bitmap(p: Picture): Bitmap? = bitmaps.getOrPut(p.file) {
+        runCatching { ctx.assets.open("species/${p.file}.webp").use { BitmapFactory.decodeStream(it) } }.getOrNull()
+    }
 
     val source: String get() = root.getString("source")
     val url: String get() = root.getString("url")
@@ -110,6 +132,7 @@ class BagLimits(ctx: Context) {
                 c.optString("area").ifEmpty { null }, c.getJSONArray("regions").objects(), c.optString("note"))
         }.filter { area.key in it.regions },
         isProtected = s.optBoolean("protected"),
+        picture = pictures[s.getString("name")],
         boatOpen = s.optBoolean("boatOpen"),
         search = (listOf(s.getString("name")) + s.optJSONArray("aka")?.objects<String>().orEmpty()).joinToString(" ")
             .lowercase().replace("'", ""),

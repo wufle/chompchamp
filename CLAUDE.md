@@ -84,6 +84,9 @@ Gotchas:
 - `assets/bag_limits.json` is entered by hand from DPIRD's guide, in our own words (the guide isn't open licensed). Check
   every figure against the guide's tables when it's reissued, and update `checked`, `reviewBy` and the README row.
   `limit_areas.json` comes from `fetch_limit_areas.py`. Unsure which limit applies? Show the stricter, or all of them.
+- `assets/species/` is built by `build_species_images.py` from `pipeline/species_images.json`. Look at every new picture: a wrong
+  species is worse than none. Names must match `bag_limits.json` exactly.
+- The Mark button makes a `Mark` plus a `Catch` whose `markId` points at it. Such a catch is drawn by its mark, not as its own symbol.
 - A catch belongs to a trip by its time, not by an id. Trip ids are `trip-<start ms>`, so saving one twice is harmless.
 - Snapshots leave out trips and catches on purpose: loading an old one must not wipe newer trips.
 - `onLocationChanged` also runs with the screen off: no `queryRenderedFeatures` or other map work unless `started`.
@@ -115,7 +118,7 @@ headless Chromium (available locally) before calling it done. Bump `web/VERSION`
    chart, failing the build on a mismatch. (Once, everything over 1000 m deep shipped as land.) Always check a chart
    against the source grid, not just against itself.
 
-`fetch_hazards.py`, `fetch_limit_areas.py` and `build_relief.py` run separately; the first two refresh bundled assets.
+`fetch_hazards.py`, `fetch_limit_areas.py`, `build_species_images.py` and `build_relief.py` run separately; all but the last refresh bundled assets.
 
 Heights are mean sea level (AusBathyTopo) or AHD (DoT), not low-tide chart datum.
 DoT files: `https://s3-ap-southeast-2.amazonaws.com/transport.wa/Bathymetry/{Rasters,PointData}/`.
