@@ -1017,7 +1017,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         override fun added(c: Catch, photo: Boolean) {
             buzz(short = true)
             val started = settings.autoStartTrip && !recording && c.pos != null
-            if (started) startTrip(quiet = true)
+            if (started) startTrip(null, quiet = true)
             if (photo) {
                 if (started) Toast.makeText(this@MainActivity, "Trip recording started", Toast.LENGTH_SHORT).show()
                 takePhotoFor(c.id)
@@ -1156,9 +1156,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             if (n > 0) "$n catch" + (if (n == 1) "" else "es") else null).joinToString(" · ")
         MaterialAlertDialogBuilder(this)
             .setTitle("Stop recording this trip?")
-            .setMessage("$what
-
-It's saved in Trips & catches, where you can look back at it or export it.")
+            .setMessage("$what\n\nIt's saved in Trips & catches, where you can look back at it or export it.")
             .setPositiveButton("Stop and save") { _, _ ->
                 val saved = archiveTrack(keepAll = true)
                 if (saved == null) {
