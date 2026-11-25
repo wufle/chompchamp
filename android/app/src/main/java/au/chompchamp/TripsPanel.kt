@@ -36,7 +36,7 @@ class TripsPanel(
         fun askText(title: String, initial: String, onOk: (String) -> Unit)
     }
 
-    private fun nm(v: Double) = Geo.fmtNm(v) + if (v < 0.1) "" else " nm"
+    private fun nm(v: Double) = Geo.fmtDist(v)
     private fun kn(v: Double) = String.format(Locale.US, "%.1f kn", v)
     private fun dur(ms: Long) = Geo.fmtDuration(ms / 3_600_000.0)
     private fun clock(t: Long) = SimpleDateFormat("d MMM HH:mm", Locale.getDefault()).format(Date(t))

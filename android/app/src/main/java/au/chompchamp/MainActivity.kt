@@ -47,6 +47,7 @@ import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.location.LocationComponentActivationOptions
+import org.maplibre.android.location.OnLocationCameraTransitionListener
 import org.maplibre.android.location.modes.CameraMode
 import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
@@ -347,7 +348,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 val t = navigator.target
                 summary = if (t != null) {
                     "→ ${t.name.ifBlank { "WP ${navigator.activeIndex + 1}" }}  (${navigator.activeIndex + 1} of ${navigator.route?.waypoints?.size})" +
-                        (n?.let { "\n${Geo.fmtNm(it.dtwNm)} nm · ${Geo.fmtBearing(it.bearing)} · ${Geo.fmtNm(it.remainNm)} nm to go" } ?: "")
+                        (n?.let { "\n${Geo.fmtDist(it.dtwNm)} · ${Geo.fmtBearing(it.bearing)} · ${Geo.fmtDist(it.remainNm)} to go" } ?: "")
                 } else "No active route"
                 actions = listOf(
                     ModeAction(R.drawable.ic_skip_prev, "Back", "Previous waypoint") { if (navigator.previous(lastPos())) navChanged() },
@@ -457,7 +458,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         if (n == 0) return "Tap the map to add waypoints. Tap a waypoint to edit it."
         val len = plan.lengthNm()
         val name = plan.name.ifBlank { "Unsaved route" }
-        return "$name · $n waypoints · ${Geo.fmtNm(len)} nm · " +
+        return "$name · $n waypoints · ${Geo.fmtDist(len)} · " +
             "${Geo.fmtDuration(len / settings.planSpeedKn)} @ ${settings.planSpeedKn.toInt()} kn"
     }
 
@@ -495,7 +496,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val w = plan.waypoints[i]
         val legInfo = if (i > 0) {
             val prev = plan.waypoints[i - 1]
-            "\nLeg from ${prev.name}: ${Geo.fmtNm(Geo.distanceNm(prev.pos, w.pos))} nm @ ${Geo.fmtBearing(Geo.bearing(prev.pos, w.pos))}"
+            "\nLeg from ${prev.name}: ${Geo.fmtDist(Geo.distanceNm(prev.pos, w.pos))} @ ${Geo.fmtBearing(Geo.bearing(prev.pos, w.pos))}"
         } else ""
         MaterialAlertDialogBuilder(this)
             .setTitle("${w.name}  (${i + 1} of ${plan.waypoints.size})")
@@ -540,7 +541,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun pickSavedRoute(title: String, onPick: (Route) -> Unit) {
         val routes = store.routes()
         if (routes.isEmpty()) { Toast.makeText(this, "No saved routes", Toast.LENGTH_SHORT).show(); return }
-        val labels = routes.map { "${it.name} · ${it.waypoints.size} wpts · ${Geo.fmtNm(it.lengthNm())} nm" }
+        val labels = routes.map { "${it.name} · ${it.waypoints.size} wpts · ${Geo.fmtDist(it.lengthNm())}" }
         MaterialAlertDialogBuilder(this).setTitle(title)
             .setItems(labels.toTypedArray()) { _, which -> onPick(routes[which]) }
             .setNegativeButton(android.R.string.cancel, null).show()
@@ -777,7 +778,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun markMenu(mark: Mark) {
         val dp = resources.displayMetrics.density
         val time = SimpleDateFormat("d MMM yyyy HH:mm", Locale.getDefault()).format(Date(mark.time))
-        val dist = lastPos()?.let { "\n${Geo.fmtNm(Geo.distanceNm(it, mark.pos))} nm @ ${Geo.fmtBearing(Geo.bearing(it, mark.pos))} from boat" } ?: ""
+        val dist = lastPos()?.let { "\n${Geo.fmtDist(Geo.distanceNm(it, mark.pos))} @ ${Geo.fmtBearing(Geo.bearing(it, mark.pos))} from boat" } ?: ""
         val pad = (24 * dp).toInt()
         val body = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -866,11 +867,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         lastPos()?.let { here -> list.sortedBy { Geo.distanceNm(here, it.pos) } } ?: list.sortedByDescending { it.time }
 
     private fun markLabel(m: Mark): String {
-        // fmtNm already says "m" below 0.1 nm.
-        val dist = lastPos()?.let { here ->
-            val nm = Geo.distanceNm(here, m.pos)
-            " · " + Geo.fmtNm(nm) + if (nm < 0.1) "" else " nm"
-        }.orEmpty()
+        val dist = lastPos()?.let { " · " + Geo.fmtDist(Geo.distanceNm(it, m.pos)) }.orEmpty()
         return m.name + dist + (m.depth?.let { " · $it m" } ?: "")
     }
 
@@ -1060,7 +1057,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             listOfNotNull(v.typeName, size, v.statusName).joinToString(" · "),
             "Last heard " + if (min < 1) "less than a minute ago" else "$min min ago",
             v.sog?.let { s -> String.format(Locale.US, "%.1f kn", s) + (v.cog?.takeIf { v.moving }?.let { " → ${Geo.fmtBearing(it)}" } ?: "") },
-            here?.let { "${Geo.fmtNm(Geo.distanceNm(it, v.pos))}${if (Geo.distanceNm(it, v.pos) < 0.1) "" else " nm"} @ ${Geo.fmtBearing(Geo.bearing(it, v.pos))} from boat" },
+            here?.let { "${Geo.fmtDist(Geo.distanceNm(it, v.pos))} @ ${Geo.fmtBearing(Geo.bearing(it, v.pos))} from boat" },
             v.destination.takeIf { it.isNotBlank() }?.let { "Destination: $it" },
             listOfNotNull("MMSI ${v.mmsi}", v.callsign.takeIf { it.isNotBlank() }, v.flag.takeIf { it.isNotBlank() }).joinToString(" · "),
             "${Geo.formatDdm(v.lat, true)}  ${Geo.formatDdm(v.lon, false)}",
@@ -1109,7 +1106,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         if (fields.editing || mode == AppMode.ROUTE) return
         val depth = estimateDepthAt(point)
         val p = LatLon(point.latitude, point.longitude)
-        val dist = lastPos()?.let { "\n${Geo.fmtNm(Geo.distanceNm(it, p))} nm @ ${Geo.fmtBearing(Geo.bearing(it, p))} from boat" } ?: ""
+        val dist = lastPos()?.let { "\n${Geo.fmtDist(Geo.distanceNm(it, p))} @ ${Geo.fmtBearing(Geo.bearing(it, p))} from boat" } ?: ""
         MaterialAlertDialogBuilder(this)
             .setTitle("${Geo.formatDdm(p.lat, true)}  ${Geo.formatDdm(p.lon, false)}")
             .setMessage("Depth (est.): $depth m$dist")
@@ -1161,7 +1158,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             f.getStringProperty("owner")?.let { "Maintained by: $it" },
             "",
             "${Geo.formatDdm(p.lat, true)}  ${Geo.formatDdm(p.lon, false)}",
-            lastPos()?.let { "${Geo.fmtNm(Geo.distanceNm(it, p))} nm @ ${Geo.fmtBearing(Geo.bearing(it, p))} from boat" },
+            lastPos()?.let { "${Geo.fmtDist(Geo.distanceNm(it, p))} @ ${Geo.fmtBearing(Geo.bearing(it, p))} from boat" },
             "",
             if (fromDot) "Source: WA Department of Transport, Navigation Aids (DOT-004), CC BY 4.0"
             else "Source: © OpenStreetMap contributors (OpenSeaMap), ODbL. Position may be approximate.",
@@ -1930,8 +1927,14 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
         val lc = m.locationComponent
         val courseUp = settings.courseUp && (mode == AppMode.NAVIGATE || mode == AppMode.FISH)
-        lc.cameraMode = if (courseUp) CameraMode.TRACKING_GPS else CameraMode.TRACKING_GPS_NORTH
-        lc.zoomWhileTracking(zoom ?: maxOf(m.cameraPosition.zoom, 12.0))
+        val z = zoom ?: maxOf(m.cameraPosition.zoom, 12.0)
+        // zoomWhileTracking is ignored while the camera is still moving to the boat, so zoom as part of
+        // that move, and again after it for when there's no move to make (already following).
+        lc.setCameraMode(if (courseUp) CameraMode.TRACKING_GPS else CameraMode.TRACKING_GPS_NORTH, 750L, z, null, null,
+            object : OnLocationCameraTransitionListener {
+                override fun onLocationCameraTransitionFinished(cameraMode: Int) { lc.zoomWhileTracking(z) }
+                override fun onLocationCameraTransitionCanceled(cameraMode: Int) = Unit
+            })
     }
 
     private fun updateFields(loc: Location, pos: LatLon, sog: Double?, cog: Double?, d: Pair<Double, Double>?) {
@@ -1966,7 +1969,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         fields.set(DataField.DRIFT_DIR, d?.let { Geo.fmtBearing(it.second) } ?: "---°")
         val nearest = visibleMarks().minByOrNull { Geo.distanceNm(pos, it.pos) }
         fields.set(DataField.MARK, nearest?.let {
-            "${it.name}\n${Geo.fmtNm(Geo.distanceNm(pos, it.pos))} nm ${Geo.fmtBearing(Geo.bearing(pos, it.pos))}"
+            "${it.name}\n${Geo.fmtDist(Geo.distanceNm(pos, it.pos))} ${Geo.fmtBearing(Geo.bearing(pos, it.pos))}"
         } ?: "--")
         fields.set(DataField.ANCHOR, anchor?.let { "${(Geo.distanceNm(it, pos) * Geo.M_PER_NM).toInt()}" } ?: "off")
     }

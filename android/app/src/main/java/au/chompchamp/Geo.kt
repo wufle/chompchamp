@@ -84,11 +84,15 @@ object Geo {
 
     // ---- Formatting ----------------------------------------------------------
 
+    /** For data fields labelled "nm": no unit unless it's metres. Use [fmtDist] in sentences. */
     fun fmtNm(nm: Double): String = when {
         nm < 0.1 -> "${(nm * M_PER_NM).roundToInt()} m"
         nm < 10 -> String.format(Locale.US, "%.2f", nm)
         else -> String.format(Locale.US, "%.1f", nm)
     }
+
+    /** With its unit: "104 m" or "1.25 nm". */
+    fun fmtDist(nm: Double): String = fmtNm(nm) + if (nm < 0.1) "" else " nm"
 
     fun fmtBearing(d: Double) = String.format(Locale.US, "%03.0f°", (d + 360) % 360)
 
