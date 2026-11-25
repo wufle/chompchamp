@@ -122,7 +122,7 @@ class CatchDialogs(
         }
         box.addView(TextView(ctx).apply {
             text = (c.pos?.let { "${Geo.formatDdm(it.lat, true)}  ${Geo.formatDdm(it.lon, false)}" } ?: "No position (no GPS fix)") +
-                (c.depth?.let { "\nDepth (est.): $it m" } ?: "")
+                (c.depth?.let { "\nDepth (est.): ${Geo.depthText(it)}" } ?: "")
             textSize = 12f
             setTextColor(look.muted)
         })
@@ -174,7 +174,7 @@ class CatchDialogs(
             text = listOfNotNull(
                 time(c.time), c.details(),
                 c.bait.takeIf { it.isNotBlank() }?.let { "Bait: $it" },
-                c.depth?.let { "Depth (est.): $it m" },
+                c.depth?.let { "Depth (est.): ${Geo.depthText(it)}" },
                 c.pos?.let { "${Geo.formatDdm(it.lat, true)}  ${Geo.formatDdm(it.lon, false)}" },
                 c.notes.takeIf { it.isNotBlank() },
             ).joinToString("\n")

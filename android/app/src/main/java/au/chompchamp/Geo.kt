@@ -24,6 +24,9 @@ data class TrackPoint(val lat: Double, val lon: Double, val t: Long, val sog: Do
 
 /** Great-circle navigation maths. Distances in nautical miles, angles in degrees true. */
 object Geo {
+    /** An estimated depth with its unit: "12–15 m", but "land" or "--" as they are. */
+    fun depthText(d: String) = if (d.firstOrNull()?.let { it.isDigit() || it == '>' } == true) "$d m" else d
+
     const val EARTH_NM = 3440.065
     const val M_PER_NM = 1852.0
     const val KN_PER_MS = 1.943844

@@ -36,6 +36,9 @@ class SettingsPanel(private val host: FrameLayout, private val look: Appearance)
 
     val isOpen get() = host.visibility == View.VISIBLE
 
+    /** Told when a panel opens or closes, so controls it would cover can step aside. */
+    var onOpenChanged: ((Boolean) -> Unit)? = null
+
     /** [header] stays above the scrolling rows. */
     fun show(title: String, build: (Rows) -> Unit, onClose: (() -> Unit)? = null, header: View? = null) {
         this.onClose?.invoke()   // whatever was open before
@@ -94,6 +97,7 @@ class SettingsPanel(private val host: FrameLayout, private val look: Appearance)
         host.addView(card, FrameLayout.LayoutParams(
             width, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM))
         host.visibility = View.VISIBLE
+        onOpenChanged?.invoke(true)
     }
 
     fun hide() {
@@ -103,6 +107,7 @@ class SettingsPanel(private val host: FrameLayout, private val look: Appearance)
         host.removeAllViews()
         onClose?.invoke()
         onClose = null
+        onOpenChanged?.invoke(false)
     }
 
     /** Builders for the compact one-line rows used in every panel. */

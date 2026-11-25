@@ -190,12 +190,23 @@ class MainActivity : AppCompatActivity(), LocationListener {
         store = Store(File(filesDir, "data"))
         navigator = Navigator(settings)
         track = Track(store.track())
-        // 0.16 and older recorded whenever the app was open: carry on with a trip already under way.
-        if (!prefs.contains("trip_recording")) recording = track.points.isNotEmpty()
         marks = store.marks()
         groups = MarkGroups(store).also { it.reload(marks) }
         plan = store.plan()
         tripLog = TripLog(File(filesDir, "data"))
+        if (!prefs.contains("trip_recording")) {
+            // 0.16 and older recorded whenever the app was open. Save what's there the way they would have
+            // (a track that stayed within 200 m with no catches or marks is dropped) and start not recording.
+            if (track.points.size >= 2) runCatching {
+                tripLog.archive(track.points.toList(), settings.tripSplitMs, keepAll = false) { t ->
+                    tripLog.catchesIn(t.start, t.end, tripLog.trips.map { it.start to it.end }).isNotEmpty() ||
+                        marks.any { it.time in t.start..t.end }
+                }
+            }
+            track.clear()
+            store.saveTrack(emptyList())
+            recording = false
+        }
         userData = UserData(File(filesDir, "data"), store, tripLog, prefs)
         photos = Photos(this)
 
@@ -203,6 +214,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         zoneBanner = findViewById(R.id.zoneBanner)
         look = Appearance(this, prefs)
         panel = SettingsPanel(findViewById(R.id.panelHost), look)
+        // The mode buttons sit under a docked panel and would show through it: hide them while one is open.
+        panel.onOpenChanged = { if (::modePanel.isInitialized) refreshModePanel() }
         marksPanel = createMarksPanel()
         tripsPanel = createTripsPanel()
         catchDialogs = createCatchDialogs()
@@ -389,7 +402,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
             AppMode.FISH -> {
                 val d = drift.drift()
                 summary = (d?.let {
-                    "Drift ${String.format(Locale.US, "%.1f", it.first)} kn → ${Geo.fmtBearing(it.second)}  " +
+                    if (it.first < 0.05) "Not drifting"
+                    else "Drift ${String.format(Locale.US, "%.1f", it.first)} kn → ${Geo.fmtBearing(it.second)}  " +
                         "(line shows ${settings.driftProjectMin.toInt()} min)"
                 } ?: "Measuring drift…") + (anchor?.let { "\nAnchor alarm ON · ${settings.anchorRadiusM.toInt()} m" } ?: "")
                 actions = listOf(
@@ -401,7 +415,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 )
             }
         }
-        modePanel.visibility = View.VISIBLE
+        modePanel.visibility = if (panel.isOpen) View.GONE else View.VISIBLE
         modeSummary.text = summary
         placeScaleBar()
 
@@ -541,7 +555,13 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun showRoutesMenu(anchorView: View) {
         val popup = PopupMenu(this, anchorView)
         val menu = listOf("Save route as…", "Open saved route…", "Reverse route", "New route", "Delete saved route…")
-        menu.forEachIndexed { i, s -> popup.menu.add(0, i, i, s) }
+        val hasRoute = plan.waypoints.isNotEmpty()
+        val hasSaved = store.routes().isNotEmpty()
+        menu.forEachIndexed { i, s ->
+            // Only what makes sense now: no saving or reversing an empty route, no opening with nothing saved.
+            val show = when (i) { 0, 2 -> hasRoute; 1, 4 -> hasSaved; else -> true }
+            if (show) popup.menu.add(0, i, i, s)
+        }
         popup.setOnMenuItemClickListener {
             when (it.itemId) {
                 0 -> askText("Route name", plan.name) { name ->
@@ -581,6 +601,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         if (r.waypoints.size < 2) return
         val b = LatLngBounds.Builder().includes(r.waypoints.map { LatLng(it.lat, it.lon) }).build()
         m.moveCamera(CameraUpdateFactory.newLatLngBounds(b, 160))
+        if (m.cameraPosition.zoom > MAX_FIT_ZOOM) m.moveCamera(CameraUpdateFactory.zoomTo(MAX_FIT_ZOOM))
     }
 
     /**
@@ -731,9 +752,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         storeMark(mark)
         buzz(short = true)
         // Quick photo of the catch straight after marking.
-        Snackbar.make(mapView, "Saved $name", Snackbar.LENGTH_LONG)
+        snack("Saved $name")
             .setAction("📷 Photo") { takePhotoFor(mark.id) }
-            .setActionTextColor(look.accent)
             .show()
     }
 
@@ -836,7 +856,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
         body.addView(TextView(this).apply {
             text = "$time\n${Geo.formatDdm(mark.lat, true)}  ${Geo.formatDdm(mark.lon, false)}" +
-                (mark.depth?.let { "\nDepth (est.): $it m" } ?: "") + dist +
+                (mark.depth?.let { "\nDepth (est.): ${Geo.depthText(it)}" } ?: "") + dist +
                 "\nGroup: ${groups.find(mark.group)?.label ?: "Ungrouped"}" +
                 if (groups.isVisible(mark.group)) "" else " (hidden on the map)"
             textSize = 14f
@@ -1023,15 +1043,23 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 takePhotoFor(c.id)
                 return
             }
-            Snackbar.make(mapView, (if (c.markId == null) "No GPS fix, so logged without a mark: " else "Marked ") + c.title +
-                if (started) ". Trip recording started." else "", Snackbar.LENGTH_LONG)
+            snack((if (c.markId == null) "No GPS fix, so logged without a mark: " else "Marked ") + c.title +
+                if (started) ". Trip recording started." else "")
                 .setAction("📷 Photo") { takePhotoFor(c.id) }
-                .setActionTextColor(look.accent)
                 .show()
         }
         override fun exportText(fileName: String, csv: Boolean, text: String) = this@MainActivity.exportText(fileName, csv, text)
         override fun confirm(message: String, onYes: () -> Unit) = this@MainActivity.confirm(message, onYes)
     })
+
+    /** A message along the bottom in the app's colours, above the mode buttons so it never hides them. */
+    private fun snack(text: CharSequence): Snackbar =
+        Snackbar.make(mapView, text, Snackbar.LENGTH_LONG).apply {
+            setBackgroundTint(ContextCompat.getColor(this@MainActivity, R.color.ui_surface))
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ui_on_surface))
+            setActionTextColor(look.accent)
+            if (modePanel.visibility == View.VISIBLE) anchorView = modePanel
+        }
 
     /** Mark a catch at the boat, or add one to [mark]. Without a GPS fix it's only logged. */
     private fun markCatch(mark: Mark? = null) {
@@ -1066,8 +1094,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
         if (locationActive) m.locationComponent.cameraMode = CameraMode.NONE
         runCatching {
             val b = LatLngBounds.Builder().includes(points.map { LatLng(it.lat, it.lon) }).build()
-            // Leave room for the panel at the bottom.
-            m.animateCamera(CameraUpdateFactory.newLatLngBounds(b, 80, 160, 80, (mapView.height * 0.45).toInt()))
+            // Leave room for the panel at the bottom. A trip that hardly moved would zoom in to the
+            // map's limit, so stop at a useful scale.
+            val fit = m.getCameraForLatLngBounds(b, intArrayOf(80, 160, 80, (mapView.height * 0.45).toInt()))
+            if (fit != null) m.animateCamera(CameraUpdateFactory.newCameraPosition(
+                CameraPosition.Builder(fit).zoom(minOf(fit.zoom, MAX_FIT_ZOOM)).build()))
         }
     }
 
@@ -1133,9 +1164,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         recordingChanged(ask = true)
         lastFix?.let { recordTrack(it, LatLon(it.latitude, it.longitude), if (it.hasSpeed()) it.speed * Geo.KN_PER_MS else null) }
         if (quiet) return
-        Snackbar.make(mapView, message ?: "Recording a trip. Stop it from the button at the top.", Snackbar.LENGTH_LONG)
+        snack(message ?: "Recording a trip. Stop it from the button at the top.")
             .setAction("Undo") { recording = false; clearTrack(); recordingChanged() }
-            .setActionTextColor(look.accent)
             .show()
     }
 
@@ -1144,7 +1174,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         if (!recording) return
         val s = track.stats
         if (track.points.size < 2) {
-            confirm("Stop recording? Nothing has been recorded yet.") {
+            confirm("Stop recording? The boat hasn't moved yet, so there's no track to save. " +
+                "Catches and marks are kept.") {
                 recording = false; clearTrack(); recordingChanged()
             }
             return
@@ -1341,7 +1372,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val dist = lastPos()?.let { "\n${Geo.fmtDist(Geo.distanceNm(it, p))} @ ${Geo.fmtBearing(Geo.bearing(it, p))} from boat" } ?: ""
         MaterialAlertDialogBuilder(this)
             .setTitle("${Geo.formatDdm(p.lat, true)}  ${Geo.formatDdm(p.lon, false)}")
-            .setMessage("Depth (est.): $depth m$dist")
+            .setMessage("Depth (est.): ${Geo.depthText(depth)}$dist")
             .setPositiveButton("Navigate here") { _, _ ->
                 startNavigation(Route(name = "Go to", waypoints = mutableListOf(Waypoint(p.lat, p.lon, "Target"))))
             }
@@ -2206,7 +2237,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
 
         fields.set(DataField.DRIFT, d?.let { String.format(Locale.US, "%.1f", it.first) } ?: "--.-")
-        fields.set(DataField.DRIFT_DIR, d?.let { Geo.fmtBearing(it.second) } ?: "---°")
+        fields.set(DataField.DRIFT_DIR, d?.takeIf { it.first >= 0.05 }?.let { Geo.fmtBearing(it.second) } ?: "---°")
         val nearest = visibleMarks().minByOrNull { Geo.distanceNm(pos, it.pos) }
         fields.set(DataField.MARK, nearest?.let {
             "${it.name}\n${Geo.fmtDist(Geo.distanceNm(pos, it.pos))} ${Geo.fmtBearing(Geo.bearing(pos, it.pos))}"
@@ -2319,7 +2350,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         if (!updateChecked) {
             updateChecked = true
             updater.checkIfDue(settings.updateCheckDays) { message, open ->
-                Snackbar.make(mapView, message, Snackbar.LENGTH_LONG).setAction("View") { open() }.show()
+                snack(message).setAction("View") { open() }.show()
             }
         }
     }
@@ -2356,6 +2387,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         /** Catches listed in a mark's window before they fold into one row. */
         private const val SHOWN_CATCHES = 4
         private const val GITHUB_URL = "https://github.com/wufle/chompchamp"
+        /** Zooming to fit a trip, route or area stops here (about 1:2000), however small it is. */
+        private const val MAX_FIT_ZOOM = 16.0
         private const val RELIEF_ONLINE =
             "https://public-services.slip.wa.gov.au/public/rest/services/Landgate_Public_Maps/WA_Bathymetry/MapServer/export" +
                 "?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png32&transparent=true&layers=show:2&f=image"

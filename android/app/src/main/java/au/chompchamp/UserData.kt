@@ -218,7 +218,7 @@ class UserData(dir: File, private val store: Store, private val tripLog: TripLog
         if (DataPart.MARKS in parts) for (m in store.marks()) {
             sb.append("""  <wpt lat="${m.lat}" lon="${m.lon}">""")
             sb.append("<time>${iso(m.time)}</time><name>${esc(m.name)}</name>")
-            m.depth?.let { sb.append("<desc>Depth (est.) ${esc(it)} m</desc>") }
+            m.depth?.let { sb.append("<desc>Depth (est.) ${esc(Geo.depthText(it))}</desc>") }
             sb.append("<sym>Fishing Area</sym>")
             if (m.group.isNotEmpty()) sb.append("<type>${esc(m.group)}</type>")
             sb.append("</wpt>\n")
