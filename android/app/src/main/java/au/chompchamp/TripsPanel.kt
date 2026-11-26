@@ -60,7 +60,9 @@ class TripsPanel(
                 rows.section("Recording this trip")
                 val since = host.recordingStart
                 val now = System.currentTimeMillis()
-                rows.note(if (host.track.points.size < 2) "Recording since ${Geo.fmtClock(since)}. Waiting for the boat to move…"
+                val n = host.currentCatches().size
+                rows.note(if (host.track.points.size < 2) "Recording since ${Geo.fmtClock(since)}. Waiting for the boat to move…" +
+                    (if (n > 0) "\n${catches(n)} logged" else "")
                 else summary(since, now, now - since, s.distanceNm, s.movingMs, s.avgMovingKn, s.maxKn, host.currentCatches().size))
                 rows.actionRow("Mark a catch", "Add") { host.logCatch() }
                 if (host.track.points.size >= 2) rows.actionRow("Speed log and details", "Open") { showDetails(null) }
