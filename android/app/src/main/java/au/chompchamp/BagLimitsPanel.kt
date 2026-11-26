@@ -178,6 +178,14 @@ class BagLimitsPanel(
                 clipToOutline = true
                 contentDescription = "Picture of ${e.name}"
                 setOnClickListener { showPicture(e, pic.first, pic.second) }
+            } else {
+                // No picture of our own: a search for photos of it instead.
+                setImageResource(R.drawable.ic_search)
+                imageTintList = android.content.res.ColorStateList.valueOf(look.muted)
+                scaleType = ImageView.ScaleType.CENTER
+                background = look.surfaceBg(1f, 8f)
+                contentDescription = "Search the web for pictures of ${e.name}"
+                setOnClickListener { searchPictures(e, null) }
             }
         }, LinearLayout.LayoutParams(px(72), px(50)).apply { topMargin = px(8); bottomMargin = px(8); marginEnd = px(10) })
         whole.addView(line, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -203,7 +211,19 @@ class BagLimitsPanel(
             setPadding(0, px(8), 0, px(8))
             setOnClickListener { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(p.page))) } }
         }
-        MaterialAlertDialogBuilder(ctx).setTitle(e.name).setView(body).setPositiveButton("Close", null).show()
+        MaterialAlertDialogBuilder(ctx).setTitle(e.name).setView(body)
+            .setNeutralButton("Google Images") { _, _ -> searchPictures(e, p) }
+            .setPositiveButton("Close", null).show()
+    }
+
+    /** Opens a Google image search for the fish in the browser (needs internet). */
+    private fun searchPictures(e: BagLimits.Entry, p: BagLimits.Picture?) {
+        // The scientific name pins it down, unless our picture is of a different, example species.
+        val latin = p?.takeIf { !it.example }?.species.orEmpty()
+        val q = listOf(e.name, latin, "fish Western Australia").filter { it.isNotBlank() }.joinToString(" ")
+        val url = "https://www.google.com/search?tbm=isch&q=" + java.net.URLEncoder.encode(q, "UTF-8")
+        runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+            .onFailure { android.widget.Toast.makeText(ctx, "No app found to open the link", android.widget.Toast.LENGTH_SHORT).show() }
     }
 
     private fun text(box: LinearLayout, s: String, size: Float, color: Int, top: Int, bold: Boolean = false) = TextView(ctx).apply {

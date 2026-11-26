@@ -70,7 +70,8 @@ Four modes (switch with the button at the top of the screen):
 - **Fish**: zooms in close, measures drift over a rolling window and draws where you'll be in N minutes. **Mark** saves your catch and the spot together: species, number, length, weight, kept or released, bait, notes and photos, with the time, position and estimated depth filled in. The newest photo shows as a bubble on the map. Sort marks into coloured groups you can show or hide (Menu → Marks), and move or delete many at once. Add more catches or photos (camera or gallery) to a mark by tapping it. Anchor alarm, nearest-mark distance/bearing, breadcrumb track.
 
 **Bag & size limits** (fish-in-a-bag button at the top left in Fish mode, or Menu): daily bag, boat and size limits for
-the area you're in, with closed seasons, pictures, and a search by species. The area follows your position, or choose one. Works
+the area you're in, with closed seasons, pictures, and a search by species. Tap a picture for a bigger one and a
+**Google Images** button that searches the web for more photos of that fish (needs internet). The area follows your position, or choose one. Works
 offline. The limits are copied from DPIRD's guide by hand and shortened, and they don't update by themselves, so check the
 [current rules](https://www.dpird.wa.gov.au/individuals/recreational-fishing/recreational-fishing-rules/recreational-bag-and-size-limits/).
 
@@ -115,6 +116,7 @@ No accounts, ads or analytics. Your position, trips, catches, marks and photos s
 them (or Android's own device backup copies them). When online, the app requests map imagery for the area
 you're viewing from the WA Government (SLIP) and Digital Earth Australia (Geoscience Australia), so those servers
 see your IP address and the area on screen. Saving an area for offline use downloads from the same servers.
+Tapping **Google Images** on a fish opens a Google search in your browser.
 Checking for updates asks GitHub for the latest release; it only happens when you ask, unless you turn on
 automatic checks. With the AIS layer on, Open Waters also sees your IP address and the area on screen
 about once a minute; it keeps request logs for 90 days. Your own position is never sent.
