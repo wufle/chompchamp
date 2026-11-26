@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
-"""High-detail chart from Two Rocks to Preston Beach: the coast, Rottnest, Cockburn Sound, the
-Swan/Canning rivers, Mandurah, the Dawesville Cut and the Peel-Harvey estuary. Replaces the
-250 m chart inside METRO_BBOX.
+"""High-detail charts for the areas in REGIONS, each replacing the 250 m chart inside its box:
+
+  metro     Two Rocks to Preston Beach: the coast, Rottnest, Cockburn Sound, the Swan/Canning rivers,
+            Mandurah, the Dawesville Cut and the Peel-Harvey estuary
+  kalbarri  Kalbarri to Horrocks: the Murchison River entrance, Port Gregory and Horrocks
 
 Sources:
   * WA Department of Transport 5 m composite grids (DOT-022) and point soundings
     (DOT-021), CC BY 4.0. Heights are AHD (close to mean sea level).
   * OpenStreetMap coastline and river/harbour outlines, ODbL 1.0
-  * AusBathyTopo 250 m (already clipped to WA) where there is no survey, sea only
+  * kalbarri only: AusBathyTopo 30m (Perth) 2026, Geoscience Australia, CC BY 4.0. Its LiDAR and multibeam
+    cells count as survey; the rest of it (south of 28 S) is the base. Read a window at a time from the zip online.
+  * AusBathyTopo 250 m (already clipped to WA) where there is nothing better, sea only
 
 Depth is never made up for rivers and harbours: water with no soundings nearby is drawn as
 water but gets no depth band, so the app reports no depth there.
 
-Usage: build_metro.py BASE_DEM.tif WORKDIR
-Outputs: metro_depth / metro_contour / metro_land / metro_water .geojsonl
+Usage: build_metro.py BASE_DEM.tif WORKDIR [REGION]   (REGION: metro (default) or kalbarri)
+Outputs: <region>_depth / _contour / _land / _water .geojsonl
 """
 import json
 import os
@@ -27,22 +31,38 @@ import zipfile
 import contourpy
 import numpy as np
 import rasterio
+import rasterio.windows
 from rasterio.features import rasterize
 from rasterio.transform import from_origin
 from rasterio.warp import Resampling, reproject, transform as warp_xy
 from scipy import ndimage
-from scipy.interpolate import LinearNDInterpolator
+from scipy.interpolate import LinearNDInterpolator, NearestNDInterpolator
 import shapely
 from shapely.geometry import LineString, MultiPolygon, Polygon, box, mapping
 from shapely.ops import linemerge, polygonize, unary_union
 
-METRO_BBOX = (115.40, -32.90, 116.02, -31.42)
+ABT30 = ("/vsizip//vsicurl/https://files.ausseabed.gov.au/survey/AusBathyTopo_Perth_2026_30m.zip/"
+         "AusBathyTopo_Perth_2026_30m/AusBathyTopo_Perth_2026_30m_MSL_{}.tif")
+REGIONS = {
+    "metro": dict(
+        bbox=(115.40, -32.90, 116.02, -31.42),
+        rasters=["TwoRocks", "OceanReef", "Rottnest", "Warnbro", "CockburnSound", "Perth", "Dawesville", "Yalgorup"],
+        points=["SC", "CS", "FR", "WB", "MH", "DV"],   # MH: Mandurah; DV: Dawesville and Peel Inlet
+        sea_gap_m=80, abt30=False),
+    # The 30 m grid stops at 28 S, so north of that (Kalbarri itself) only the river entrance and a few
+    # offshore soundings beat the 250 m grid. Sounding lines along the coast to the south are ~500 m apart.
+    "kalbarri": dict(
+        bbox=(113.95, -28.45, 114.55, -27.60),
+        rasters=["Kalbarri"],
+        points=["KL", "PG"],                            # KL: Kalbarri; PG: Port Gregory, Horrocks, Bowes
+        sea_gap_m=1200, abt30=True),
+}
+METRO_BBOX = REGIONS["metro"]["bbox"]
+BOXES = [r["bbox"] for r in REGIONS.values()]
 PAD = 0.004           # build slightly larger, then clip to the box
 RES = 0.0001          # about 10 m
 S3 = "https://s3-ap-southeast-2.amazonaws.com/transport.wa/Bathymetry"
-RASTERS = ["TwoRocks", "OceanReef", "Rottnest", "Warnbro", "CockburnSound", "Perth", "Dawesville", "Yalgorup"]
-POINTS = ["SC", "CS", "FR", "WB", "MH", "DV"]   # MH: Mandurah; DV: Dawesville and Peel Inlet
-MAX_GAP_M = 80        # no depth further than this from a real sounding (points only)
+MAX_GAP_M = 80        # no depth further than this from a real sounding in rivers and harbours
 OVERPASS = ["https://overpass-api.de/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
             "https://overpass.kumi.systems/api/interpreter"]
 UA = {"User-Agent": "chompchamp-pipeline/0.1"}
@@ -75,10 +95,10 @@ def download(url, path):
             time.sleep(10 * (attempt + 1))
 
 
-def fetch_osm(path):
+def fetch_osm(path, bbox):
     if os.path.exists(path):
         return json.load(open(path))["elements"]
-    w, s, e, n = METRO_BBOX
+    w, s, e, n = bbox
     m = 0.1
     b = f"{s - m},{w - m},{n + m},{e + m}"
     q = f"""[out:json][timeout:300];
@@ -232,19 +252,60 @@ def read_points(path, T, shape):
     return grid
 
 
+def read_abt30(raw, bbox, T, shape):
+    """AusBathyTopo 30m (Perth) 2026 on our grid: (depth, real) where real = LiDAR or multibeam (TID 11, 15)."""
+    os.environ.setdefault("GDAL_HTTP_USERAGENT", UA["User-Agent"])
+    os.environ.setdefault("GDAL_DISABLE_READDIR_ON_OPEN", "EMPTY_DIR")
+    w, s, e, n = bbox
+    out = []
+    for kind, rs in (("cog", Resampling.bilinear), ("tid", Resampling.nearest)):
+        cache = os.path.join(raw, f"abt30_{kind}.tif")
+        if not os.path.exists(cache):
+            for attempt in range(4):
+                try:
+                    with rasterio.open(ABT30.format(kind)) as src:
+                        win = rasterio.windows.from_bounds(w - 0.02, s - 0.02, e + 0.02, n + 0.02, transform=src.transform)
+                        win = win.intersection(rasterio.windows.Window(0, 0, src.width, src.height))
+                        a = src.read(1, window=win)
+                        prof = dict(driver="GTiff", width=a.shape[1], height=a.shape[0], count=1, dtype=a.dtype,
+                                    crs="EPSG:4326", transform=src.window_transform(win), nodata=src.nodata,
+                                    compress="deflate")
+                    with rasterio.open(cache + ".part", "w", **prof) as dst:
+                        dst.write(a, 1)
+                    os.replace(cache + ".part", cache)
+                    break
+                except Exception as ex:  # noqa: BLE001
+                    if attempt == 3:
+                        raise
+                    log("AusBathyTopo 30 m retry", ex)
+                    time.sleep(20)
+        dst = np.full(shape, np.nan if kind == "cog" else 255, "float32" if kind == "cog" else "uint8")
+        with rasterio.open(cache) as src:
+            reproject(rasterio.band(src, 1), dst, dst_transform=T, dst_crs="EPSG:4326",
+                      src_nodata=src.nodata, dst_nodata=np.nan if kind == "cog" else 255, resampling=rs)
+        out.append(dst)
+    z, tid = out
+    z[(z > 1e30) | (z < -12000)] = np.nan
+    real = np.isfinite(z) & np.isin(tid, (11, 15))
+    log(f"AusBathyTopo 30 m: {np.isfinite(z).mean():.1%} of the box, LiDAR/multibeam {real.mean():.2%}")
+    return z, real
+
+
 def main():
     base_path, work = sys.argv[1:3]
-    raw = os.path.join(work, "metro_raw")
+    region = sys.argv[3] if len(sys.argv) > 3 else "metro"
+    cfg = REGIONS[region]
+    raw = os.path.join(work, f"{region}_raw")
     os.makedirs(raw, exist_ok=True)
-    w, s, e, n = METRO_BBOX
-    clip = box(*METRO_BBOX)
+    w, s, e, n = cfg["bbox"]
+    clip = box(*cfg["bbox"])
     frame = box(w - PAD, s - PAD, e + PAD, n + PAD)
     cols, rows = round((e - w + 2 * PAD) / RES), round((n - s + 2 * PAD) / RES)
     T = from_origin(w - PAD, n + PAD, RES, RES)
     shape = (rows, cols)
     log("grid", shape)
 
-    land, inland, sea = osm_shapes(fetch_osm(os.path.join(raw, "osm.json")), frame)
+    land, inland, sea = osm_shapes(fetch_osm(os.path.join(raw, "osm.json"), cfg["bbox"]), frame)
     land_m = rasterize([land], shape, transform=T, dtype="uint8").astype(bool)
     river_m = rasterize([inland], shape, transform=T, dtype="uint8").astype(bool) if not inland.is_empty \
         else np.zeros(shape, bool)
@@ -253,7 +314,7 @@ def main():
 
     # 1. Survey grids, shallowest 5 m value per cell.
     surv = np.full(shape, np.nan, "float32")
-    for name in RASTERS:
+    for name in cfg["rasters"]:
         path = download(f"{S3}/Rasters/{name}_5m.tif", os.path.join(raw, f"{name}_5m.tif"))
         tmp = np.full(shape, np.nan, "float32")
         with rasterio.open(path) as src:
@@ -264,15 +325,24 @@ def main():
         log(f"  {name}: {ok.mean():.2%}")
     surv[land_m] = np.nan
 
-    # 2. Soundings, interpolated between survey lines, only close to real data.
-    zips = [download(f"{S3}/PointData/{p}.zip", os.path.join(raw, f"{p}.zip")) for p in POINTS]
+    # 2. Soundings, interpolated between survey lines, only close to real data: within MAX_GAP_M in
+    # rivers and harbours, sea_gap_m at sea (where lines can be a few hundred metres apart).
+    zips = [download(f"{S3}/PointData/{p}.zip", os.path.join(raw, f"{p}.zip")) for p in cfg["points"]]
     pts = read_points(zips, T, shape)
     pts[land_m | np.isfinite(surv)] = np.nan
-    lab, k = ndimage.label(ndimage.binary_dilation(np.isfinite(pts), iterations=12))
-    log("sounding clusters", k)
-    cellx = RES * 111320 * np.cos(np.radians(32))
+    cellx = RES * 111320 * np.cos(np.radians((s + n) / 2))
     celly = RES * 110900
+    gap = cfg["sea_gap_m"]
+    reach = int(np.ceil(gap / 2 / min(cellx, celly)))
+    if reach <= 12:
+        lab, k = ndimage.label(ndimage.binary_dilation(np.isfinite(pts), iterations=12))
+    else:
+        lab, k = ndimage.label(ndimage.distance_transform_edt(~np.isfinite(pts), sampling=(celly, cellx)) <= gap / 2 + 10)
+    log("sounding clusters", k)
     filled = 0
+    # How much an interpolated depth counts against the background grid: fades out between half the sea
+    # gap and the full gap from the nearest sounding, so sparse soundings don't end in a hard edge.
+    weight = np.ones(shape, "float32")
     for i, sl in enumerate(ndimage.find_objects(lab)):
         r0, r1, c0, c1 = sl[0].start, sl[0].stop, sl[1].start, sl[1].stop
         r0, c0 = max(r0 - 10, 0), max(c0 - 10, 0)
@@ -286,16 +356,42 @@ def main():
         rr, cc = np.nonzero(have | bank)
         zz = np.where(have, sub, -0.3)[rr, cc]
         dist = ndimage.distance_transform_edt(~have, sampling=(celly, cellx))
-        want = ~lnd & ~np.isfinite(surv[r0:r1, c0:c1]) & ~have & (dist <= MAX_GAP_M)
+        want = ~lnd & ~np.isfinite(surv[r0:r1, c0:c1]) & ~have & (
+            (dist <= MAX_GAP_M) | (~river_m[r0:r1, c0:c1] & (dist <= gap)))
         qr, qc = np.nonzero(want)
         if len(qr):
-            v = LinearNDInterpolator(np.c_[rr * celly, cc * cellx], zz)(np.c_[qr * celly, qc * cellx])
+            far = (dist[qr, qc] > MAX_GAP_M) & ~river_m[r0:r1, c0:c1][qr, qc]
+            v = np.full(len(qr), np.nan)
+            v[~far] = LinearNDInterpolator(np.c_[rr * celly, cc * cellx], zz)(np.c_[qr[~far] * celly, qc[~far] * cellx])
+            if far.any():
+                # Further out at sea: from the soundings alone (the shore points would make long thin
+                # triangles), and past the outermost ones from the nearest, faded out by the weight below.
+                hr, hc = np.nonzero(have)
+                pts_xy = np.c_[hr * celly, hc * cellx]
+                q = np.c_[qr[far] * celly, qc[far] * cellx]
+                vf = LinearNDInterpolator(pts_xy, sub[hr, hc])(q)
+                miss = ~np.isfinite(vf)
+                if miss.any():
+                    vf[miss] = NearestNDInterpolator(pts_xy, sub[hr, hc])(q[miss])
+                v[far] = vf
             sub[qr, qc] = v
             filled += int(np.isfinite(v).sum())
+            dq = dist[qr, qc]
+            far = (dq > MAX_GAP_M) & ~river_m[r0:r1, c0:c1][qr, qc]
+            if far.any():
+                wsub = weight[r0:r1, c0:c1]
+                wsub[qr[far], qc[far]] = np.clip((gap - dq[far]) / (gap / 2), 0, 1)
     log("interpolated cells", filled)
     ok = np.isfinite(pts) & ~np.isfinite(surv)
     surv[ok] = pts[ok]
     del pts, lab
+    abt = None
+    if cfg["abt30"]:
+        # 2b. LiDAR and multibeam from the 30 m compilation, where the DoT surveys don't reach.
+        abt, real = read_abt30(raw, cfg["bbox"], T, shape)
+        ok = real & ~land_m & ~river_m & ~np.isfinite(surv) & (abt < 0)
+        surv[ok] = abt[ok]
+        del real
     have = np.isfinite(surv)
     log(f"surveyed share of river/harbour water: {(have & river_m).sum() / max(1, river_m.sum()):.1%}; "
         f"of all water: {(have & water_m).sum() / water_m.sum():.1%}")
@@ -304,10 +400,15 @@ def main():
     base = np.full(shape, np.nan, "float32")
     with rasterio.open(base_path) as src:
         reproject(rasterio.band(src, 1), base, dst_transform=T, dst_crs="EPSG:4326",
-                  dst_nodata=np.nan, resampling=Resampling.bilinear)
+                  src_nodata=src.nodata, dst_nodata=np.nan, resampling=Resampling.bilinear)
+    base250 = base
+    if abt is not None:
+        # The rest of the 30 m grid (south of 28 S) is a better base than the 250 m one.
+        base = np.where(np.isfinite(abt), abt, base250)
+        del abt
     f = 10
     R, C = rows // f * f, cols // f * f
-    hv = have[:R, :C] & ~river_m[:R, :C] & np.isfinite(base[:R, :C])
+    hv = have[:R, :C] & ~river_m[:R, :C] & np.isfinite(base[:R, :C]) & (weight[:R, :C] > 0.999)
     dl = np.where(hv, np.nan_to_num(surv[:R, :C] - base[:R, :C]), 0)
     blk = lambda a: a.reshape(R // f, f, C // f, f).sum((1, 3))
     num, den = blk(dl), blk(hv.astype("float32"))
@@ -317,15 +418,16 @@ def main():
     big = np.zeros(shape, "float32")
     big[:R, :C] = ndimage.zoom(shift, f, order=1, grid_mode=True, mode="nearest")[:R, :C]
     z = base + big
-    z[have] = surv[have]
+    z = np.where(have, np.where(np.isfinite(z), weight * surv + (1 - weight) * z, surv), z)
+    del weight
     # Match the 250 m chart exactly at the edge of the box.
     edge = np.minimum.reduce([np.broadcast_to(np.minimum(np.arange(rows), np.arange(rows)[::-1])[:, None], shape),
                               np.broadcast_to(np.minimum(np.arange(cols), np.arange(cols)[::-1])[None], shape)])
     k = np.clip((edge - 40) / 150, 0, 1).astype("float32")
     sea_m = water_m & ~river_m
-    z = np.where(sea_m, z * k + base * (1 - k), z)
+    z = np.where(sea_m, z * k + base250 * (1 - k), z)
     z[river_m & ~have] = np.nan
-    del base, big, edge, k
+    del base, base250, big, edge, k
 
     # 4. Light smoothing that never lowers a shoal by more than 0.25 m.
     z[water_m] = np.minimum(z[water_m], -0.05)
@@ -342,6 +444,11 @@ def main():
 
     unsurveyed = river_m & ~valid
     log(f"river/harbour water without depths: {unsurveyed.sum() / max(1, river_m.sum()):.1%}")
+
+    if os.environ.get("CHART_DEBUG_TIF"):   # for looking at the result before it is cut into bands
+        with rasterio.open(os.environ["CHART_DEBUG_TIF"], "w", driver="GTiff", width=cols, height=rows, count=1,
+                           dtype="float32", crs="EPSG:4326", transform=T, nodata=np.nan, compress="deflate") as dbg:
+            dbg.write(z, 1)
 
     # 5. Vectorise.
     x = T.c + (np.arange(cols) + 0.5) * RES
@@ -404,13 +511,13 @@ def main():
                     if part.length > RES * 1.5:
                         yield part, {"depth": lv}, ({"minzoom": 12} if lv in FINE else None)
 
-    write("metro_depth.geojsonl", bands())
-    write("metro_contour.geojsonl", lines())
-    write("metro_land.geojsonl", ((p, {}, None) for p in polys_of(land)))
-    write("metro_water.geojsonl", ((p, {}, None) for p in polys_of(inland)))
+    write(f"{region}_depth.geojsonl", bands())
+    write(f"{region}_contour.geojsonl", lines())
+    write(f"{region}_land.geojsonl", ((p, {}, None) for p in polys_of(land)))
+    write(f"{region}_water.geojsonl", ((p, {}, None) for p in polys_of(inland)))
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (3, 4) or (len(sys.argv) == 4 and sys.argv[3] not in REGIONS):
         sys.exit(__doc__)
     main()

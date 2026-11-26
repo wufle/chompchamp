@@ -24,11 +24,11 @@ def main():
     with rasterio.open(sys.argv[1]) as r:
         a, t, nodata = r.read(1), r.transform, r.nodata
     ok = np.isfinite(a) if nodata is None else np.isfinite(a) & (a != nodata)
-    # The detailed box (Two Rocks to Preston Beach) is built from other surveys.
-    w, s, e, n = bm.METRO_BBOX
+    # The detailed boxes are built from other surveys.
     lon = t.c + (np.arange(a.shape[1]) + 0.5) * t.a
     lat = t.f + (np.arange(a.shape[0]) + 0.5) * t.e
-    ok &= ~(((lon > w) & (lon < e))[None, :] & ((lat > s) & (lat < n))[:, None])
+    for w, s, e, n in bm.BOXES:
+        ok &= ~(((lon > w) & (lon < e))[None, :] & ((lat > s) & (lat < n))[:, None])
     out = []
     for lo, hi in zip(BANDS, BANDS[1:]):
         rr, cc = np.nonzero(ok & (a >= lo) & (a < hi))

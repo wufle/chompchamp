@@ -8,9 +8,11 @@ mkdir -p "$WORK" "$OUT"
 
 python3 -I scripts/fetch_zones.py "$WORK/zones.geojson"
 bash scripts/build_bathy.sh
-# Two Rocks to Preston Beach in detail (5 m surveys, river and estuary soundings), replacing the 250 m chart there.
+# Detailed areas, replacing the 250 m chart there: Two Rocks to Preston Beach (5 m surveys, river and estuary
+# soundings) and Kalbarri to Horrocks (soundings, LiDAR and multibeam). See REGIONS in build_metro.py.
 PY=${PY:-python3}
-"$PY" scripts/build_metro.py "$WORK/wa_dem_smooth.tif" "$WORK"
+"$PY" scripts/build_metro.py "$WORK/wa_dem_smooth.tif" "$WORK" metro
+"$PY" scripts/build_metro.py "$WORK/wa_dem_smooth.tif" "$WORK" kalbarri
 "$PY" scripts/clip_metro.py "$WORK"
 bash scripts/build_tiles.sh
 

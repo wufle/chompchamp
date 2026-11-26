@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cut the detailed box (Two Rocks to Preston Beach) out of the statewide 250 m layers (metro files replace it).
+"""Cut the detailed boxes (REGIONS in build_metro.py) out of the statewide 250 m layers (their files replace them).
 
 Usage: clip_metro.py WORKDIR
 Rewrites depth / contour / land .geojsonl in place.
@@ -20,7 +20,7 @@ spec.loader.exec_module(bm)
 
 def main():
     work = sys.argv[1]
-    hole = box(*bm.METRO_BBOX)
+    hole = shapely.union_all([box(*b) for b in bm.BOXES])
     shapely.prepare(hole)
     for name, dim in (("depth", 2), ("contour", 1), ("land", 2)):
         path = os.path.join(work, f"{name}.geojsonl")
@@ -48,7 +48,7 @@ def main():
                                           "geometry": mapping(p)}, separators=(",", ":")) + "\n")
                     kept += 1
         os.replace(path + ".tmp", path)
-        print(f"{name}: {kept} parts kept, {cut} cut at the metro box", file=sys.stderr)
+        print(f"{name}: {kept} parts kept, {cut} cut at the detailed boxes", file=sys.stderr)
 
 
 if __name__ == "__main__":
