@@ -836,6 +836,7 @@
     if (wp) items.push(['Delete this waypoint', () => { snapshot(); state.plan.waypoints.splice(wp.properties.i, 1); planChanged(); }]);
     items.push(['Add waypoint here', () => { addWaypoint(p); setTab('routes'); }], ['Add mark here', () => addMark(p)],
       ['Zones here', () => showZones(p, true)],
+      ['Depth here and its source', () => showDepthSource(p)],
       ['Copy position', () => navigator.clipboard.writeText(pos).then(() => toast('Position copied'), () => toast(pos))]);
     openMenu(e.originalEvent.clientX, e.originalEvent.clientY, pos, items);
   });
@@ -853,6 +854,17 @@
       p.src === 'dot' ? 'Source: WA Department of Transport, Navigation Aids (DOT-004), CC BY 4.0' : 'Source: © OpenStreetMap contributors (OpenSeaMap), ODbL. Position may be approximate.']
       .filter(Boolean).join('\n'));
   }
+  async function showDepthSource(p) {
+    if (!reader) { toast('Open the chart first'); return; }
+    let r;
+    try { r = await reader.at(p); } catch (e) { toast('No chart here'); return; }
+    const lines = [`Depth (est.): ${C.depthText(r)}`, C.fmtPos(p)];
+    const src = r.land ? [] : C.sourceLines(r.source);
+    if (src.length) lines.push('', ...src, 'Depths are from about mean sea level: less water at low tide.');
+    else if (!r.land && r.known) lines.push('', 'This chart file has no source information. Charts from app 0.17.12 on do.');
+    dialog('Depth here', lines.join('\n'));
+  }
+
   async function showZones(p, always) {
     if (!reader) return;
     let r;

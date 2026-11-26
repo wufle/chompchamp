@@ -1493,12 +1493,17 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     private fun onMapLongPress(point: LatLng) {
         if (fields.editing || mode == AppMode.ROUTE) return
-        val depth = estimateDepthAt(point)
+        val chart = chartAt(point.latitude, point.longitude)
+        val depth = chart?.let { depthOf(it) } ?: renderedDepthAt(point)
         val p = LatLon(point.latitude, point.longitude)
         val dist = lastPos()?.let { "\n" + Geo.fromBoat(it, p) } ?: ""
+        // Where the depth came from and how good it is (charts from 0.17.12 on). Not for land.
+        val source = chart?.takeIf { !it.land }?.let { ChartReader.sourceLines(it.source) }.orEmpty()
+        val about = if (source.isEmpty()) "" else "\n\n" + source.joinToString("\n") +
+            "\nDepths are from about mean sea level: less water at low tide."
         MaterialAlertDialogBuilder(this)
             .setTitle("${Geo.formatDdm(p.lat, true)}  ${Geo.formatDdm(p.lon, false)}")
-            .setMessage("Depth (est.): ${Geo.depthText(depth)}$dist")
+            .setMessage("Depth (est.): ${Geo.depthText(depth)}$dist$about")
             .setPositiveButton("Navigate here") { _, _ ->
                 startNavigation(Route(name = "Go to", waypoints = mutableListOf(Waypoint(p.lat, p.lon, "Target"))))
             }

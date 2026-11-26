@@ -15,12 +15,16 @@ import kotlin.math.tan
  */
 class ChartReader(private val file: File) {
 
-    /** [known] false: no chart, or no tile here. [depth] = dmin to dmax in metres, null if not charted. */
+    /**
+     * [known] false: no chart, or no tile here. [depth] = dmin to dmax in metres, null if not charted.
+     * [source]: where the depth came from (src, acc, near), null on charts older than 0.17.12.
+     */
     data class Result(
         val known: Boolean,
         val land: Boolean = false,
         val depth: Pair<Int, Int>? = null,
         val zones: List<Map<String, Any?>> = emptyList(),
+        val source: Map<String, Any?>? = null,
     )
 
     private class Feature(val props: Map<String, Any?>, val rings: List<IntArray>, val box: IntArray)
@@ -60,7 +64,8 @@ class ChartReader(private val file: File) {
             val lo = (f.props["dmin"] as? Number)?.toInt() ?: return@mapNotNull null
             lo to ((f.props["dmax"] as? Number)?.toInt() ?: 9999)
         }.minByOrNull { it.first }   // bands can overlap by a hair at their edges: believe the shallower one
-        return Result(true, land = hits("land").isNotEmpty(), depth = depth, zones = hits("zones").map { it.props }.distinct())
+        return Result(true, land = hits("land").isNotEmpty(), depth = depth, zones = hits("zones").map { it.props }.distinct(),
+            source = hits("source").firstOrNull()?.props)
     }
 
     /** Forget everything, e.g. after a new chart is imported. */
@@ -305,6 +310,35 @@ class ChartReader(private val file: File) {
     }
 
     private companion object {
-        val WANT = setOf("land", "depth", "zones")
+        val WANT = setOf("land", "depth", "zones", "source")
+
+        /**
+         * Where a depth came from and how far to trust it, as lines of text. Mirrors sourceLines() in the planner.
+         * acc: 1 good, 2 fair, 3 poor, 4 rough (a background grid), 0 no survey; near: metres to the nearest measured depth.
+         */
+        fun sourceLines(src: Map<String, Any?>?): List<String> {
+            src ?: return emptyList()
+            val acc = (src["acc"] as? Number)?.toInt() ?: return emptyList()
+            val near = (src["near"] as? Number)?.toInt()
+            val how = when (acc) {
+                1 -> "Good: measured by a survey"
+                2 -> "Fair: an older survey, or estimated close to measured depths"
+                3 -> "Poor: estimated between survey lines. Reefs between them can be missing"
+                4 -> "Rough: a 250 m grid compiled from charts and surveys. Reefs and banks smaller than about 500 m " +
+                    "can be missing, and it can be several metres out near the coast"
+                else -> "None: no survey here, so the depth is unknown"
+            }
+            val dist = when {
+                near == null -> null
+                near <= 100 -> "within 100 m"
+                near >= 5000 -> "more than 2 km away"
+                else -> "up to $near m away"
+            }
+            return listOfNotNull(
+                "Source: ${src["src"] ?: "unknown"}",
+                "Accuracy: $how.",
+                dist?.let { "Nearest measured depth: $it." },
+            )
+        }
     }
 }

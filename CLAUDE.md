@@ -124,7 +124,10 @@ headless Chromium (available locally) before calling it done. Bump `web/VERSION`
    28 S). At sea, sparse soundings fade into the background grid over `sea_gap_m`. Never invents depths for rivers;
    smoothing is shoal-biased. `CHART_DEBUG_TIF=z.tif` saves the final grid to look at.
 4. `clip_metro.py`: cuts the detailed boxes out of the statewide layers.
-5. `build_tiles.sh`: tippecanoe and tile-join into `out/wa.pmtiles` (layers: depth, land, water, contour, zones).
+5. `build_tiles.sh`: tippecanoe and tile-join into `out/wa.pmtiles` (layers: depth, land, water, contour, zones, source).
+   `source` says where each depth came from: `src` text, `acc` 1 good .. 4 rough (background grid), 0 no survey, and `near`
+   (metres to the nearest measured depth). Made per ~50 m cell by `source_layer()`; outside the boxes one polygon from
+   `clip_metro.py`. The app (`ChartReader.sourceLines`) and planner (`sourceLines`) word it the same way.
 
 6. `check_points.py` + `check_chart.mjs`: sample the source grid in every depth band and compare with the finished
    chart, failing the build on a mismatch. (Once, everything over 1000 m deep shipped as land.) Always check a chart

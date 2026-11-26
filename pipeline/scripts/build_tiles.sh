@@ -14,6 +14,7 @@ tippecanoe -o "$WORK/base.pmtiles" --force \
   -L depth:"$WORK/depth.geojsonl" \
   -L land:"$WORK/land.geojsonl" \
   -L contour:"$WORK/contour.geojsonl" \
+  -L source:"$WORK/source.geojsonl" \
   --detect-shared-borders \
   --coalesce-densest-as-needed \
   --extend-zooms-if-still-dropping \
@@ -21,7 +22,7 @@ tippecanoe -o "$WORK/base.pmtiles" --force \
   --attribution="$ATTR"
 
 echo ">> Tiling the detailed areas (Two Rocks to Preston Beach, Kalbarri to Horrocks) (z4-14)"
-for layer in depth land water contour; do
+for layer in depth land water contour source; do
   cat "$WORK"/metro_$layer.geojsonl "$WORK"/kalbarri_$layer.geojsonl > "$WORK/detail_$layer.geojsonl"
 done
 tippecanoe -o "$WORK/metro.pmtiles" --force \
@@ -30,6 +31,7 @@ tippecanoe -o "$WORK/metro.pmtiles" --force \
   -L land:"$WORK/detail_land.geojsonl" \
   -L water:"$WORK/detail_water.geojsonl" \
   -L contour:"$WORK/detail_contour.geojsonl" \
+  -L source:"$WORK/detail_source.geojsonl" \
   --detect-shared-borders \
   --no-feature-limit --no-tile-size-limit \
   --no-tiny-polygon-reduction-at-maximum-zoom \

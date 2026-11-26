@@ -64,7 +64,7 @@ Official builds are signed with this certificate (SHA-256):
 
 Four modes (switch with the button at the top of the screen):
 
-- **Chart**: offline chart with depth shading, contours, labels and land. No-fishing zones in red, restricted areas in orange, marine parks in green. Alerts when you enter a no-fishing zone. Tap a zone for details; long-press anywhere for depth, "Navigate here" or "Add mark".
+- **Chart**: offline chart with depth shading, contours, labels and land. No-fishing zones in red, restricted areas in orange, marine parks in green. Alerts when you enter a no-fishing zone. Tap a zone for details; long-press anywhere for depth, "Navigate here" or "Add mark". The long-press also says where that depth came from (which survey, its year and method, or the 250 m national grid), how accurate it is likely to be (good, fair, poor or rough), and how far it is to the nearest measured depth.
 - **Route**: tap to drop waypoints, tap a waypoint to move, rename or delete it. Shows distance and time at your planning speed. Save, open, reverse and delete routes. **Check route** (tick button) samples every leg for land, water shallower than your safety depth, and no-fishing zones.
 - **Navigate**: steers you waypoint by waypoint with BRG, DTW, XTE, VMG, TTG, ETA to waypoint and destination, and distance remaining. Auto-advances at the arrival radius or when you pass abeam. Previous, stop and next buttons.
 - **Fish**: zooms in close, measures drift over a rolling window and draws where you'll be in N minutes. **Mark** saves your catch and the spot together: species, number, length, weight, kept or released, bait, notes and photos, with the time, position and estimated depth filled in. The newest photo shows as a bubble on the map. Sort marks into coloured groups you can show or hide (Menu → Marks), and move or delete many at once. Add more catches or photos (camera or gallery) to a mark by tapping it. Anchor alarm, nearest-mark distance/bearing, breadcrumb track.
@@ -107,7 +107,7 @@ Everything is customisable:
 ## Desktop planner
 
 Plan on a big screen: a single HTML file for Linux, Windows or Mac that you open in a browser. It reads the same
-`wa.pmtiles` chart and works offline once opened. View the chart, depths, zones and hazards, search for places by name, draw and check routes,
+`wa.pmtiles` chart and works offline once opened. View the chart, depths, zones and hazards (right-click → Depth here and its source), search for places by name, draw and check routes,
 keep marks, and swap routes and marks with the phone app using backup or GPX files. No GPS or live navigation.
 
 1. Download `chompchamp-planner.html` and `wa.pmtiles` from the

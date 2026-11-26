@@ -30,6 +30,12 @@ assert.equal(C.fmtDuration(1.5), '1h 30m');
   assert.equal(C.fold('Ēxmouth, W.A.'), 'exmouth wa');
 }
 
+// Depth source text
+assert.deepEqual(C.sourceLines({ src: 'WA DoT soundings, Kalbarri 1989 (single beam)', acc: 3, near: 500 }),
+  ['Source: WA DoT soundings, Kalbarri 1989 (single beam)', 'Accuracy: Poor: estimated between survey lines. Reefs between them can be missing.', 'Nearest measured depth: up to 500 m away.']);
+assert.equal(C.sourceLines({ src: 'x', acc: 1, near: 100 })[2], 'Nearest measured depth: within 100 m.');
+assert.equal(C.sourceLines(null).length, 0);
+
 // Backups: round trip, photo ids survive, no track or settings go to the phone
 const state = { routes: [{ id: 'r1', name: 'A & <b>', waypoints: [{ lat: -32, lon: 115.5, name: 'x' }] }], plan: C.emptyRoute(),
   marks: [{ id: 'm1', lat: -32, lon: 115.6, name: 'Spot', time: 1700000000000, depth: '3–4', photos: ['p1'], group: 'Reefs' }], groups: [{ name: 'Reefs', color: '#E53935', visible: false }], track: [{ lat: 1, lon: 2, t: 3 }] };

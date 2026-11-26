@@ -2,7 +2,8 @@
 """Cut the detailed boxes (REGIONS in build_metro.py) out of the statewide 250 m layers (their files replace them).
 
 Usage: clip_metro.py WORKDIR
-Rewrites depth / contour / land .geojsonl in place.
+Rewrites depth / contour / land .geojsonl in place, and writes source.geojsonl: where the depths outside the
+detailed boxes come from (they have their own <region>_source.geojsonl).
 """
 import json
 import os
@@ -16,6 +17,9 @@ from importlib.util import module_from_spec, spec_from_file_location
 spec = spec_from_file_location("build_metro", os.path.join(os.path.dirname(os.path.abspath(__file__)), "build_metro.py"))
 bm = module_from_spec(spec)
 spec.loader.exec_module(bm)
+
+
+WA = (112.0, -36.0, 129.5, -13.0)   # as BBOX in build_bathy.sh
 
 
 def main():
@@ -49,6 +53,11 @@ def main():
                     kept += 1
         os.replace(path + ".tmp", path)
         print(f"{name}: {kept} parts kept, {cut} cut at the detailed boxes", file=sys.stderr)
+    # Same wording and accuracy (4: rough, a background grid) as source_layer() in build_metro.py.
+    src = {"src": "AusBathyTopo 250 m national grid (Geoscience Australia), compiled from charts and surveys", "acc": 4}
+    with open(os.path.join(work, "source.geojsonl"), "w") as out:
+        for g in shapely.get_parts(box(*WA).difference(hole)):
+            out.write(json.dumps({"type": "Feature", "properties": src, "geometry": mapping(g)}) + "\n")
 
 
 if __name__ == "__main__":

@@ -301,20 +301,20 @@ const Core = (() => {
       const key = `${tx}/${ty}`;
       let t = this.cache.get(key);
       if (t) { this.cache.delete(key); this.cache.set(key, t); return t; }
-      t = this.getTile(this.z, tx, ty).then((d) => d ? decodeTile(new Uint8Array(d), ['land', 'water', 'depth', 'zones']) : null);
+      t = this.getTile(this.z, tx, ty).then((d) => d ? decodeTile(new Uint8Array(d), ['land', 'water', 'depth', 'zones', 'source']) : null);
       t.catch(() => this.cache.delete(key));
       this.cache.set(key, t);
       if (this.cache.size > 300) this.cache.delete(this.cache.keys().next().value);
       return t;
     }
 
-    /** -> { known, land, depth: [dmin, dmax] | null, zones: [props] } */
+    /** -> { known, land, depth: [dmin, dmax] | null, zones: [props], source: props | null (charts before 0.17.12) } */
     async at(p) {
       const n = 2 ** this.z;
       const x = (p.lon + 180) / 360 * n;
       const y = (1 - Math.asinh(Math.tan(rad(p.lat))) / Math.PI) / 2 * n;
       const t = await this.tile(Math.floor(x), Math.floor(y));
-      const res = { known: !!t, land: false, depth: null, zones: [] };
+      const res = { known: !!t, land: false, depth: null, zones: [], source: null };
       if (!t) return res;
       const hits = (name) => {
         const l = t[name];
@@ -323,6 +323,7 @@ const Core = (() => {
         return l.features.filter((f) => inside(f, lx, ly));
       };
       res.land = hits('land').length > 0;
+      res.source = hits('source')[0]?.props || null;
       const d = hits('depth').map((f) => [Number(f.props.dmin), Number(f.props.dmax)]);
       // Bands can overlap by a hair at their edges: believe the shallower one.
       if (d.length) res.depth = d.reduce((a, b) => (b[0] < a[0] ? b : a));
@@ -333,6 +334,20 @@ const Core = (() => {
       }
       return res;
     }
+  }
+
+  /** Where a depth came from and how far to trust it (mirrors ChartReader.sourceLines in the app). */
+  function sourceLines(src) {
+    if (!src || src.acc === undefined) return [];
+    const acc = Number(src.acc), near = src.near === undefined ? null : Number(src.near);
+    const how = {
+      1: 'Good: measured by a survey',
+      2: 'Fair: an older survey, or estimated close to measured depths',
+      3: 'Poor: estimated between survey lines. Reefs between them can be missing',
+      4: 'Rough: a 250 m grid compiled from charts and surveys. Reefs and banks smaller than about 500 m can be missing, and it can be several metres out near the coast',
+    }[acc] || 'None: no survey here, so the depth is unknown';
+    const dist = near === null ? null : near <= 100 ? 'within 100 m' : near >= 5000 ? 'more than 2 km away' : `up to ${near} m away`;
+    return [`Source: ${src.src || 'unknown'}`, `Accuracy: ${how}.`, dist ? `Nearest measured depth: ${dist}.` : null].filter(Boolean);
   }
 
   function depthText(r) {
@@ -422,6 +437,6 @@ const Core = (() => {
   return { distanceNm, bearing, routeLengthNm, segDistM, fmtNm, fmtBearing, fmtDuration, fmtDdm, fmtPos, uuid,
     emptyRoute, cleanRoute, cleanMark, parseBackup, exportBackup, exportGpx, parseGpx, mergeById, mergeMarks,
     GROUP_COLORS, groupName, cleanGroup, findGroup, ensureGroup, tidyGroups, decodeTile, ChartReader, depthText, checkRoute, pos,
-    fold, placeKind, placeZoom, searchPlaces };
+    fold, placeKind, placeZoom, searchPlaces, sourceLines };
 })();
 if (typeof globalThis !== 'undefined') globalThis.ChompCore = Core;
