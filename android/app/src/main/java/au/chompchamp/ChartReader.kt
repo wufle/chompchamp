@@ -309,8 +309,8 @@ class ChartReader(private val file: File) {
         return c
     }
 
-    private companion object {
-        val WANT = setOf("land", "depth", "zones", "source")
+    companion object {
+        private val WANT = setOf("land", "depth", "zones", "source")
 
         /**
          * Where a depth came from and how far to trust it, as lines of text. Mirrors sourceLines() in the planner.

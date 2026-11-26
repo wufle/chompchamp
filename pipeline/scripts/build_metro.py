@@ -213,17 +213,22 @@ def osm_shapes(elements, frame):
 
 
 AREAS = {"SC": "Swan and Canning rivers", "CS": "Cockburn Sound", "FR": "Fremantle", "WB": "Warnbro Sound",
-         "MH": "Mandurah", "DV": "Dawesville and Peel Inlet", "KL": "Kalbarri", "PG": "Port Gregory"}
+         "MH": "Mandurah", "DV": "Dawesville and Peel Inlet", "KL": "Kalbarri", "PG": "Port Gregory area",
+         "RT": "Rottnest", "RK": "Rockingham", "JB": "Jervoise Bay"}
 METHODS = {"Single": "single beam", "Multi": "multibeam", "DigiSingle": "single beam, digitised from paper charts"}
 
 
-def sounding_source(name):
-    """("WA DoT soundings, Horrocks 1990 (single beam)", accuracy 1-3) from a DoT point file name."""
+def sounding_source(name, zip_code):
+    """("WA DoT soundings, Rottnest, Geordie 1982 (single beam)", accuracy 1-3) from a DoT point file name.
+    Codes we can't be sure of take the area of the zip they came in; technical suffixes (33khz, CR) are dropped."""
     m = re.match(r"([A-Z]{2})(\d{4})\d{4}_?(\w*?)_(Single|Multi|DigiSingle)\.txt$", os.path.basename(name))
-    code, year, place, method = m.groups()
-    place = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", place) or AREAS.get(code, code)
+    code, year, sub, method = m.groups()
+    area = AREAS.get(code) or AREAS.get(zip_code, zip_code)
+    sub = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", sub)
+    if len(sub) > 3 and sub.replace(" ", "").isalpha() and sub not in ("Chart",):
+        area = f"{area}, {sub}"
     acc = 3 if method == "DigiSingle" else 1 if int(year) >= 2000 else 2
-    return f"WA DoT soundings, {place} {year} ({METHODS[method]})", acc
+    return f"WA DoT soundings, {area} {year} ({METHODS[method]})", acc
 
 
 def read_points(path, T, shape, add_source):
@@ -234,11 +239,12 @@ def read_points(path, T, shape, add_source):
     files = []
     for z in path:
         zf = zipfile.ZipFile(z)
+        zcode = os.path.basename(z)[:2]
         for n in zf.namelist():
             m = re.match(r"[A-Z]{2}(\d{8})\w*_(Single|Multi|DigiSingle)\.txt$", os.path.basename(n))
             if m:
-                files.append((m.group(1), zf, n))
-    for date, zf, n in sorted(files, key=lambda f: f[0], reverse=True):
+                files.append((m.group(1), zf, n, zcode))
+    for date, zf, n, zcode in sorted(files, key=lambda f: f[0], reverse=True):
         with zf.open(n) as fh:
             raw = fh.read().replace(b",", b" ")
         vals = np.array(raw.split(), dtype="float64")
@@ -266,7 +272,7 @@ def read_points(path, T, shape, add_source):
         use = np.isfinite(new) & ~near_newer
         sub[use] = new[use]
         if use.any():
-            ids[r0:r1, c0:c1][use] = add_source(*sounding_source(n))
+            ids[r0:r1, c0:c1][use] = add_source(*sounding_source(n, zcode))
         log(f"  {n}: {len(p)} soundings, {int(use.sum())} cells used")
     return grid, ids
 
