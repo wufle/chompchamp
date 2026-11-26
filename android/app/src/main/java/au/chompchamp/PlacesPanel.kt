@@ -14,6 +14,8 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 
 /** Search for a town, harbour, boat ramp, island, bay... by name, and go there on the map. */
 class PlacesPanel(
@@ -69,11 +71,12 @@ class PlacesPanel(
             }.also { rows.view(it) }
             fill()
         }, onClose = { hideKeyboard(search); list = null; searchBox = null }, header = search)
-        search.requestFocus()
-        search.post {
-            ContextCompat.getSystemService(ctx, InputMethodManager::class.java)
-                ?.showSoftInput(search, InputMethodManager.SHOW_IMPLICIT)
-        }
+        // Ready to type: focus the box and bring up the keyboard once the panel is on screen.
+        search.postDelayed({
+            if (searchBox !== search) return@postDelayed
+            search.requestFocus()
+            WindowCompat.getInsetsController(ctx.window, search).show(WindowInsetsCompat.Type.ime())
+        }, 150)
     }
 
     private fun from() = host.boat() ?: host.mapCentre()
