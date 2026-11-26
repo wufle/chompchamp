@@ -70,6 +70,7 @@ user which they need. The style must also cope with older charts that lack a new
 | `ScaleBarView.kt` | Scale bar, bottom right |
 | `Hazards.kt` | Nav marks, wrecks and rocks from `assets/hazards.geojson` |
 | `SettingsPanel.kt`, `Settings.kt`, `Appearance.kt` | Docked panel (Layers, Display); behaviour options; size, opacity, palette |
+| `ChartReader.kt` | Land, depth and zones at a point, read from `wa.pmtiles` (mirrors the planner's `ChartReader`) |
 | `Navigator.kt`, `Geo.kt` | Guidance, drift, track; geodesy and formatting |
 | `Storage.kt`, `UserData.kt`, `Photos.kt` | JSON persistence; backup/GPX; mark photos (not in backups yet) |
 
@@ -80,8 +81,10 @@ bundled `assets/glyphs` (from `pipeline/fetch_glyphs.sh`) and adds saved offline
 
 Gotchas:
 
-- Depth estimates, zone alerts and the route check use `queryRenderedFeatures`, so they only work for
-  what is on screen. Layers marked `queried` in `MapLayers` are hidden with opacity 0, never `visibility: none`.
+- Depth estimates and zone alerts read `wa.pmtiles` directly with `ChartReader` (off the main thread for each fix),
+  falling back to `queryRenderedFeatures` if the file can't be read. The route check and tapping a zone still use
+  rendered features, so only work for what is on screen. Layers marked `queried` in `MapLayers` are hidden with
+  opacity 0, never `visibility: none`.
 - Water without a depth band means *unknown*, not safe. Don't treat a missing depth as deep.
 - Data-field cards are placed with translation; reset it when moving one into the group or it gets clipped.
 - Inside `apply {}` on a View, locals named `alpha` or `value` clash with the View's own properties.

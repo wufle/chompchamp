@@ -12,8 +12,8 @@ private enum class Kind { FILL, LINE, RASTER, SYMBOL, CIRCLE }
 /**
  * One style layer belonging to an overlay.
  * [base] = the designed opacity at 100% on the user's slider.
- * [queried] = the app reads this layer with queryRenderedFeatures (depth estimate, zone
- * alerts, route check), so "off" means opacity 0 rather than visibility=none, or it would
+ * [queried] = the app reads this layer with queryRenderedFeatures (route check, zone taps,
+ * and depth and zone alerts if the chart file can't be read), so "off" means opacity 0 rather than visibility=none, or it would
  * stop working.
  */
 private class StyleLayer(val id: String, val kind: Kind, val base: Float, val queried: Boolean = false)

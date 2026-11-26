@@ -148,6 +148,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     private val chartFile: File by lazy { File(filesDir, "charts/wa.pmtiles") }
     private val reliefFile: File by lazy { File(filesDir, "charts/relief.pmtiles") }
+    /** Depth and zones from the chart file, for anywhere, on screen or not. */
+    private val chartReader by lazy { ChartReader(chartFile) }
+    private val chartExec by lazy { Executors.newSingleThreadExecutor() }
+    private var lookingUp = false
 
     private val importChart =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { importChartFile(it) } }
@@ -2297,10 +2301,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
             overlays.setDrift(null, null)
         }
 
-        if (started) {
-            updateFields(location, pos, sog, cog, d)
-            checkZone(location)
-        }
+        if (started) updateFields(location, pos, sog, cog, d)
+        lookUpHere(pos)   // depth field and zone alerts, also with the screen off
         updateBanner()
         if (started && (mode == AppMode.NAVIGATE || mode == AppMode.FISH)) refreshModePanel()
         if (started) bagPanel.moved()
@@ -2334,7 +2336,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
         fields.set(DataField.SOG_KMH, sog?.let { String.format(Locale.US, "%.1f", it * 1.852) } ?: "--.-")
         fields.set(DataField.COG, cog?.let { Geo.fmtBearing(it) } ?: "---°")
         fields.set(DataField.POSITION, "${Geo.formatDdm(loc.latitude, true)}\n${Geo.formatDdm(loc.longitude, false)}")
-        fields.set(DataField.DEPTH, estimateDepthAt(LatLng(loc.latitude, loc.longitude)))
         fields.set(DataField.TIME, SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date()))
         fields.set(DataField.TRIP, Geo.fmtNm(track.tripNm))
         val trip = track.stats
@@ -2370,11 +2371,31 @@ class MainActivity : AppCompatActivity(), LocationListener {
     }
 
     /**
-     * Depth band from the chart at a point, e.g. "20–25". Only works while the point
-     * is on screen (we query rendered tiles), and is only as good as the 250 m model.
+     * Depth band from the chart at a point, e.g. "20–25", "land" or "--" (not charted). Read from the chart
+     * file, so it works anywhere; only as good as the 250 m model outside the survey areas.
      */
     private fun estimateDepthAt(p: LatLng): String {
+        chartAt(p.latitude, p.longitude)?.let { return depthOf(it) }
+        return renderedDepthAt(p)
+    }
+
+    private fun chartAt(lat: Double, lon: Double): ChartReader.Result? =
+        runCatching { chartReader.at(lat, lon) }.getOrNull()?.takeIf { it.known }
+
+    private fun depthOf(r: ChartReader.Result): String {
+        val d = r.depth
+        return when {
+            r.land -> "land"
+            d == null -> "--"
+            d.second >= 2000 -> ">${d.first}"
+            else -> "${d.first}–${d.second}"
+        }
+    }
+
+    /** Fallback for when the chart file can't be read: the map tiles on screen. */
+    private fun renderedDepthAt(p: LatLng): String {
         val m = map ?: return "--"
+        if (!started) return "--"
         val screen = m.projection.toScreenLocation(p)
         if (screen.x < 0 || screen.y < 0 || screen.x > mapView.width || screen.y > mapView.height) return "off screen"
         if (m.queryRenderedFeatures(screen, "land").isNotEmpty()) return "land"
@@ -2390,20 +2411,50 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     private var zoneAlert: Pair<String, Int>? = null
 
-    private fun checkZone(loc: Location) {
-        val m = map ?: return
-        val screen = m.projection.toScreenLocation(LatLng(loc.latitude, loc.longitude))
-        val notake = m.queryRenderedFeatures(screen, "zones-notake-fill")
-        val restricted = if (notake.isEmpty()) m.queryRenderedFeatures(screen, "zones-restricted-fill") else emptyList()
-        val feature = notake.firstOrNull() ?: restricted.firstOrNull()
-        val name = feature?.getStringProperty("name")
-        zoneAlert = when {
-            feature == null -> null
-            notake.isNotEmpty() -> getString(R.string.no_fishing_banner, name ?: "") to look.danger
-            else -> getString(R.string.restricted_banner, name ?: "") to look.warn
+    /** A zone the boat is in: no fishing, or else restricted. */
+    private class ZoneHit(val notake: Boolean, val name: String?)
+
+    /** Reads the chart off the main thread, then updates the depth field and zone alert. Skips fixes while busy. */
+    private fun lookUpHere(pos: LatLon) {
+        if (lookingUp) return
+        lookingUp = true
+        chartExec.execute {
+            val r = chartAt(pos.lat, pos.lon)
+            runOnUiThread {
+                lookingUp = false
+                if (isDestroyed) return@runOnUiThread
+                val here = LatLng(pos.lat, pos.lon)
+                if (started) fields.set(DataField.DEPTH, r?.let { depthOf(it) } ?: renderedDepthAt(here))
+                setZone(if (r != null) zoneIn(r) else renderedZone(here))
+                updateBanner()
+            }
         }
-        if (feature != null && name != currentZone && notake.isNotEmpty()) buzz()
-        currentZone = name
+    }
+
+    private fun zoneIn(r: ChartReader.Result): ZoneHit? {
+        r.zones.firstOrNull { it["zone_class"] == "notake" }?.let { return ZoneHit(true, it["name"] as? String) }
+        r.zones.firstOrNull { it["zone_class"] == "restricted" }?.let { return ZoneHit(false, it["name"] as? String) }
+        return null
+    }
+
+    /** Fallback for when the chart file can't be read: the map tiles on screen. */
+    private fun renderedZone(p: LatLng): ZoneHit? {
+        val m = map ?: return null
+        if (!started) return null
+        val screen = m.projection.toScreenLocation(p)
+        m.queryRenderedFeatures(screen, "zones-notake-fill").firstOrNull()?.let { return ZoneHit(true, it.getStringProperty("name")) }
+        m.queryRenderedFeatures(screen, "zones-restricted-fill").firstOrNull()?.let { return ZoneHit(false, it.getStringProperty("name")) }
+        return null
+    }
+
+    private fun setZone(z: ZoneHit?) {
+        zoneAlert = when {
+            z == null -> null
+            z.notake -> getString(R.string.no_fishing_banner, z.name ?: "") to look.danger
+            else -> getString(R.string.restricted_banner, z.name ?: "") to look.warn
+        }
+        if (z != null && z.notake && z.name != currentZone) buzz()
+        currentZone = z?.name
     }
 
     private fun updateBanner() {

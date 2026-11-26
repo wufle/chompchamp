@@ -160,7 +160,7 @@ Special Purpose areas through a "permitted activities" schedule.
 - `park` (green outline): general use areas and other marine park waters
 - Commercial-only closures and schedules that only define the whole park are skipped.
 
-Known limitation: the depth estimate and no-fishing alerts read the map tiles on screen, so they only work while the boat is visible on the map (follow mode keeps it there).
+The depth estimate and no-fishing alerts read the chart file itself, so they work wherever the boat is, on screen or not, and the alerts also vibrate with the screen off while a trip records. The route check still reads the map on screen: it zooms out to fit the route first.
 
 **Marks and hazards** are bundled with the app and aren't a substitute for official charts: isolated rocks
 and obstructions known only from hydrographic surveys (AHO ENCs) are not in any free dataset.
@@ -170,8 +170,8 @@ and obstructions known only from hydrographic surveys (AHO ENCs) are not in any 
 - [ ] More high-detail areas from WA DoT surveys (Perth metro is done)
 - [ ] Newer national depth grid (AusBathyTopo 2026), and GA's 30 m Northern Australia grid
 - [ ] Depths adjusted to low-tide chart datum
-- [ ] Zone alerts and depth that work off screen (point-in-polygon against the data, not rendered tiles)
 - [x] Bundle fonts so labels work fully offline on first launch
+- [x] Zone alerts and depth that work off screen (read from the chart file, not the map on screen)
 - [x] Offline satellite imagery for chosen areas
 - [x] Update the app and chart from GitHub inside the app
 - [ ] Photos in backups
