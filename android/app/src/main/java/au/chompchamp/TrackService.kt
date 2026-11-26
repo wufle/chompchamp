@@ -28,7 +28,7 @@ class TrackService : Service() {
         val n = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_my_location)
             .setContentTitle("Recording a trip")
-            .setContentText("Tap to open ChompChamp. Stop the trip from the button at the top of the map.")
+            .setContentText("Tap to open ChompChamp. To stop, press and hold REC on the map.")
             .setContentIntent(open)
             .setOngoing(true)
             .build()

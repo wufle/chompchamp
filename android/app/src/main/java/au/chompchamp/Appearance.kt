@@ -43,6 +43,11 @@ class Appearance(private val ctx: Context, private val prefs: SharedPreferences)
         get() = prefs.getBoolean("ui_bag_button", true)
         set(v) = prefs.edit().putBoolean("ui_bag_button", v).apply()
 
+    /** Record / REC button, in every mode. Off: record from Trips & catches or the mode menu. */
+    var showRecordButton: Boolean
+        get() = prefs.getBoolean("ui_rec_button", true)
+        set(v) = prefs.edit().putBoolean("ui_rec_button", v).apply()
+
     // ---- Palette ---------------------------------------------------------------
 
     val surface = ContextCompat.getColor(ctx, R.color.ui_surface)

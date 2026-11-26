@@ -57,6 +57,18 @@
             android:src="@drawable/ic_bag_fish"
             android:visibility="gone" />
 
+        <!-- Record a trip / REC 1:23, every mode. Placed by MovableButton; top left until moved. -->
+        <TextView
+            android:id="@+id/btnRecord"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:letterSpacing="0.06"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
         <!-- Alerts: no-fishing zone, restricted area, anchor drag. Tap for details. -->
         <TextView
             android:id="@+id/zoneBanner"

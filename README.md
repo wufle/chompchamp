@@ -76,9 +76,11 @@ offline. The limits are copied from DPIRD's guide by hand and shortened, and the
 [current rules](https://www.dpird.wa.gov.au/individuals/recreational-fishing/recreational-fishing-rules/recreational-bag-and-size-limits/).
 
 **Trips & catches** (Menu): a trip records your track with the time and speed at each point. Recording starts when you
-tap **Record a trip** (the mode button at the top, or Trips & catches), start a route, or mark a catch; set it to
-start only when you tap Record in Settings. While it records, the mode button shows **● REC** and the time, and Android
-shows a notification. To stop, tap the mode button → **Stop recording trip…** and choose to save or discard it. Saved
+tap the **● Record** button on the map (top left; move it with Menu → Display → Move or resize), start a route, or mark
+a catch; set it to start only when you tap Record in Settings. While it records, the button turns red and shows
+**● REC** and the time, and Android shows a notification. Tapping it shows the trip so far. To stop, **press and hold**
+it, then choose to save, keep recording or discard the trip, so a knock on the screen can't end a trip. If you turn the
+button off (Menu → Display), recording moves to the mode menu and Trips & catches. Saved
 trips keep their full track, distance, time under way, average and top speed, catches, and a speed chart you drag along
 to see when and where on the map. Export a trip as GPX, or its speed log or catches as CSV. Recording carries on with the
 screen off or another app in front (turn that off in Settings to save battery). A trip left with no GPS for longer than
@@ -90,7 +92,7 @@ more behind, and boats without AIS or out of range of a station are missing. It 
 
 Everything is customisable:
 - **Data fields** per mode: SOG, COG, position, depth, waypoint, BRG, DTW, XTE, VMG, TTG, ETAs, remaining, drift speed/direction, nearest mark, anchor distance, trip distance, time, average and top speed, clock. Show/hide them and drag them anywhere (Menu → Display → Move or resize), or combine them into one group (Menu → Display → Arrangement); tap a field while editing to resize or hide just that one. Each mode keeps its own layout.
-- **Display** (Menu): the data field options above, the scale bar and bag limits button on/off (move the button with Move or resize), plus size and transparency of data fields, and of buttons and panels.
+- **Display** (Menu): the data field options above, the scale bar, Record button and bag limits button on/off (move the buttons with Move or resize), plus size and transparency of data fields, and of buttons and panels.
 - **Layers** (bottom left): on/off and an opacity slider for every layer: marks and hazards, satellite, 5 m reef relief, depth shading, contours, labels, land, zones, parks, route, marks, drift line, track, saved trip, catches, anchor circle, AIS vessels.
 - **Charts, offline areas & updates** (Menu): save satellite and reef relief imagery for an area, check GitHub for a new app, chart or relief pack, see what is installed (size, date), import, remove the chart or the offline reef relief pack (relief falls back to online), clear the online tile cache.
 - **Data** (Menu): save and load named snapshots on the phone; export and import a backup file (.json) with routes, marks, current track, saved trips, catch log and settings (merge or replace); export and import GPX to move marks, routes and tracks to and from other chartplotter apps.

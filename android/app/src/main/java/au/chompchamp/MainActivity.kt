@@ -95,6 +95,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private lateinit var catchDialogs: CatchDialogs
     private lateinit var bagPanel: BagLimitsPanel
     private lateinit var bagButton: MovableButton
+    private lateinit var recButton: MovableButton
     private lateinit var ais: Ais
     private lateinit var aisLabel: TextView
     private lateinit var offlineAreas: OfflineAreas
@@ -226,6 +227,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
         bagButton = MovableButton(findViewById(R.id.btnBag), prefs, "ui_bag")
         bagButton.button.setOnClickListener { bagPanel.toggle() }
         TooltipCompat.setTooltipText(bagButton.button, getString(R.string.bag_limits))
+        recButton = MovableButton(findViewById(R.id.btnRecord), prefs, "ui_rec")
+        recButton.button.setOnClickListener { onRecordTap() }
+        // Stopping takes a press and hold, then a confirm, so a knock on the screen can't end a trip.
+        recButton.button.setOnLongClickListener { if (recording) askStopTrip() else startTrip(null); true }
+        bagButton.below = recButton.button
         aisLabel = findViewById(R.id.aisLabel)
         aisLabel.setOnClickListener { showAisInfo() }
         ais = createAis()
@@ -246,7 +252,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
             barInsets = bars
             applyMapUiMargins()
-            bagButton.button.post { bagButton.place() }
+            recButton.button.post { recButton.place(); bagButton.place() }
             // Keep a panel with a search box above the keyboard.
             val host = findViewById<View>(R.id.panelHost)
             val keyboard = (insets.getInsets(WindowInsetsCompat.Type.ime()).bottom - bars.bottom).coerceAtLeast(0)
@@ -309,7 +315,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val popup = PopupMenu(this, anchorView)
         AppMode.entries.forEachIndexed { i, m -> popup.menu.add(0, i, i, m.label) }
         val trip = AppMode.entries.size
-        popup.menu.add(1, trip, trip, if (recording) "■  Stop recording trip…" else "●  Record a trip")
+        // Only here when the Record button is turned off.
+        if (!look.showRecordButton) popup.menu.add(1, trip, trip, if (recording) "■  Stop recording trip…" else "●  Record a trip")
         popup.setOnMenuItemClickListener {
             if (it.itemId == trip) { if (recording) askStopTrip() else startTrip(null) }
             else setMode(AppMode.entries[it.itemId])
@@ -1164,7 +1171,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         recordingChanged(ask = true)
         lastFix?.let { recordTrack(it, LatLon(it.latitude, it.longitude), if (it.hasSpeed()) it.speed * Geo.KN_PER_MS else null) }
         if (quiet) return
-        snack(message ?: "Recording a trip. Stop it from the button at the top.")
+        snack(message ?: if (look.showRecordButton) "Recording a trip. To stop, press and hold REC." else "Recording a trip.")
             .setAction("Undo") { recording = false; clearTrack(); recordingChanged() }
             .show()
     }
@@ -1215,11 +1222,12 @@ class MainActivity : AppCompatActivity(), LocationListener {
         tripsPanel.refresh()
     }
 
-    /** "● REC 1:23 · CHART ▾" while recording, so it's always obvious. */
+    /** "● REC 1:23 · CHART ▾" while recording if the Record button is off, so it's always obvious. */
     private fun updateModeLabel() {
         if (!::modeButton.isInitialized) return
+        updateRecordButton()
         val label = "${mode.label} ▾"
-        if (!recording) { modeButton.text = label; modeButton.contentDescription = "Mode: ${mode.label}"; return }
+        if (!recording || look.showRecordButton) { modeButton.text = label; modeButton.contentDescription = "Mode: ${mode.label}"; return }
         val ms = track.stats.durationMs.coerceAtLeast(0)
         val time = String.format(Locale.US, "%d:%02d", ms / 3_600_000, ms / 60_000 % 60)
         val rec = "●  REC $time"
@@ -1228,6 +1236,43 @@ class MainActivity : AppCompatActivity(), LocationListener {
             0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         modeButton.text = text
         modeButton.contentDescription = "Mode: ${mode.label}. Recording a trip, $time"
+    }
+
+    private fun recTime(): String {
+        val ms = track.stats.durationMs.coerceAtLeast(0)
+        return String.format(Locale.US, "%d:%02d", ms / 3_600_000, ms / 60_000 % 60)
+    }
+
+    /** "● Record" when not recording; red "● REC 1:23" with a red edge while recording. */
+    private fun updateRecordButton() {
+        if (!::recButton.isInitialized) return
+        val b = recButton.button as TextView
+        val on = look.showRecordButton
+        b.visibility = if (on) View.VISIBLE else View.GONE
+        if (!on) return
+        val dp = resources.displayMetrics.density
+        val scale = look.controlScale
+        val red = ContextCompat.getColor(this, R.color.ui_danger_text)
+        val words = if (recording) "REC ${recTime()}" else "Record"
+        val text = android.text.SpannableString("●  $words")
+        text.setSpan(android.text.style.ForegroundColorSpan(red), 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        if (recording) text.setSpan(android.text.style.ForegroundColorSpan(red), 3, 6, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        b.text = text
+        b.minHeight = controlSizePx()
+        b.textSize = 13f * scale
+        b.setTextColor(look.onSurface)
+        b.background = look.surfaceBg(if (recording) maxOf(look.controlAlpha, 0.85f) else look.controlAlpha, 22f * scale).apply {
+            if (recording) setStroke((2 * dp).toInt().coerceAtLeast(1), red)
+        }
+        b.contentDescription = if (recording) "Recording a trip, ${recTime()}. Press and hold to stop." else "Record a trip"
+        TooltipCompat.setTooltipText(b, null)
+        b.post { bagButton.place() }
+    }
+
+    private fun onRecordTap() {
+        if (!recording) { startTrip(null); return }
+        val s = track.stats
+        snack("Recording ${recTime()} · ${Geo.fmtDist(s.distanceNm)}. To stop, press and hold REC.").show()
     }
 
     /** Keep GPS coming with the screen off while recording, if the user wants that. */
@@ -1745,6 +1790,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 updateScaleBar()
                 refreshDisplayPanel()
             }
+            rows.actionRow("Record button", if (look.showRecordButton) "On" else "Off") {
+                look.showRecordButton = !look.showRecordButton
+                updateModeLabel()
+                refreshDisplayPanel()
+            }
             if (mode == AppMode.FISH) rows.actionRow("Bag limits button", if (look.showBagButton) "On" else "Off") {
                 look.showBagButton = !look.showBagButton
                 updateBagButton()
@@ -1755,6 +1805,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 confirm("Are you sure you want to reset the ${mode.label} layout?\n\nData fields go back to their default " +
                     "position and size. Which fields are shown, and how they're arranged, stays the same.") {
                     fields.resetLayout()
+                    recButton.reset()
                     if (mode == AppMode.FISH) bagButton.reset()
                     Toast.makeText(this, R.string.layout_reset_done, Toast.LENGTH_SHORT).show()
                 }
@@ -1828,6 +1879,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         ais.setScale(look.aisScale)
         overlays.setCatchScale(look.catchScale)
         updateBagButton()
+        updateRecordButton()
+        recButton.place()
         bagButton.place()
         fields.applyStyle()
         applyMapUiMargins()
@@ -1870,6 +1923,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun setEditing(on: Boolean) {
         fields.setEditing(on)
         bagButton.setEditing(on)
+        recButton.setEditing(on)
         editBar.visibility = if (on) View.VISIBLE else View.GONE
         // The edit bar sits where the mode pill is.
         modeButton.visibility = if (on) View.GONE else View.VISIBLE

@@ -11,12 +11,15 @@ import kotlin.math.max
 
 /**
  * A round button the user can drag while editing the layout. Its place is kept as fractions (0..1)
- * of the free space, so it survives rotation. Until moved it stays at the top left.
+ * of the free space, so it survives rotation. Until moved it stays at the top left, under [below] if that shows.
  */
 class MovableButton(val button: View, private val prefs: SharedPreferences, private val key: String) {
     private val parent get() = button.parent as ViewGroup
     private val edge = 12 * button.resources.displayMetrics.density
     private var editing = false
+
+    /** Another button at the top left: until this one is moved, it sits under that one. */
+    var below: View? = null
 
     init {
         val relayout = View.OnLayoutChangeListener { _, l, t, r, b, ol, ot, or, ob ->
@@ -32,7 +35,10 @@ class MovableButton(val button: View, private val prefs: SharedPreferences, priv
     fun place() {
         if (parent.width == 0 || button.width == 0) return
         button.x = parent.paddingLeft + edge + prefs.getFloat("${key}_x", 0f) * freeX()
-        button.y = parent.paddingTop + edge + prefs.getFloat("${key}_y", 0f) * freeY()
+        val b = below
+        button.y = if (!prefs.contains("${key}_y") && b != null && b.visibility == View.VISIBLE && b.height > 0)
+            b.y + b.height + edge
+        else parent.paddingTop + edge + prefs.getFloat("${key}_y", 0f) * freeY()
     }
 
     fun reset() {
