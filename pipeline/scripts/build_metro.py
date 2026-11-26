@@ -43,7 +43,8 @@ S3 = "https://s3-ap-southeast-2.amazonaws.com/transport.wa/Bathymetry"
 RASTERS = ["TwoRocks", "OceanReef", "Rottnest", "Warnbro", "CockburnSound", "Perth", "Dawesville", "Yalgorup"]
 POINTS = ["SC", "CS", "FR", "WB", "MH", "DV"]   # MH: Mandurah; DV: Dawesville and Peel Inlet
 MAX_GAP_M = 80        # no depth further than this from a real sounding (points only)
-OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]
+OVERPASS = ["https://overpass-api.de/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+            "https://overpass.kumi.systems/api/interpreter"]
 UA = {"User-Agent": "chompchamp-pipeline/0.1"}
 
 # dmin/dmax bands and contour levels (metres). FINE contours only appear when zoomed in.
@@ -80,7 +81,7 @@ def fetch_osm(path):
     w, s, e, n = METRO_BBOX
     m = 0.1
     b = f"{s - m},{w - m},{n + m},{e + m}"
-    q = f"""[out:json][timeout:180];
+    q = f"""[out:json][timeout:300];
 (way["natural"="coastline"]({b});
  way["natural"="water"]["water"~"^(river|harbour|canal|bay)$"]({b});
  relation["natural"="water"]["water"~"^(river|harbour|canal|bay)$"]({b});
@@ -88,20 +89,21 @@ def fetch_osm(path):
  relation["natural"="water"][!"water"]({b});
  way["waterway"="dock"]({b});
 );out geom;"""
-    for attempt in range(6):
+    tries = 3 * len(OVERPASS)
+    for attempt in range(tries):
         url = OVERPASS[attempt % len(OVERPASS)]
         try:
             req = urllib.request.Request(url, data=urllib.parse.urlencode({"data": q}).encode(), headers=UA)
-            with urllib.request.urlopen(req, timeout=240) as r:
+            with urllib.request.urlopen(req, timeout=360) as r:
                 d = json.load(r)
             if not any(x["tags"].get("natural") == "coastline" for x in d["elements"]):
                 raise RuntimeError("no coastline in Overpass reply")
             json.dump(d, open(path, "w"))
             return d["elements"]
         except Exception as ex:  # noqa: BLE001
-            if attempt == 5:
+            if attempt == tries - 1:
                 raise
-            log("Overpass retry", ex)
+            log("Overpass retry", url, ex)
             time.sleep(20)
 
 
