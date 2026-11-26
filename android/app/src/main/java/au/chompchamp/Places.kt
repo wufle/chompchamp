@@ -28,7 +28,18 @@ import org.maplibre.android.style.layers.PropertyFactory.textLetterSpacing
 import org.maplibre.android.style.layers.PropertyFactory.textMaxWidth
 import org.maplibre.android.style.layers.PropertyFactory.textOffset
 import org.maplibre.android.style.layers.PropertyFactory.textSize
+import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.PropertyFactory.circleColor
+import org.maplibre.android.style.layers.PropertyFactory.circleOpacity
+import org.maplibre.android.style.layers.PropertyFactory.circleRadius
+import org.maplibre.android.style.layers.PropertyFactory.circleStrokeColor
+import org.maplibre.android.style.layers.PropertyFactory.circleStrokeWidth
+import org.maplibre.android.style.layers.PropertyFactory.textAllowOverlap
+import org.maplibre.android.style.layers.PropertyFactory.textIgnorePlacement
 import org.maplibre.android.style.layers.SymbolLayer
+import org.maplibre.geojson.Feature
+import org.maplibre.geojson.FeatureCollection
+import org.maplibre.geojson.Point
 import org.maplibre.android.style.sources.GeoJsonSource
 import java.net.URI
 import java.text.Normalizer
@@ -48,6 +59,7 @@ class Places(private val ctx: Context) {
     companion object {
         const val LAYER = "places"
         private const val SOURCE = "places"
+        private const val HIT = "place-hit"
         private const val FONT = "Noto Sans Regular"
         private const val ASSET = "places.geojson"
 
@@ -160,6 +172,23 @@ class Places(private val ctx: Context) {
                 stop(12, Expression.lte(rank, literal(5))),
                 stop(13.5, literal(true)))
         ).apply { minZoom = 5f })
+    }
+
+    /** Ring and name round the place just picked in the search, drawn over everything else. Null clears it. */
+    fun showHit(s: Style, p: Place?) {
+        if (s.getSource(HIT) == null) {
+            s.addSource(GeoJsonSource(HIT))
+            s.addLayer(CircleLayer("$HIT-ring", HIT).withProperties(
+                circleRadius(14f), circleColor("#ffffff"), circleOpacity(0f), circleStrokeColor("#0D47A1"), circleStrokeWidth(3f)))
+            s.addLayer(SymbolLayer("$HIT-label", HIT).withProperties(
+                textField(get("name")), textFont(arrayOf(FONT)), textSize(13f), textColor("#0D47A1"),
+                textHaloColor("#ffffff"), textHaloWidth(1.8f), textAnchor(Property.TEXT_ANCHOR_TOP), textOffset(arrayOf(0f, 1.5f)),
+                textMaxWidth(10f), textAllowOverlap(true), textIgnorePlacement(true)))
+        }
+        val src = s.getSourceAs<GeoJsonSource>(HIT) ?: return
+        if (p == null) { src.setGeoJson(FeatureCollection.fromFeatures(emptyList())); return }
+        val f = Feature.fromGeometry(Point.fromLngLat(p.pos.lon, p.pos.lat)).apply { addStringProperty("name", p.name) }
+        src.setGeoJson(FeatureCollection.fromFeatures(listOf(f)))
     }
 
     /** Label and icon size: [scale] is the user's "Place names" size (1 = normal). */

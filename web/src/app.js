@@ -181,7 +181,7 @@
     }
     s.sources.hazards = { type: 'geojson', data: DATA.hazards, attribution: 'Marks © WA Department of Transport (CC BY 4.0), © OpenStreetMap contributors' };
     s.sources.places = { type: 'geojson', data: DATA.places, attribution: 'Places © OpenStreetMap contributors, boat ramps © WA Department of Transport (CC BY 4.0)' };
-    for (const k of ['track', 'route-line', 'route-mid', 'route-wpts', 'marks', 'issue']) s.sources[k] = { type: 'geojson', data: fc([]) };
+    for (const k of ['track', 'route-line', 'route-mid', 'route-wpts', 'marks', 'issue', 'place-hit']) s.sources[k] = { type: 'geojson', data: fc([]) };
     const halo = { 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 };
     const BLUE = '#1B4F72', NAVY = '#0D47A1', POINTS = ['ramp', 'harbour', 'marina', 'jetty', 'lighthouse'];
     const rank = ['to-number', ['get', 'rank']];
@@ -210,6 +210,10 @@
       { id: 'marks', type: 'circle', source: 'marks', paint: { 'circle-radius': 7, 'circle-color': ['to-color', ['get', 'color'], '#fdd835'], 'circle-stroke-color': '#4e342e', 'circle-stroke-width': 2 } },
       { id: 'marks-label', type: 'symbol', source: 'marks', layout: { 'text-field': ['get', 'name'], 'text-font': FONT, 'text-size': 11,
         'text-offset': [0, 1.5], 'text-optional': true }, paint: { 'text-color': '#4e342e', ...halo } },
+      { id: 'place-hit-ring', type: 'circle', source: 'place-hit', paint: { 'circle-radius': 14, 'circle-opacity': 0, 'circle-stroke-color': NAVY, 'circle-stroke-width': 3 } },
+      { id: 'place-hit-label', type: 'symbol', source: 'place-hit', layout: { 'text-field': ['get', 'name'], 'text-font': FONT, 'text-size': 13,
+        'text-anchor': 'top', 'text-offset': [0, 1.5], 'text-max-width': 10, 'text-allow-overlap': true, 'text-ignore-placement': true },
+        paint: { 'text-color': NAVY, 'text-halo-color': '#ffffff', 'text-halo-width': 1.8 } },
       { id: 'issue', type: 'circle', source: 'issue', paint: { 'circle-radius': 16, 'circle-color': '#C62828', 'circle-opacity': 0.12, 'circle-stroke-color': '#C62828', 'circle-stroke-width': 2.5 } },
     );
     s.layers = layers;
@@ -270,12 +274,15 @@
   // ---- Place search ------------------------------------------------------------------------------
   {
     const input = $('search-input'), list = $('search-results');
-    let hits = [], sel = 0;
+    let hits = [], sel = 0, hitTimer = 0;
     const close = () => { list.hidden = true; list.replaceChildren(); };
     const go = (f) => {
       const [lon, lat] = f.geometry.coordinates;
       close(); input.blur();
       map.easeTo({ center: [lon, lat], zoom: Math.min(15, Math.max(map.getZoom(), C.placeZoom(f.properties.rank) + 1)), duration: 1200 });
+      // Ring the place for a while, as its label may give way to a nearby one.
+      setData('place-hit', [point({ lat, lon }, { name: f.properties.name })]);
+      clearTimeout(hitTimer); hitTimer = setTimeout(() => setData('place-hit', []), 20000);
       if (!layerState('places', true).on) toast(`${f.properties.name}. Place names are off in Layers.`);
     };
     const show = () => {

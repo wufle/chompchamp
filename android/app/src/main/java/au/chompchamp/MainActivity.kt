@@ -382,6 +382,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         override fun mapCentre() = map?.cameraPosition?.target?.let { LatLon(it.latitude, it.longitude) }
     })
 
+    private val clearPlaceHit = Runnable { map?.style?.let { places.showHit(it, null) } }
+
     private fun createPlacesPanel() = PlacesPanel(this, panel, look, places, object : PlacesPanel.Host {
         override fun boat() = lastPos()
         override fun mapCentre() = map?.cameraPosition?.target?.let { LatLon(it.latitude, it.longitude) }
@@ -391,6 +393,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
             m.locationComponent.takeIf { locationActive }?.cameraMode = CameraMode.NONE
             val zoom = maxOf(m.cameraPosition.zoom, Places.labelZoom(p.rank) + 1.0).coerceAtMost(15.0)
             m.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(p.pos.lat, p.pos.lon), zoom), 1200)
+            // Ring the place for a while, as its label may give way to a nearby one.
+            m.style?.let { places.showHit(it, p) }
+            mapView.removeCallbacks(clearPlaceHit)
+            mapView.postDelayed(clearPlaceHit, 20_000)
             if (!layers.isOn(MapOverlay.PLACES)) Toast.makeText(this@MainActivity,
                 "${p.name}. Place names are off in Layers.", Toast.LENGTH_SHORT).show()
         }
