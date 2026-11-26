@@ -69,17 +69,17 @@ Four modes (switch with the button at the top of the screen):
 - **Navigate**: steers you waypoint by waypoint with BRG, DTW, XTE, VMG, TTG, ETA to waypoint and destination, and distance remaining. Auto-advances at the arrival radius or when you pass abeam. Previous, stop and next buttons.
 - **Fish**: zooms in close, measures drift over a rolling window and draws where you'll be in N minutes. **Mark** saves your catch and the spot together: species, number, length, weight, kept or released, bait, notes and photos, with the time, position and estimated depth filled in. The newest photo shows as a bubble on the map. Sort marks into coloured groups you can show or hide (Menu → Marks), and move or delete many at once. Add more catches or photos (camera or gallery) to a mark by tapping it. Anchor alarm, nearest-mark distance/bearing, breadcrumb track.
 
-**Bag & size limits** (fish-in-a-bag button at the top left in Fish mode, or Menu): daily bag, boat and size limits for
+**Bag & size limits** (fish-in-a-bag button at the top right in Fish mode, or Menu): daily bag, boat and size limits for
 the area you're in, with closed seasons, pictures, and a search by species. Tap a picture for a bigger one and a
 **Google Images** button that searches the web for more photos of that fish (needs internet). The area follows your position, or choose one. Works
 offline. The limits are copied from DPIRD's guide by hand and shortened, and they don't update by themselves, so check the
 [current rules](https://www.dpird.wa.gov.au/individuals/recreational-fishing/recreational-fishing-rules/recreational-bag-and-size-limits/).
 
 **Trips & catches** (Menu): a trip records your track with the time and speed at each point. Recording starts when you
-tap the **● Record** button on the map (top right; move it with Menu → Display → Move or resize), start a route, or mark
-a catch; set it to start only when you tap Record in Settings. While it records, the button turns red and shows
-**● REC** and the time, and Android shows a notification. Tapping it shows the trip so far. To stop, **press and hold**
-it, then choose to save, keep recording or discard the trip, so a knock on the screen can't end a trip. If you turn the
+tap **Record** at the top left of the map (move it with Menu → Display → Move or resize), start a route, or mark
+a catch; set it to start only when you tap Record in Settings. While it records, a red light there slowly flashes next
+to the time, and Android shows a notification. Tapping it shows the trip so far. To stop, **press and hold** it, then
+choose to save, keep recording or discard the trip, so a knock on the screen can't end a trip. If you turn the
 button off (Menu → Display), recording moves to the mode menu and Trips & catches. Saved
 trips keep their full track, distance, time under way, average and top speed, catches, and a speed chart you drag along
 to see when and where on the map. Export a trip as GPX, or its speed log or catches as CSV. Recording carries on with the

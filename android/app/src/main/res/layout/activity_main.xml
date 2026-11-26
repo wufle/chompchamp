@@ -57,17 +57,32 @@
             android:src="@drawable/ic_bag_fish"
             android:visibility="gone" />
 
-        <!-- Record a trip / REC 1:23, every mode. Placed by MovableButton; top left until moved. -->
-        <TextView
+        <!-- "Record a trip", then a slowly pulsing red light and the time. Every mode. Placed by
+             MovableButton; top left until moved. -->
+        <LinearLayout
             android:id="@+id/btnRecord"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:gravity="center"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
             android:paddingStart="14dp"
-            android:paddingEnd="14dp"
-            android:letterSpacing="0.06"
-            android:textStyle="bold"
-            android:visibility="gone" />
+            android:paddingEnd="16dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:visibility="gone">
+
+            <View
+                android:id="@+id/recDot"
+                android:layout_width="10dp"
+                android:layout_height="10dp" />
+
+            <TextView
+                android:id="@+id/recText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="9dp"
+                android:letterSpacing="0.04" />
+        </LinearLayout>
 
         <!-- Alerts: no-fishing zone, restricted area, anchor drag. Tap for details. -->
         <TextView

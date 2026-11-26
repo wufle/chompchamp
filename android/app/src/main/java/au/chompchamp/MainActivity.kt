@@ -232,16 +232,17 @@ class MainActivity : AppCompatActivity(), LocationListener {
         bagButton = MovableButton(findViewById(R.id.btnBag), prefs, "ui_bag")
         bagButton.button.setOnClickListener { bagPanel.toggle() }
         TooltipCompat.setTooltipText(bagButton.button, getString(R.string.bag_limits))
-        recButton = MovableButton(findViewById(R.id.btnRecord), prefs, "ui_rec")
+        // "ui_record": 0.17.5 kept its place under "ui_rec", at the top right; it starts at the top left now.
+        recButton = MovableButton(findViewById(R.id.btnRecord), prefs, "ui_record")
         recButton.button.setOnClickListener { onRecordTap() }
         // Stopping takes a press and hold, then a confirm, so a knock on the screen can't end a trip.
         recButton.button.setOnLongClickListener { if (recording) askStopTrip() else startTrip(null); true }
-        // Until moved: top right, beside the menu button (data fields start at the top left).
-        recButton.defaultAt = {
+        // The Record button has the top left, so until moved the bag button sits beside the menu button.
+        bagButton.defaultAt = {
             val menu = findViewById<View>(R.id.btnMenu)
-            val b = recButton.button
+            val b = bagButton.button
             if (menu.width == 0 || b.width == 0) null
-            else (menu.x - b.width - 10 * resources.displayMetrics.density) to (menu.y + (menu.height - b.height) / 2f)
+            else (menu.x - b.width - 10 * resources.displayMetrics.density) to menu.y
         }
         aisLabel = findViewById(R.id.aisLabel)
         aisLabel.setOnClickListener { showAisInfo() }
@@ -1186,7 +1187,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         ticker.removeCallbacks(tick); ticker.post(tick)
         lastFix?.let { recordTrack(it, LatLon(it.latitude, it.longitude), if (it.hasSpeed()) it.speed * Geo.KN_PER_MS else null) }
         if (quiet) return
-        snack(message ?: if (look.showRecordButton) "Recording a trip. To stop, press and hold REC." else "Recording a trip.")
+        snack(message ?: if (look.showRecordButton) "Recording a trip. To stop, press and hold the red light." else "Recording a trip.")
             .setAction("Undo") { recording = false; clearTrack(); recordingChanged() }
             .show()
     }
@@ -1264,41 +1265,56 @@ class MainActivity : AppCompatActivity(), LocationListener {
         else String.format(Locale.US, "%d:%02d:%02d", sec / 3600, sec / 60 % 60, sec % 60)
     }
 
-    /** "● Record" when not recording; red "● REC 1:23" with a red edge while recording. */
+    /** Fades the red light in and out while recording and the app is on screen. */
+    private var recPulse: android.animation.ObjectAnimator? = null
+
+    /**
+     * "Record a trip" with a grey dot when not recording. While recording: a red light that slowly fades in
+     * and out, and the time. Quiet on purpose; press and hold to stop.
+     */
     private fun updateRecordButton() {
         if (!::recButton.isInitialized) return
-        val b = recButton.button as TextView
+        val b = recButton.button
+        val dot = findViewById<View>(R.id.recDot)
+        val label = findViewById<TextView>(R.id.recText)
         val on = look.showRecordButton
         b.visibility = if (on) View.VISIBLE else View.GONE
+        val pulse = on && recording && started
+        if (pulse && recPulse == null) {
+            recPulse = android.animation.ObjectAnimator.ofFloat(dot, View.ALPHA, 1f, 0.15f).apply {
+                duration = 1400
+                repeatMode = android.animation.ValueAnimator.REVERSE
+                repeatCount = android.animation.ValueAnimator.INFINITE
+                interpolator = android.view.animation.AccelerateDecelerateInterpolator()
+                start()
+            }
+        } else if (!pulse && recPulse != null) {
+            recPulse?.cancel(); recPulse = null; dot.alpha = 1f
+        }
         if (!on) return
-        val dp = resources.displayMetrics.density
-        val scale = look.controlScale
-        val red = ContextCompat.getColor(this, R.color.ui_danger_text)
-        val words = if (recording) "REC ${recTime()}" else "Record"
-        val text = android.text.SpannableString("●  $words")
-        text.setSpan(android.text.style.ForegroundColorSpan(red), 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        if (recording) text.setSpan(android.text.style.ForegroundColorSpan(red), 3, 6, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-        b.text = text
+        label.text = if (recording) recTime() else "Record"
         b.contentDescription = if (recording) "Recording a trip, ${recTime()}. Press and hold to stop." else "Record a trip"
         // The clock ticks every second: restyle only when something else changed.
+        val scale = look.controlScale
         val key = "$recording ${look.controlAlpha} $scale"
         if (b.tag == key) return
         b.tag = key
-        b.fontFeatureSettings = "tnum"   // same-width digits, so the button doesn't twitch as the seconds change
-        b.minHeight = controlSizePx()
-        b.textSize = 13f * scale
-        b.setTextColor(look.onSurface)
-        b.background = look.surfaceBg(if (recording) maxOf(look.controlAlpha, 0.85f) else look.controlAlpha, 22f * scale).apply {
-            if (recording) setStroke((2 * dp).toInt().coerceAtLeast(1), red)
-        }
-        TooltipCompat.setTooltipText(b, null)
+        val dp = resources.displayMetrics.density
+        dot.background = look.circleBg(1f, if (recording) ContextCompat.getColor(this, R.color.ui_danger_text) else look.muted)
+        dot.layoutParams = dot.layoutParams.apply { width = (10 * dp * scale).toInt(); height = width }
+        label.fontFeatureSettings = "tnum"   // same-width digits, so the button doesn't twitch as the seconds change
+        label.textSize = 13f * scale
+        label.setTextColor(if (recording) look.muted else look.onSurface)
+        label.setTypeface(null, if (recording) android.graphics.Typeface.NORMAL else android.graphics.Typeface.BOLD)
+        b.minimumHeight = controlSizePx()
+        b.background = look.surfaceBg(look.controlAlpha, 22f * scale)
         b.post { recButton.place() }
     }
 
     private fun onRecordTap() {
         if (!recording) { startTrip(null); return }
         val s = track.stats
-        snack("Recording ${recTime()} · ${Geo.fmtDist(s.distanceNm)}. To stop, press and hold REC.").show()
+        snack("Recording ${recTime()} · ${Geo.fmtDist(s.distanceNm)}. To stop, press and hold the red light.").show()
     }
 
     /** Keep GPS coming with the screen off while recording, if the user wants that. */
@@ -2447,6 +2463,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         ais.stop()
         updater.stopPolling()
         ticker.removeCallbacks(tick)
+        updateRecordButton()   // stops the light's animation while off screen
         mapView.onStop()
         val pts = ArrayList(track.points)
         io.execute { store.saveTrack(pts) }

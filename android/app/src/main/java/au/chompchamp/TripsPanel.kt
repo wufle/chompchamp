@@ -95,7 +95,7 @@ class TripsPanel(
                     "${log.catches.filter { it.released }.sumOf { it.count }} released")
             }
             rows.note("Recording starts when you tap Record, start a route, or mark a catch (Settings: Start recording a " +
-                "trip). While it records, the Record button on the map shows REC and the time; press and hold it to stop. A trip left with no GPS for longer than the break " +
+                "trip). While it records, a red light at the top left of the map slowly flashes, with the time; press and hold it to stop. A trip left with no GPS for longer than the break " +
                 "in Settings is saved and stopped by itself.")
         }, onClose = { open = false })
         open = true
