@@ -97,9 +97,21 @@ class CatchDialogs(
 
         val sizes = LinearLayout(ctx)
         box.addView(sizes)
-        val count = field(EditText(ctx), "How many", "${c.count}", InputType.TYPE_CLASS_NUMBER, sizes, 1f)
-        val length = field(EditText(ctx), "Length cm", c.lengthCm?.let { Catch.trim(it) }.orEmpty(), decimal, sizes, 1f)
-        val weight = field(EditText(ctx), "Weight kg", c.weightKg?.let { Catch.trim(it, 2) }.orEmpty(), decimal, sizes, 1f)
+        // A caption over each number, since a hint disappears once there's a value (and "how many" starts at 1).
+        fun captioned(caption: String): LinearLayout {
+            val col = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
+            col.addView(android.widget.TextView(ctx).apply {
+                text = caption
+                textSize = 12f
+                setTextColor(look.muted)
+                setPadding(px(4), px(8), 0, 0)
+            })
+            sizes.addView(col, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            return col
+        }
+        val count = field(EditText(ctx), "", "${c.count}", InputType.TYPE_CLASS_NUMBER, captioned("How many"))
+        val length = field(EditText(ctx), "", c.lengthCm?.let { Catch.trim(it) }.orEmpty(), decimal, captioned("Length (cm)"))
+        val weight = field(EditText(ctx), "", c.weightKg?.let { Catch.trim(it, 2) }.orEmpty(), decimal, captioned("Weight (kg)"))
         val bait = field(AutoCompleteTextView(ctx), "Bait or lure", c.bait, words)
         suggest(bait, used { it.bait })
         val notes = field(EditText(ctx), "Notes", c.notes, words or InputType.TYPE_TEXT_FLAG_MULTI_LINE)

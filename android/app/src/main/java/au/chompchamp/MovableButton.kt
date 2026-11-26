@@ -21,6 +21,9 @@ class MovableButton(val button: View, private val prefs: SharedPreferences, priv
     /** Where it sits until the user moves it (x, y in the parent), or null for the top left. */
     var defaultAt: (() -> Pair<Float, Float>?)? = null
 
+    /** Another button this one must not hide under: if its place would overlap it, it goes to [defaultAt]. */
+    var avoid: View? = null
+
     init {
         val relayout = View.OnLayoutChangeListener { _, l, t, r, b, ol, ot, or, ob ->
             if (r - l != or - ol || b - t != ob - ot) button.post { place() }
@@ -37,6 +40,21 @@ class MovableButton(val button: View, private val prefs: SharedPreferences, priv
         val d = if (prefs.contains("${key}_x")) null else defaultAt?.invoke()
         button.x = d?.first ?: (parent.paddingLeft + edge + prefs.getFloat("${key}_x", 0f) * freeX())
         button.y = d?.second ?: (parent.paddingTop + edge + prefs.getFloat("${key}_y", 0f) * freeY())
+        // Not ready yet (the default spot depends on other buttons' sizes): try again after layout.
+        if (d == null && defaultAt != null && !prefs.contains("${key}_x")) { if (tries++ < 5) button.post { place() }; return }
+        tries = 0
+        val a = avoid
+        if (a != null && a.visibility == View.VISIBLE && a.width > 0 && overlaps(a)) {
+            defaultAt?.invoke()?.let { (x, y) -> button.x = x; button.y = y }
+        }
+    }
+
+    private var tries = 0
+
+    private fun overlaps(o: View): Boolean {
+        val gap = edge / 2
+        return button.x < o.x + o.width + gap && o.x < button.x + button.width + gap &&
+            button.y < o.y + o.height + gap && o.y < button.y + button.height + gap
     }
 
     fun reset() {

@@ -62,9 +62,11 @@ class SpeedChartView(ctx: Context, private val look: Appearance) : View(ctx) {
             c.drawLine(left, y(kn), right, y(kn), grid)
             c.drawText(Catch.trim(kn), left - 4 * dp, y(kn) + 3.5f * dp, text)
         }
-        val base = height - 3 * dp
+        // The unit goes with the speed scale, just under its top line; next to a time it read "17:39 kn".
         text.textAlign = Paint.Align.LEFT
-        c.drawText(Geo.fmtClock(t0) + "  kn", left, base, text)
+        c.drawText("kn", left + 4 * dp, y(top) + 13 * dp, text)
+        val base = height - 3 * dp
+        c.drawText(Geo.fmtClock(t0), left, base, text)
         text.textAlign = Paint.Align.RIGHT
         c.drawText(Geo.fmtClock(t1), right, base, text)
         text.textAlign = Paint.Align.CENTER

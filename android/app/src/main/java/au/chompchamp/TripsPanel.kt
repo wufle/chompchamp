@@ -25,6 +25,8 @@ class TripsPanel(
         fun currentCatches(): List<Catch>
         fun catchesOf(t: Trip): List<Catch>
         val recording: Boolean
+        /** When the trip in progress started (the same clock as the recording light). */
+        val recordingStart: Long
         fun startTrip()
         /** Asks first. */
         fun stopTrip()
@@ -56,8 +58,10 @@ class TripsPanel(
             val s = host.track.stats
             if (host.recording) {
                 rows.section("Recording this trip")
-                rows.note(if (host.track.points.size < 2) "Recording. Waiting for the boat to move…"
-                else summary(s.start, s.end, s.durationMs, s.distanceNm, s.movingMs, s.avgMovingKn, s.maxKn, host.currentCatches().size))
+                val since = host.recordingStart
+                val now = System.currentTimeMillis()
+                rows.note(if (host.track.points.size < 2) "Recording since ${Geo.fmtClock(since)}. Waiting for the boat to move…"
+                else summary(since, now, now - since, s.distanceNm, s.movingMs, s.avgMovingKn, s.maxKn, host.currentCatches().size))
                 rows.actionRow("Mark a catch", "Add") { host.logCatch() }
                 if (host.track.points.size >= 2) rows.actionRow("Speed log and details", "Open") { showDetails(null) }
                 rows.actionRow("Stop recording", "Stop…") { host.stopTrip() }

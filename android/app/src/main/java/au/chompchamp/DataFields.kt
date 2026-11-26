@@ -208,6 +208,8 @@ class DataFieldsOverlay(
             card.root.background = if (grouped) null else look.surfaceBg(
                 if (editing) maxOf(look.fieldAlpha, 0.6f) else look.fieldAlpha, 10f, dashedOutline = editing)
         }
+        // Cards in their default place sit below the top row of buttons, which grows with the button size.
+        container.post { placeAll() }
         group.setPadding(p, p / 2, p, p / 2)
         group.background = look.surfaceBg(
             if (editing) maxOf(look.fieldAlpha, 0.6f) else look.fieldAlpha, 12f, dashedOutline = editing)

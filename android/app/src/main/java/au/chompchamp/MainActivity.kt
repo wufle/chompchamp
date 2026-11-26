@@ -237,7 +237,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
         recButton.button.setOnClickListener { onRecordTap() }
         // Stopping takes a press and hold, then a confirm, so a knock on the screen can't end a trip.
         recButton.button.setOnLongClickListener { if (recording) askStopTrip() else startTrip(null); true }
-        // The Record button has the top left, so until moved the bag button sits beside the menu button.
+        // The Record button has the top left, so until moved the bag button sits beside the menu button,
+        // and goes back there if it would hide under Record (it used to live at the top left).
+        bagButton.avoid = recButton.button
         bagButton.defaultAt = {
             val menu = findViewById<View>(R.id.btnMenu)
             val b = bagButton.button
@@ -633,7 +635,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         if (plan.waypoints.size < 2) { Toast.makeText(this, "Add at least two waypoints", Toast.LENGTH_SHORT).show(); return }
         if (!chartFile.exists()) { Toast.makeText(this, R.string.no_chart, Toast.LENGTH_SHORT).show(); return }
         zoomToRoute(plan)
-        Toast.makeText(this, "Checking route…", Toast.LENGTH_SHORT).show()
+        snack("Checking route…").setDuration(1500).show()
         mapView.addOnDidBecomeIdleListener(object : MapView.OnDidBecomeIdleListener {
             override fun onDidBecomeIdle() {
                 mapView.removeOnDidBecomeIdleListener(this)
@@ -688,6 +690,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         if (r.waypoints.isEmpty()) { Toast.makeText(this, "Add waypoints first", Toast.LENGTH_SHORT).show(); return }
         navigator.start(r, lastPos())
         lastNav = null
+        // Heading to a spot from Fish mode: back to Fish when it ends. Planned in Route or Chart: back to Chart.
+        if (mode != AppMode.NAVIGATE) modeAfterNav = if (mode == AppMode.FISH) AppMode.FISH else AppMode.CHART
         setMode(AppMode.NAVIGATE)
         if (settings.autoStartTrip && !recording) startTrip("Recording this trip")
         lastFix?.let { onLocationChanged(it) }
@@ -696,8 +700,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun stopNavigation() {
         navigator.stop()
         lastNav = null
-        setMode(AppMode.CHART)
+        setMode(modeAfterNav)
     }
+
+    private var modeAfterNav = AppMode.CHART
 
     private fun navChanged() {
         lastNav = null
@@ -869,7 +875,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun markMenu(mark: Mark) {
         val dp = resources.displayMetrics.density
         val time = SimpleDateFormat("d MMM yyyy HH:mm", Locale.getDefault()).format(Date(mark.time))
-        val dist = lastPos()?.let { "\n${Geo.fmtDist(Geo.distanceNm(it, mark.pos))} @ ${Geo.fmtBearing(Geo.bearing(it, mark.pos))} from boat" } ?: ""
+        val dist = lastPos()?.let { "\n" + Geo.fromBoat(it, mark.pos) } ?: ""
         val pad = (24 * dp).toInt()
         val body = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -976,7 +982,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     private fun markLabel(m: Mark): String {
         val dist = lastPos()?.let { " · " + Geo.fmtDist(Geo.distanceNm(it, m.pos)) }.orEmpty()
-        return m.name + dist + (m.depth?.let { " · $it m" } ?: "")
+        return m.name + dist + (m.depth?.let { " · ${Geo.depthText(it)}" } ?: "")
     }
 
     private fun goToMark(m: Mark) {
@@ -990,10 +996,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
             anchor = null
         } else {
             anchor = lastPos() ?: run { Toast.makeText(this, "Waiting for GPS fix", Toast.LENGTH_SHORT).show(); return }
-            Toast.makeText(this, "Anchor alarm set: ${settings.anchorRadiusM.toInt()} m", Toast.LENGTH_SHORT).show()
         }
         overlays.setAnchor(anchor, settings.anchorRadiusM)
         refreshModePanel()
+        // Above the mode buttons, not over them as a toast would be.
+        snack(if (anchor != null) "Anchor alarm set: ${settings.anchorRadiusM.toInt()} m" else "Anchor alarm off").setDuration(2500).show()
         updateBanner()
     }
 
@@ -1015,6 +1022,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         override fun currentCatches() = this@MainActivity.currentCatches()
         override fun catchesOf(t: Trip) = this@MainActivity.catchesOf(t)
         override val recording get() = this@MainActivity.recording
+        override val recordingStart get() = recStart()
         override fun startTrip() = this@MainActivity.startTrip(null)
         override fun stopTrip() = askStopTrip()
         override fun showTrip(t: Trip?, points: List<TrackPoint>, zoom: Boolean) = showTripOnMap(t, points, zoom)
@@ -1205,7 +1213,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
         val n = currentCatches().size
         val what = listOfNotNull(
-            if (s.durationMs > 0) Geo.fmtDuration(s.durationMs / 3_600_000.0) else null,
+            Geo.fmtDuration((System.currentTimeMillis() - recStart()) / 3_600_000.0),
             Geo.fmtDist(s.distanceNm),
             if (n > 0) "$n catch" + (if (n == 1) "" else "es") else null).joinToString(" · ")
         MaterialAlertDialogBuilder(this)
@@ -1254,13 +1262,17 @@ class MainActivity : AppCompatActivity(), LocationListener {
     }
 
     /** Time since recording started: "4:07" (minutes and seconds), then "1:04:07". */
-    private fun recTime(): String {
+    /** When this trip started: the tap on Record, or its first point if that's earlier. */
+    private fun recStart(): Long {
         val now = System.currentTimeMillis()
         val first = track.points.firstOrNull()?.t
         // Trips recorded before 0.17.4 have no start time: go by the track, or start the clock now.
         if (recordingSince <= 0L || recordingSince > now) recordingSince = first ?: now
-        val start = minOf(recordingSince, first ?: recordingSince)
-        val sec = ((now - start) / 1000).coerceAtLeast(0)
+        return minOf(recordingSince, first ?: recordingSince)
+    }
+
+    private fun recTime(): String {
+        val sec = ((System.currentTimeMillis() - recStart()) / 1000).coerceAtLeast(0)
         return if (sec < 3600) String.format(Locale.US, "%d:%02d", sec / 60, sec % 60)
         else String.format(Locale.US, "%d:%02d:%02d", sec / 3600, sec / 60 % 60, sec % 60)
     }
@@ -1308,7 +1320,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         label.setTypeface(null, if (recording) android.graphics.Typeface.NORMAL else android.graphics.Typeface.BOLD)
         b.minimumHeight = controlSizePx()
         b.background = look.surfaceBg(look.controlAlpha, 22f * scale)
-        b.post { recButton.place() }
+        b.post { recButton.place(); bagButton.place() }
     }
 
     private fun onRecordTap() {
@@ -1407,7 +1419,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             listOfNotNull(v.typeName, size, v.statusName).joinToString(" · "),
             "Last heard " + if (min < 1) "less than a minute ago" else "$min min ago",
             v.sog?.let { s -> String.format(Locale.US, "%.1f kn", s) + (v.cog?.takeIf { v.moving }?.let { " → ${Geo.fmtBearing(it)}" } ?: "") },
-            here?.let { "${Geo.fmtDist(Geo.distanceNm(it, v.pos))} @ ${Geo.fmtBearing(Geo.bearing(it, v.pos))} from boat" },
+            here?.let { Geo.fromBoat(it, v.pos) },
             v.destination.takeIf { it.isNotBlank() }?.let { "Destination: $it" },
             listOfNotNull("MMSI ${v.mmsi}", v.callsign.takeIf { it.isNotBlank() }, v.flag.takeIf { it.isNotBlank() }).joinToString(" · "),
             "${Geo.formatDdm(v.lat, true)}  ${Geo.formatDdm(v.lon, false)}",
@@ -1456,7 +1468,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         if (fields.editing || mode == AppMode.ROUTE) return
         val depth = estimateDepthAt(point)
         val p = LatLon(point.latitude, point.longitude)
-        val dist = lastPos()?.let { "\n${Geo.fmtDist(Geo.distanceNm(it, p))} @ ${Geo.fmtBearing(Geo.bearing(it, p))} from boat" } ?: ""
+        val dist = lastPos()?.let { "\n" + Geo.fromBoat(it, p) } ?: ""
         MaterialAlertDialogBuilder(this)
             .setTitle("${Geo.formatDdm(p.lat, true)}  ${Geo.formatDdm(p.lon, false)}")
             .setMessage("Depth (est.): ${Geo.depthText(depth)}$dist")
@@ -1508,7 +1520,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             f.getStringProperty("owner")?.let { "Maintained by: $it" },
             "",
             "${Geo.formatDdm(p.lat, true)}  ${Geo.formatDdm(p.lon, false)}",
-            lastPos()?.let { "${Geo.fmtDist(Geo.distanceNm(it, p))} @ ${Geo.fmtBearing(Geo.bearing(it, p))} from boat" },
+            lastPos()?.let { Geo.fromBoat(it, p) },
             "",
             if (fromDot) "Source: WA Department of Transport, Navigation Aids (DOT-004), CC BY 4.0"
             else "Source: © OpenStreetMap contributors (OpenSeaMap), ODbL. Position may be approximate.",
@@ -2325,7 +2337,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         fields.set(DataField.TIME, SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date()))
         fields.set(DataField.TRIP, Geo.fmtNm(track.tripNm))
         val trip = track.stats
-        fields.set(DataField.TRIP_TIME, if (trip.durationMs > 0) Geo.fmtDuration(trip.durationMs / 3_600_000.0) else "--")
+        fields.set(DataField.TRIP_TIME, if (recording) Geo.fmtDuration((System.currentTimeMillis() - recStart()) / 3_600_000.0) else "--")
         fields.set(DataField.TRIP_AVG, trip.avgMovingKn?.let { String.format(Locale.US, "%.1f", it) } ?: "--.-")
         fields.set(DataField.TRIP_MAX, if (trip.maxKn > 0) String.format(Locale.US, "%.1f", trip.maxKn) else "--.-")
 
@@ -2349,7 +2361,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
         fields.set(DataField.DRIFT_DIR, d?.takeIf { it.first >= 0.05 }?.let { Geo.fmtBearing(it.second) } ?: "---°")
         val nearest = visibleMarks().minByOrNull { Geo.distanceNm(pos, it.pos) }
         fields.set(DataField.MARK, nearest?.let {
-            "${it.name}\n${Geo.fmtDist(Geo.distanceNm(pos, it.pos))} ${Geo.fmtBearing(Geo.bearing(pos, it.pos))}"
+            val nm = Geo.distanceNm(pos, it.pos)
+            // Within GPS wobble the direction just spins: say it's here.
+            "${it.name}\n" + if (nm * Geo.M_PER_NM < 10) "here" else "${Geo.fmtDist(nm)} ${Geo.fmtBearing(Geo.bearing(pos, it.pos))}"
         } ?: "--")
         fields.set(DataField.ANCHOR, anchor?.let { "${(Geo.distanceNm(it, pos) * Geo.M_PER_NM).toInt()}" } ?: "off")
     }

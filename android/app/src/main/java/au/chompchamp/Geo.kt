@@ -99,6 +99,12 @@ object Geo {
 
     fun fmtBearing(d: Double) = String.format(Locale.US, "%03.0f°", (d + 360) % 360)
 
+    /** "350 m @ 045° from boat", or "At the boat" when it's within GPS wobble and the bearing would just spin. */
+    fun fromBoat(boat: LatLon, p: LatLon): String {
+        val nm = distanceNm(boat, p)
+        return if (nm * M_PER_NM < 10) "At the boat" else "${fmtDist(nm)} @ ${fmtBearing(bearing(boat, p))} from boat"
+    }
+
     fun fmtDuration(hours: Double): String {
         if (hours.isNaN() || hours.isInfinite() || hours < 0 || hours > 99) return "--"
         val mins = (hours * 60).roundToInt()
