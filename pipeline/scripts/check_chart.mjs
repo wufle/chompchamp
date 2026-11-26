@@ -17,8 +17,10 @@ const header = await archive.getHeader();
 const reader = new globalThis.ChompCore.ChartReader(async (z, x, y) => { const t = await archive.getZxy(z, x, y); return t && t.data; }, header.maxZoom);
 
 const bands = {};
+let sea = 0, sourced = 0;
 for (const [lon, lat, elev, band] of JSON.parse(fs.readFileSync(points, 'utf8'))) {
   const r = await reader.at({ lat, lon });
+  if (elev < -5) { sea++; if (r.source && r.source.src) sourced++; }
   const b = bands[band] ??= { n: 0, land: 0, good: 0 };
   b.n++;
   if (r.land) b.land++;
@@ -37,4 +39,7 @@ for (const [band, b] of Object.entries(bands)) {
   if (!ok) failed = true;
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${band.padEnd(14)} ${b.n} points, land ${b.land}, depth right ${b.good}`);
 }
+// Every depth should say where it came from (the "source" layer).
+console.log(`${sourced / sea >= 0.99 ? 'ok  ' : 'FAIL'} source         ${sea} sea points, ${sourced} with a source`);
+if (sourced / sea < 0.99) failed = true;
 if (failed || Object.keys(bands).length < 10) { console.error('Chart does not match the source grid'); process.exit(1); }
