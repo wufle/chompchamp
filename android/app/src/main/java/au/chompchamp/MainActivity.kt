@@ -2331,6 +2331,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     private fun updateFields(loc: Location, pos: LatLon, sog: Double?, cog: Double?, d: Pair<Double, Double>?) {
         fields.set(DataField.SOG, sog?.let { String.format(Locale.US, "%.1f", it) } ?: "--.-")
+        fields.set(DataField.SOG_KMH, sog?.let { String.format(Locale.US, "%.1f", it * 1.852) } ?: "--.-")
         fields.set(DataField.COG, cog?.let { Geo.fmtBearing(it) } ?: "---°")
         fields.set(DataField.POSITION, "${Geo.formatDdm(loc.latitude, true)}\n${Geo.formatDdm(loc.longitude, false)}")
         fields.set(DataField.DEPTH, estimateDepthAt(LatLng(loc.latitude, loc.longitude)))

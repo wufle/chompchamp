@@ -28,6 +28,7 @@ enum class AppMode(val key: String, val label: String) {
  */
 enum class DataField(val key: String, val label: String, vararg val defaultIn: AppMode) {
     SOG("sog", "SOG  kn", AppMode.CHART, AppMode.NAVIGATE),
+    SOG_KMH("sog_kmh", "SOG  km/h"),
     COG("cog", "COG  °T", AppMode.CHART),
     POSITION("pos", "POSITION"),
     DEPTH("depth", "DEPTH  m (est.)", AppMode.CHART, AppMode.FISH),
@@ -53,7 +54,7 @@ enum class DataField(val key: String, val label: String, vararg val defaultIn: A
 
     val placeholder: String
         get() = when (this) {
-            SOG, VMG, DRIFT, TRIP_AVG, TRIP_MAX -> "--.-"
+            SOG, SOG_KMH, VMG, DRIFT, TRIP_AVG, TRIP_MAX -> "--.-"
             COG, BRG, DRIFT_DIR -> "---°"
             POSITION -> "No GPS fix"
             else -> "--"
