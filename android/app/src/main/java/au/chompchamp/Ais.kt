@@ -163,6 +163,8 @@ class Ais(
     private val net = Executors.newSingleThreadExecutor()
     private var style: Style? = null
     private var scale = 1f
+    private var colour = DEFAULT_COLOUR
+    private var dp = 1f
     private var all: List<Vessel> = emptyList()
     private var fetched: AisBox? = null
     private var lastTry = 0L
@@ -278,12 +280,10 @@ class Ais(
     /** Call after every style (re)load. */
     fun install(s: Style, dp: Float) {
         style = s
+        this.dp = dp
         for (id in listOf(SOURCE, VECTORS)) if (s.getSource(id) == null) s.addSource(GeoJsonSource(id))
-        for (moving in listOf(true, false)) for (old in listOf(true, false)) {
-            val id = iconId(moving, old)
-            if (s.getImage(id) == null) s.addImage(id, icon(moving, if (old) GREY else TEAL, dp))
-        }
-        s.addLayer(LineLayer("ais-vector", VECTORS).withProperties(lineColor(TEAL_HEX), lineWidth(1.5f)))
+        addIcons(s)
+        s.addLayer(LineLayer("ais-vector", VECTORS).withProperties(lineColor(colour), lineWidth(1.5f)))
         s.addLayer(SymbolLayer(LAYER, SOURCE).withProperties(
             iconImage(Expression.get("icon")), iconRotate(Expression.toNumber(Expression.get("rot"))),
             iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP), iconSize(scale),
@@ -292,6 +292,20 @@ class Ais(
             textFont(arrayOf("Noto Sans Regular")), textSize(10.5f), textAnchor(Property.TEXT_ANCHOR_TOP),
             textOffset(arrayOf(0f, 1f)), textColor("#004d40"), textHaloColor("#ffffff"), textHaloWidth(1.3f), textOptional(true)))
         draw()
+    }
+
+    private fun addIcons(s: Style) {
+        // addImage replaces an image with the same id, so this also recolours.
+        for (moving in listOf(true, false)) for (old in listOf(true, false)) s.addImage(iconId(moving, old), icon(moving, if (old) GREY else colour, dp))
+    }
+
+    /** Colour of vessels heard recently (older ones stay grey). */
+    fun setColour(c: Int) {
+        if (c == colour) return
+        colour = c
+        val s = style?.takeIf { it.isFullyLoaded } ?: return
+        addIcons(s)
+        s.getLayer("ais-vector")?.setProperties(lineColor(c))
     }
 
     fun setScale(v: Float) {
@@ -361,8 +375,8 @@ class Ais(
         /** Drawn grey after this long without being heard. */
         const val OLD_MS = 10 * 60_000L
         private const val MAX_BYTES = 8_000_000
-        private const val TEAL_HEX = "#00796b"
-        private val TEAL = 0xFF00796B.toInt()
+        /** Until [setColour]; matches R.color.ais_light_green. */
+        private val DEFAULT_COLOUR = 0xFF9CCC65.toInt()
         private val GREY = 0xFF78909C.toInt()
     }
 }

@@ -1832,6 +1832,17 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 updateScaleBar()
                 refreshDisplayPanel()
             }
+            rows.actionRow("AIS vessel colour", look.aisColours.first { it.first == look.aisColourKey }.second) {
+                val opts = look.aisColours
+                MaterialAlertDialogBuilder(this).setTitle("AIS vessel colour")
+                    .setSingleChoiceItems(opts.map { it.second }.toTypedArray(), opts.indexOfFirst { it.first == look.aisColourKey }) { d, i ->
+                        look.aisColourKey = opts[i].first
+                        ais.setColour(look.aisColour)
+                        d.dismiss()
+                        refreshDisplayPanel()
+                    }
+                    .setNegativeButton(android.R.string.cancel, null).show()
+            }
             rows.actionRow("Record button", if (look.showRecordButton) "On" else "Off") {
                 look.showRecordButton = !look.showRecordButton
                 updateModeLabel()
@@ -1919,6 +1930,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         aisLabel.gravity = Gravity.END
         aisLabel.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
         ais.setScale(look.aisScale)
+        ais.setColour(look.aisColour)
         overlays.setCatchScale(look.catchScale)
         updateBagButton()
         updateRecordButton()
@@ -1999,6 +2011,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
         m.setStyle(Style.Builder().fromJson(json)) { style ->
             hazards.install(style)
+            ais.setColour(look.aisColour)
             ais.install(style, resources.displayMetrics.density)
             overlays.install(style)
             layers.apply(style)

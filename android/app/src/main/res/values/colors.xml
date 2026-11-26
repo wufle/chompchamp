@@ -11,4 +11,9 @@
     <color name="alert_warn">#E65100</color>
     <color name="alert_info">#1565C0</color>
     <color name="ui_danger_text">#FF8A80</color>
+
+    <!-- AIS vessel colours the user can choose from (Display). Light green is the default. -->
+    <color name="ais_light_green">#9CCC65</color>
+    <color name="ais_teal">#00796B</color>
+    <color name="ais_light_blue">#4FC3F7</color>
 </resources>

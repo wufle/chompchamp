@@ -48,6 +48,17 @@ class Appearance(private val ctx: Context, private val prefs: SharedPreferences)
         get() = prefs.getBoolean("ui_rec_button", true)
         set(v) = prefs.edit().putBoolean("ui_rec_button", v).apply()
 
+    /** AIS vessel colours: stored key to label and colour. The first is the default. */
+    val aisColours = listOf(
+        Triple("light_green", "Light green", R.color.ais_light_green),
+        Triple("teal", "Teal", R.color.ais_teal),
+        Triple("light_blue", "Light blue", R.color.ais_light_blue),
+    )
+    var aisColourKey: String
+        get() = prefs.getString("ais_colour", null)?.takeIf { k -> aisColours.any { it.first == k } } ?: aisColours[0].first
+        set(v) = prefs.edit().putString("ais_colour", v).apply()
+    val aisColour get() = ContextCompat.getColor(ctx, aisColours.first { it.first == aisColourKey }.third)
+
     // ---- Palette ---------------------------------------------------------------
 
     val surface = ContextCompat.getColor(ctx, R.color.ui_surface)
