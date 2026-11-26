@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""High-detail Perth metro chart: coast from Two Rocks to Warnbro, Rottnest, Cockburn
-Sound and the Swan/Canning rivers. Replaces the 250 m chart inside METRO_BBOX.
+"""High-detail chart from Two Rocks to Preston Beach: the coast, Rottnest, Cockburn Sound, the
+Swan/Canning rivers, Mandurah, the Dawesville Cut and the Peel-Harvey estuary. Replaces the
+250 m chart inside METRO_BBOX.
 
 Sources:
   * WA Department of Transport 5 m composite grids (DOT-022) and point soundings
@@ -35,12 +36,12 @@ import shapely
 from shapely.geometry import LineString, MultiPolygon, Polygon, box, mapping
 from shapely.ops import linemerge, polygonize, unary_union
 
-METRO_BBOX = (115.40, -32.45, 116.02, -31.42)
+METRO_BBOX = (115.40, -32.90, 116.02, -31.42)
 PAD = 0.004           # build slightly larger, then clip to the box
 RES = 0.0001          # about 10 m
 S3 = "https://s3-ap-southeast-2.amazonaws.com/transport.wa/Bathymetry"
-RASTERS = ["TwoRocks", "OceanReef", "Rottnest", "Warnbro", "CockburnSound", "Perth"]
-POINTS = ["SC", "CS", "FR", "WB"]
+RASTERS = ["TwoRocks", "OceanReef", "Rottnest", "Warnbro", "CockburnSound", "Perth", "Dawesville", "Yalgorup"]
+POINTS = ["SC", "CS", "FR", "WB", "MH", "DV"]   # MH: Mandurah; DV: Dawesville and Peel Inlet
 MAX_GAP_M = 80        # no depth further than this from a real sounding (points only)
 OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]
 UA = {"User-Agent": "chompchamp-pipeline/0.1"}
@@ -83,6 +84,8 @@ def fetch_osm(path):
 (way["natural"="coastline"]({b});
  way["natural"="water"]["water"~"^(river|harbour|canal|bay)$"]({b});
  relation["natural"="water"]["water"~"^(river|harbour|canal|bay)$"]({b});
+ way["natural"="water"][!"water"]({b});
+ relation["natural"="water"][!"water"]({b});
  way["waterway"="dock"]({b});
 );out geom;"""
     for attempt in range(6):
@@ -116,9 +119,15 @@ def polys_of(g):
 
 def osm_shapes(elements, frame):
     """-> (land incl. rivers as holes, river/harbour water) clipped to frame."""
-    coast, water = [], []
+    coast, water, untagged = [], [], []
     for el in elements:
         t = el.get("tags", {})
+        # natural=water with no water=* is a marina, canal estate or harbour basin (Mandurah), or a lake:
+        # kept only where it joins the sea or a river, below.
+        bare = t.get("natural") == "water" and "water" not in t
+        if bare and t.get("intermittent") == "yes":
+            continue
+        into = untagged if bare else water
         if el["type"] == "way" and t.get("natural") == "coastline":
             c = ring(el["geometry"])
             if len(c) > 1:
@@ -126,7 +135,7 @@ def osm_shapes(elements, frame):
         elif el["type"] == "way":
             c = ring(el.get("geometry", []))
             if len(c) > 3 and c[0] == c[-1]:
-                water.append(Polygon(c).buffer(0))
+                into.append(Polygon(c).buffer(0))
         elif el["type"] == "relation":
             rings = {"outer": [], "inner": []}
             for mem in el.get("members", []):
@@ -136,7 +145,7 @@ def osm_shapes(elements, frame):
                         rings["inner" if mem.get("role") == "inner" else "outer"].append(LineString(c))
             outer = unary_union(list(polygonize(unary_union(rings["outer"])))) if rings["outer"] else Polygon()
             inner = unary_union(list(polygonize(unary_union(rings["inner"])))) if rings["inner"] else Polygon()
-            water.append(outer.difference(inner).buffer(0))
+            into.append(outer.difference(inner).buffer(0))
     # Coastline ways have land on their LEFT. Cut the frame into faces, then let each face
     # be voted land or sea by points just either side of the coastline segments.
     clipped = unary_union([c.intersection(frame) for c in coast])
@@ -160,9 +169,21 @@ def osm_shapes(elements, frame):
     if land.is_empty:
         raise RuntimeError("no land found from OSM coastline")
     inland = unary_union([w for w in water if not w.is_empty]).intersection(frame).intersection(land)
+    sea = frame.difference(land)
+    # Untagged water that touches the sea or a river (a few passes: canal -> marina -> river).
+    reach = unary_union([sea, inland]).buffer(0.00002)
+    left = [u for u in untagged if not u.is_empty and u.intersects(frame)]
+    for _ in range(4):
+        joined = [u for u in left if u.intersects(reach)]
+        if not joined:
+            break
+        left = [u for u in left if not u.intersects(reach)]
+        add = unary_union(joined).intersection(frame).intersection(land)
+        inland = unary_union([inland, add])
+        reach = unary_union([reach, add.buffer(0.00002)])
+        log("untagged water joined", len(joined))
     # Only water that a boat can reach from the sea: drop isolated ponds and canals.
     parts = polys_of(inland.buffer(0.00025))
-    sea = frame.difference(land)
     connected = unary_union([p for p in parts if p.intersects(sea)])
     inland = inland.intersection(connected)
     return land.difference(inland), inland, sea

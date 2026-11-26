@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cut the Perth metro box out of the statewide 250 m layers (metro files replace it).
+"""Cut the detailed box (Two Rocks to Preston Beach) out of the statewide 250 m layers (metro files replace it).
 
 Usage: clip_metro.py WORKDIR
 Rewrites depth / contour / land .geojsonl in place.

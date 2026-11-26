@@ -117,8 +117,8 @@ headless Chromium (available locally) before calling it done. Bump `web/VERSION`
 1. `fetch_zones.py`: fishing closures and marine parks. Classify by **schedule heading**, not order title
    (marine park orders ban fishing park-wide, then allow it back by schedule).
 2. `build_bathy.sh`: statewide AusBathyTopo 250 m bands, contours and land.
-3. `build_metro.py`: Perth metro, Cockburn Sound and Swan/Canning from DoT 5 m grids and soundings, with
-   OpenStreetMap coast. Never invents depths for rivers; smoothing is shoal-biased.
+3. `build_metro.py`: Two Rocks to Preston Beach (Perth, Cockburn Sound, Swan/Canning, Mandurah, Peel–Harvey) from DoT
+   5 m grids and soundings, with OpenStreetMap coast. Still called "metro" in names and files. Never invents depths for rivers; smoothing is shoal-biased.
 4. `clip_metro.py`: cuts the metro box out of the statewide layers.
 5. `build_tiles.sh`: tippecanoe and tile-join into `out/wa.pmtiles` (layers: depth, land, water, contour, zones).
 

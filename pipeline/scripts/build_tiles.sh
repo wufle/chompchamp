@@ -20,7 +20,7 @@ tippecanoe -o "$WORK/base.pmtiles" --force \
   --simplification=2 \
   --attribution="$ATTR"
 
-echo ">> Tiling Perth metro detail (z4-14)"
+echo ">> Tiling the detailed area (Two Rocks to Preston Beach) (z4-14)"
 tippecanoe -o "$WORK/metro.pmtiles" --force \
   -Z4 -z14 \
   -L depth:"$WORK/metro_depth.geojsonl" \
