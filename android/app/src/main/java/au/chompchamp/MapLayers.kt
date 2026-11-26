@@ -123,18 +123,19 @@ class MapLayers(private val prefs: SharedPreferences) {
 
     /** Apply saved toggles and opacities to a loaded style. */
     fun apply(style: Style) {
-        val sat = isOn(MapOverlay.SATELLITE)
+        // How much satellite shows: on but at 0% is the same as off.
+        val sat = if (isOn(MapOverlay.SATELLITE)) opacity(MapOverlay.SATELLITE) else 0f
         val saved = style.layers.map { it.id }.filter { '@' in it }
         for ((overlay, styleLayers) in layers) {
             val on = isOn(overlay)
             var factor = opacity(overlay)
-            // Over satellite, fade depth shading and drop the coarse 250 m land polygons.
-            if (sat && overlay == MapOverlay.DEPTH) factor *= 0.4f
-            val hiddenBySatellite = sat && overlay == MapOverlay.LAND
+            // As satellite fades in, depth shading fades to 40% and the coarse 250 m land polygons fade out.
+            if (overlay == MapOverlay.DEPTH) factor *= 1f - 0.6f * sat
+            if (overlay == MapOverlay.LAND) factor *= 1f - sat
             for (l in styleLayers) {
                 // Saved offline copies ("<id>@<area>") follow their online layer.
                 val ids = listOf(l.id) + saved.filter { it.startsWith(l.id + "@") }
-                for (id in ids) applyTo(style.getLayer(id) ?: continue, l, on && !hiddenBySatellite, factor)
+                for (id in ids) applyTo(style.getLayer(id) ?: continue, l, on, factor)
             }
         }
     }

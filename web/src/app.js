@@ -137,11 +137,14 @@
   const layerState = (key, def) => ({ on: def, pct: 100, ...(state.layers[key] || {}) });
 
   function applyLayers() {
-    const sat = layerState('satellite', false).on;
+    // How much satellite shows: on but at 0% is the same as off.
+    const satState = layerState('satellite', false);
+    const sat = satState.on ? satState.pct / 100 : 0;
     for (const [, group] of LAYERS) for (const [key, , def, parts] of group) {
       const s = layerState(key, def);
-      const show = s.on && !(sat && key === 'land');
-      const f = (s.pct / 100) * (sat && key === 'depth' ? 0.4 : 1);
+      // As satellite fades in, depth shading fades to 40% and the coarse land polygons fade out.
+      const show = s.on && !(key === 'land' && sat >= 1);
+      const f = (s.pct / 100) * (key === 'depth' ? 1 - 0.6 * sat : key === 'land' ? 1 - sat : 1);
       for (const p of parts) {
         if (!map.getLayer(p.id)) continue;
         map.setLayoutProperty(p.id, 'visibility', show ? 'visible' : 'none');
