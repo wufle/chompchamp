@@ -231,7 +231,13 @@ class MainActivity : AppCompatActivity(), LocationListener {
         recButton.button.setOnClickListener { onRecordTap() }
         // Stopping takes a press and hold, then a confirm, so a knock on the screen can't end a trip.
         recButton.button.setOnLongClickListener { if (recording) askStopTrip() else startTrip(null); true }
-        bagButton.below = recButton.button
+        // Until moved: top right, beside the menu button (data fields start at the top left).
+        recButton.defaultAt = {
+            val menu = findViewById<View>(R.id.btnMenu)
+            val b = recButton.button
+            if (menu.width == 0 || b.width == 0) null
+            else (menu.x - b.width - 10 * resources.displayMetrics.density) to (menu.y + (menu.height - b.height) / 2f)
+        }
         aisLabel = findViewById(R.id.aisLabel)
         aisLabel.setOnClickListener { showAisInfo() }
         ais = createAis()
@@ -1266,7 +1272,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
         b.contentDescription = if (recording) "Recording a trip, ${recTime()}. Press and hold to stop." else "Record a trip"
         TooltipCompat.setTooltipText(b, null)
-        b.post { bagButton.place() }
+        b.post { recButton.place() }
     }
 
     private fun onRecordTap() {

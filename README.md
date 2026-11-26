@@ -76,7 +76,7 @@ offline. The limits are copied from DPIRD's guide by hand and shortened, and the
 [current rules](https://www.dpird.wa.gov.au/individuals/recreational-fishing/recreational-fishing-rules/recreational-bag-and-size-limits/).
 
 **Trips & catches** (Menu): a trip records your track with the time and speed at each point. Recording starts when you
-tap the **● Record** button on the map (top left; move it with Menu → Display → Move or resize), start a route, or mark
+tap the **● Record** button on the map (top right; move it with Menu → Display → Move or resize), start a route, or mark
 a catch; set it to start only when you tap Record in Settings. While it records, the button turns red and shows
 **● REC** and the time, and Android shows a notification. Tapping it shows the trip so far. To stop, **press and hold**
 it, then choose to save, keep recording or discard the trip, so a knock on the screen can't end a trip. If you turn the
