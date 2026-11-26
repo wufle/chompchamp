@@ -219,11 +219,13 @@ def main():
                        (d["name"].lower()[:6] == a[:6] or a in d["name"].lower() or f["kind"] == "harbour") for d in dot)
         return False
     feats = [f for f in feats if not replaced(f)] + dot
-    # The same name twice within a kilometre, or two unnamed ramps within 300 m: keep one.
+    # The same name twice within 3 km (say a bay and a water area), or two unnamed ramps within 300 m: keep
+    # the more important one.
+    feats.sort(key=lambda f: f["rank"])
     kept = []
     for f in feats:
-        if any(g["kind"] == f["kind"] and g["name"].lower() == f["name"].lower() and
-               km_between(f, g) < (1.0 if f["name"] else 0.3) for g in kept):
+        if any(g["name"].lower() == f["name"].lower() and (f["name"] or g["kind"] == f["kind"]) and
+               km_between(f, g) < (3.0 if f["name"] else 0.3) for g in kept):
             continue
         kept.append(f)
     feats = kept

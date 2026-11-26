@@ -389,8 +389,39 @@ const Core = (() => {
     return issues;
   }
 
+  // ---- Place names (mirrors Places.kt) ------------------------------------------------------------
+  const PLACE_KINDS = { city: 'City', town: 'Town', village: 'Village', suburb: 'Suburb', hamlet: 'Locality', marina: 'Marina',
+    harbour: 'Harbour', ramp: 'Boat ramp', jetty: 'Jetty', lighthouse: 'Lighthouse', island: 'Island', cape: 'Point', bay: 'Bay',
+    beach: 'Beach', reef: 'Reef', bank: 'Bank', water: 'Lake or estuary' };
+  const placeKind = (k) => PLACE_KINDS[k] || 'Place';
+  /** The zoom a place's label first shows at, by rank. */
+  const placeZoom = (rank) => ({ 1: 5, 2: 7, 3: 9, 4: 10.5, 5: 12 })[rank] || 13.5;
+  /** Lower case, no accents or punctuation, so "Hillarys", "hillary's" and "Hillarys," all match. */
+  const fold = (s) => String(s).normalize('NFD').replace(/\p{M}+/gu, '').toLowerCase()
+    .replace(/['’`.]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+
+  /** Places (GeoJSON features) with every word of the query in their name, nearest town or kind; best first. */
+  function searchPlaces(features, query, from, limit = 60) {
+    const q = fold(query);
+    if (!q) return [];
+    const words = q.split(' ');
+    const hits = [];
+    for (const f of features) {
+      const p = f.properties;
+      if (!f._s) Object.defineProperty(f, '_s', { value: fold([p.name, p.near || '', placeKind(p.kind), p.kind === 'ramp' ? 'ramp launch slipway' : ''].join(' ')) });
+      if (!words.every((w) => f._s.includes(w))) continue;
+      const n = fold(p.name);
+      const score = n === q ? 0 : n.startsWith(q) ? 1 : words.every((w) => ` ${n} `.includes(` ${w}`)) ? 2 : 3;
+      const [lon, lat] = f.geometry.coordinates;
+      hits.push({ f, score, band: Math.floor((p.rank || 6) / 2), dist: from ? distanceNm(from, { lat, lon }) : 0 });
+    }
+    hits.sort((a, b) => a.score - b.score || a.band - b.band || a.dist - b.dist || (a.f.properties.name < b.f.properties.name ? -1 : 1));
+    return hits.slice(0, limit).map((h) => h.f);
+  }
+
   return { distanceNm, bearing, routeLengthNm, segDistM, fmtNm, fmtBearing, fmtDuration, fmtDdm, fmtPos, uuid,
     emptyRoute, cleanRoute, cleanMark, parseBackup, exportBackup, exportGpx, parseGpx, mergeById, mergeMarks,
-    GROUP_COLORS, groupName, cleanGroup, findGroup, ensureGroup, tidyGroups, decodeTile, ChartReader, depthText, checkRoute, pos };
+    GROUP_COLORS, groupName, cleanGroup, findGroup, ensureGroup, tidyGroups, decodeTile, ChartReader, depthText, checkRoute, pos,
+    fold, placeKind, placeZoom, searchPlaces };
 })();
 if (typeof globalThis !== 'undefined') globalThis.ChompCore = Core;

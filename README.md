@@ -107,7 +107,7 @@ Everything is customisable:
 ## Desktop planner
 
 Plan on a big screen: a single HTML file for Linux, Windows or Mac that you open in a browser. It reads the same
-`wa.pmtiles` chart and works offline once opened. View the chart, depths, zones and hazards, draw and check routes,
+`wa.pmtiles` chart and works offline once opened. View the chart, depths, zones and hazards, search for places by name, draw and check routes,
 keep marks, and swap routes and marks with the phone app using backup or GPX files. No GPS or live navigation.
 
 1. Download `chompchamp-planner.html` and `wa.pmtiles` from the

@@ -122,6 +122,7 @@
       ['contour_labels', 'Depth labels', true, [L('contour-label', 'text-opacity', 1)]],
       ['land', 'Land', true, [L('land', 'fill-opacity', 1)]],
       ['hazards', 'Marks & hazards', true, [L('hazards', 'icon-opacity', 1), L('hazards-label', 'text-opacity', 1)]],
+      ['places', 'Place names', true, [L('places', 'text-opacity', 1), L('places', 'icon-opacity', 1)]],
     ]],
     ['Zones', [
       ['notake', 'No fishing', true, [L('zones-notake-fill', 'fill-opacity', 0.22), L('zones-notake-line', 'line-opacity', 1), L('zones-notake-label', 'text-opacity', 1)]],
@@ -179,9 +180,23 @@
         : { type: 'raster', tileSize: 256, tiles: [RELIEF_ONLINE], minzoom: 10, maxzoom: 18, bounds: [112, -36, 129.5, -13], attribution: credit };
     }
     s.sources.hazards = { type: 'geojson', data: DATA.hazards, attribution: 'Marks © WA Department of Transport (CC BY 4.0), © OpenStreetMap contributors' };
+    s.sources.places = { type: 'geojson', data: DATA.places, attribution: 'Places © OpenStreetMap contributors, boat ramps © WA Department of Transport (CC BY 4.0)' };
     for (const k of ['track', 'route-line', 'route-mid', 'route-wpts', 'marks', 'issue']) s.sources[k] = { type: 'geojson', data: fc([]) };
     const halo = { 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 };
+    const BLUE = '#1B4F72', NAVY = '#0D47A1', POINTS = ['ramp', 'harbour', 'marina', 'jetty', 'lighthouse'];
+    const rank = ['to-number', ['get', 'rank']];
     layers.push(
+      // Place names, like Places.kt: bigger places from further out (rank 1 from zoom 5, rank 6 from 13.5).
+      { id: 'places', type: 'symbol', source: 'places', minzoom: 5,
+        filter: ['step', ['zoom'], ['<=', rank, 1], 7, ['<=', rank, 2], 9, ['<=', rank, 3], 10.5, ['<=', rank, 4], 12, ['<=', rank, 5], 13.5, true],
+        layout: { 'text-field': ['get', 'name'], 'text-font': FONT, 'text-max-width': 8, 'symbol-sort-key': rank,
+          'text-size': ['match', ['get', 'kind'], 'city', 16, 'town', 13.5, ['village', 'island', 'bay', 'water'], 12, 'suburb', 11.5, ['beach', 'jetty'], 10.5, 11],
+          'text-letter-spacing': ['match', ['get', 'kind'], 'city', 0.04, 'town', 0.02, 0],
+          'icon-image': ['match', ['get', 'kind'], 'ramp', 'pl-ramp', ['harbour', 'marina'], 'pl-harbour', ''], 'icon-optional': true,
+          'text-anchor': ['match', ['get', 'kind'], POINTS, 'left', 'center'],
+          'text-offset': ['match', ['get', 'kind'], POINTS, ['literal', [0.9, 0]], ['literal', [0, 0]]] },
+        paint: { 'text-color': ['match', ['get', 'kind'], ['bay', 'water', 'reef', 'bank'], BLUE, ['ramp', 'harbour', 'marina'], NAVY, '#263238'],
+          'text-halo-color': '#ffffff', 'text-halo-width': 1.4 } },
       { id: 'hazards', type: 'symbol', source: 'hazards', minzoom: 9, layout: { 'icon-image': ['concat', 'hz-', ['get', 'kind']],
         'icon-size': ['interpolate', ['linear'], ['zoom'], 9, 0.55, 12, 0.8, 15, 1], 'icon-allow-overlap': true, 'icon-ignore-placement': true } },
       { id: 'hazards-label', type: 'symbol', source: 'hazards', minzoom: 14.5, filter: ['!=', ['get', 'name'], ''], layout: { 'text-field': ['get', 'name'],
@@ -216,6 +231,7 @@
   setTimeout(() => { const d = document.querySelector('.maplibregl-ctrl-attrib'); if (d) { d.classList.remove('maplibregl-compact-show'); d.removeAttribute('open'); } }, 6000);
   map.on('styleimagemissing', (e) => {
     if (e.id.startsWith('hz-') && !map.hasImage(e.id)) map.addImage(e.id, hazardIcon(e.id.slice(3)), { pixelRatio: 2 });
+    if (e.id.startsWith('pl-') && !map.hasImage(e.id)) map.addImage(e.id, placeIcon(e.id === 'pl-ramp'), { pixelRatio: 2 });
   });
   map.on('style.load', () => { applyLayers(); drawData(); });
   map.on('moveend', () => { const c = map.getCenter(); state.view = { lon: c.lng, lat: c.lat, zoom: map.getZoom() }; save(); });
@@ -230,6 +246,66 @@
     const groups = Object.fromEntries(state.groups.map((g) => [g.name, g]));
     setData('marks', state.marks.filter((m) => groups[m.group]?.visible !== false).map((m) => point(m, { id: m.id, name: m.name, color: groups[m.group]?.color || '#FDD835' })));
     setData('track', state.track.length > 1 ? [line(state.track)] : []);
+  }
+
+  /** Boat ramp: a slope on a white disc. Harbour: an anchor-like hook on dark blue. Like Places.kt, 16 units at 2x. */
+  function placeIcon(ramp) {
+    const cv = Object.assign(document.createElement('canvas'), { width: 32, height: 32 }), c = cv.getContext('2d');
+    c.scale(2, 2); c.lineJoin = c.lineCap = 'round';
+    const m = 8, NAVY = '#0D47A1';
+    c.beginPath(); c.arc(m, m, m - 1, 0, 7);
+    c.fillStyle = ramp ? '#ffffff' : NAVY; c.fill();
+    c.strokeStyle = ramp ? NAVY : '#ffffff'; c.lineWidth = ramp ? 1.6 : 1.4;
+    if (ramp) {
+      c.stroke();
+      c.beginPath(); c.moveTo(m - 4, m + 3); c.lineTo(m + 4, m - 3); c.moveTo(m - 4, m + 3); c.lineTo(m + 4, m + 3); c.stroke();
+    } else {
+      c.beginPath(); c.moveTo(m, m - 4); c.lineTo(m, m + 4); c.moveTo(m - 2.5, m - 2); c.lineTo(m + 2.5, m - 2); c.stroke();
+      c.beginPath(); c.ellipse(m, m + 1.6, 4, 2.6, 0, 0.35, 2.8); c.stroke();
+      c.beginPath(); c.arc(m, m - 4.6, 1.1, 0, 7); c.fillStyle = '#ffffff'; c.fill();
+    }
+    return c.getImageData(0, 0, 32, 32);
+  }
+
+  // ---- Place search ------------------------------------------------------------------------------
+  {
+    const input = $('search-input'), list = $('search-results');
+    let hits = [], sel = 0;
+    const close = () => { list.hidden = true; list.replaceChildren(); };
+    const go = (f) => {
+      const [lon, lat] = f.geometry.coordinates;
+      close(); input.blur();
+      map.easeTo({ center: [lon, lat], zoom: Math.min(15, Math.max(map.getZoom(), C.placeZoom(f.properties.rank) + 1)), duration: 1200 });
+      if (!layerState('places', true).on) toast(`${f.properties.name}. Place names are off in Layers.`);
+    };
+    const show = () => {
+      const c = map.getCenter();
+      hits = C.searchPlaces(DATA.places.features, input.value, { lat: c.lat, lon: c.lng }, 40);
+      sel = 0;
+      if (!input.value.trim()) return close();
+      list.replaceChildren(...(hits.length ? hits.map((f, i) => {
+        const p = f.properties, [lon, lat] = f.geometry.coordinates;
+        const sub = [C.placeKind(p.kind), p.near && !p.name.includes(p.near) ? `near ${p.near}` : null,
+          `${C.fmtNm(C.distanceNm({ lat: c.lat, lon: c.lng }, { lat, lon }))} from map centre`].filter(Boolean).join(' · ');
+        return el('li', {}, el('button' + (i === 0 ? '.sel' : ''), { type: 'button', onmousedown: (e) => e.preventDefault(), onclick: () => go(f) },
+          p.name, el('span.muted', {}, sub), p.detail ? el('span.muted', {}, p.detail) : null));
+      }) : [el('li.empty', {}, `Nothing called "${input.value.trim()}". Try fewer letters.`)]));
+      list.hidden = false;
+    };
+    input.addEventListener('input', show);
+    input.addEventListener('focus', () => { if (input.value.trim()) show(); });
+    input.addEventListener('blur', close);
+    input.addEventListener('keydown', (e) => {
+      const btns = list.querySelectorAll('button');
+      if (e.key === 'Escape') { input.value = ''; close(); input.blur(); }
+      else if (e.key === 'Enter') { if (hits[sel]) go(hits[sel]); }
+      else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && btns.length) {
+        e.preventDefault();
+        btns[sel]?.classList.remove('sel');
+        sel = (sel + (e.key === 'ArrowDown' ? 1 : btns.length - 1)) % btns.length;
+        btns[sel].classList.add('sel'); btns[sel].scrollIntoView({ block: 'nearest' });
+      }
+    });
   }
 
   /** Simplified IALA region A symbols, drawn like Hazards.kt. 22 units square at 2x. */

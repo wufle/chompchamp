@@ -41,6 +41,7 @@ parts = {
         "version": VERSION,
         "style": json.loads(text(ASSETS / "chart-style.json")),
         "hazards": json.loads(text(ASSETS / "hazards.geojson")),
+        "places": json.loads(text(ASSETS / "places.geojson")),
         "glyphs": glyphs,
     }) + ";",
     "CORE_JS": script(text(WEB / "src/core.js")),

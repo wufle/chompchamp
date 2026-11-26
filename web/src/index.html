@@ -24,6 +24,10 @@ Bundled libraries (map data has its own licences, see the README):
     <div><h1>ChompChamp</h1><span class="muted">Planner %%VERSION%%</span></div>
     <button id="collapse" class="icon" aria-label="Hide panel" title="Hide panel">‹</button>
   </header>
+  <div id="search" role="search">
+    <input type="search" id="search-input" placeholder="Search places: town, harbour, boat ramp, island…" aria-label="Search places" autocomplete="off">
+    <ul id="search-results" hidden></ul>
+  </div>
   <nav role="tablist" aria-label="Sections">
     <button role="tab" data-tab="routes" id="tab-routes" aria-controls="pane-routes">Route</button>
     <button role="tab" data-tab="marks" id="tab-marks" aria-controls="pane-marks">Marks</button>

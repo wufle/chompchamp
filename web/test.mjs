@@ -16,6 +16,20 @@ assert.equal(C.fmtDdm(115.5, false), "115°30.000'E");
 assert.equal(C.fmtBearing(359.7), '000°');
 assert.equal(C.fmtDuration(1.5), '1h 30m');
 
+// Place search
+{
+  const pl = (name, kind, rank, lon, lat, near) => ({ type: 'Feature', properties: { name, kind, rank, near }, geometry: { type: 'Point', coordinates: [lon, lat] } });
+  const ps = [pl('Mandurah', 'city', 1, 115.72, -32.53), pl('Mary Street boat ramp, Mandurah', 'ramp', 5, 115.72, -32.53, 'Mandurah'),
+    pl('Boat ramp, Falcon', 'ramp', 5, 115.66, -32.58, 'Falcon'), pl("Hillarys Boat Harbour", 'harbour', 4, 115.74, -31.82, 'Sorrento'),
+    pl('Halls Head', 'suburb', 4, 115.70, -32.54, 'Mandurah')];
+  assert.equal(C.searchPlaces(ps, 'mandurah', null)[0].properties.name, 'Mandurah');
+  assert.deepEqual(C.searchPlaces(ps, 'ramp mandurah', null).map((f) => f.properties.name), ['Mary Street boat ramp, Mandurah']);
+  assert.equal(C.searchPlaces(ps, "hillary's", null).length, 1);
+  assert.equal(C.searchPlaces(ps, 'boat ramp', { lat: -32.58, lon: 115.66 })[0].properties.name, 'Boat ramp, Falcon');
+  assert.equal(C.searchPlaces(ps, '  ', null).length, 0);
+  assert.equal(C.fold('Ēxmouth, W.A.'), 'exmouth wa');
+}
+
 // Backups: round trip, photo ids survive, no track or settings go to the phone
 const state = { routes: [{ id: 'r1', name: 'A & <b>', waypoints: [{ lat: -32, lon: 115.5, name: 'x' }] }], plan: C.emptyRoute(),
   marks: [{ id: 'm1', lat: -32, lon: 115.6, name: 'Spot', time: 1700000000000, depth: '3–4', photos: ['p1'], group: 'Reefs' }], groups: [{ name: 'Reefs', color: '#E53935', visible: false }], track: [{ lat: 1, lon: 2, t: 3 }] };

@@ -22,6 +22,12 @@ body.collapsed #panel { display: none; }
 #panel > header img { border-radius: 50%; }
 #panel > header div { flex: 1; display: flex; align-items: baseline; gap: 8px; }
 #panel h1 { font-size: 17px; }
+#search { position: relative; padding: 0 12px 10px; }
+#search-results { position: absolute; left: 12px; right: 12px; top: 100%; z-index: 6; list-style: none; margin: -6px 0 0; padding: 4px 0;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; max-height: 60vh; overflow-y: auto; box-shadow: 0 6px 20px #0008; }
+#search-results button { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 6px 10px; cursor: pointer; }
+#search-results button:hover, #search-results button.sel { background: var(--surface); }
+#search-results .muted { display: block; font-size: 12px; }
 nav { display: grid; grid-template-columns: repeat(4, 1fr); padding: 0 8px; border-bottom: 1px solid var(--line); }
 nav button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 9px 0; color: var(--muted); cursor: pointer; }
 nav button:hover { color: var(--on); }
