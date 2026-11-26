@@ -56,10 +56,12 @@ class BagLimitsPanel(
     /** The boat moved: follow it into the next area. */
     fun moved() { if (isOpen && chosen == null && area() != shownArea) show() }
 
+    private var searchBox: EditText? = null
+
     private fun show() {
         val area = area()
         shownArea = area
-        val search = EditText(ctx).apply {
+        val search = EditText(ctx).also { searchBox = it }.apply {
             hint = "Search species"
             setText(query)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
@@ -87,7 +89,7 @@ class BagLimitsPanel(
                 minimumHeight = panel.maxListHeight   // or the search box would jump as the list shrinks
             }.also { rows.view(it) }
             fill()
-        }, onClose = { hideKeyboard(search); list = null }, header = search)
+        }, onClose = { hideKeyboard(search); list = null; searchBox = null }, header = search)
     }
 
     private fun pickArea() {
@@ -222,6 +224,8 @@ class BagLimitsPanel(
         val latin = p?.takeIf { !it.example }?.species.orEmpty()
         val q = listOf(e.name, latin, "fish Western Australia").filter { it.isNotBlank() }.joinToString(" ")
         val url = "https://www.google.com/search?tbm=isch&q=" + java.net.URLEncoder.encode(q, "UTF-8")
+        // Or coming back from the browser puts the cursor back in the search box and opens the keyboard.
+        searchBox?.let { hideKeyboard(it) }
         runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
             .onFailure { android.widget.Toast.makeText(ctx, "No app found to open the link", android.widget.Toast.LENGTH_SHORT).show() }
     }
