@@ -251,6 +251,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         modeButton = findViewById(R.id.btnMode)
         modePanel = findViewById(R.id.modePanel)
         scaleBar = findViewById(R.id.scaleBar)
+        // The vessel count sits on the scale bar, so it needs the bar's height: 0 until the bar is first laid out.
+        scaleBar.addOnLayoutChangeListener { _, _, t, _, b, _, ot, _, ob -> if (b - t != ob - ot) scaleBar.post { placeScaleBar() } }
         modePanel.addOnLayoutChangeListener { _, _, t, _, b, _, ot, _, ob -> if (b - t != ob - ot) scaleBar.post { placeScaleBar() } }
         modeSummary = findViewById(R.id.modeSummary)
         modeButtons = findViewById(R.id.modeButtons)
@@ -747,7 +749,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             changed()
             showCatchesOnMap()   // their catches stay in the log
         }
-        override fun confirm(message: String, onYes: () -> Unit) = this@MainActivity.confirm(message, onYes)
+        override fun confirm(message: String, onYes: () -> Unit) = this@MainActivity.confirm(message, onYes = onYes)
         override fun askText(title: String, initial: String, onOk: (String) -> Unit) = this@MainActivity.askText(title, initial, onOk)
         override fun showAllMarks() = showMarksList()
     })
@@ -1019,7 +1021,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         override fun logCatch() = markCatch()
         override fun showCatches(title: String, list: List<Catch>) = catchDialogs.list(title, list)
         override fun exportText(fileName: String, csv: Boolean, text: String) = this@MainActivity.exportText(fileName, csv, text)
-        override fun confirm(message: String, onYes: () -> Unit) = this@MainActivity.confirm(message, onYes)
+        override fun confirm(message: String, onYes: () -> Unit) = this@MainActivity.confirm(message, onYes = onYes)
         override fun askText(title: String, initial: String, onOk: (String) -> Unit) = this@MainActivity.askText(title, initial, onOk)
     })
 
@@ -1067,7 +1069,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 .show()
         }
         override fun exportText(fileName: String, csv: Boolean, text: String) = this@MainActivity.exportText(fileName, csv, text)
-        override fun confirm(message: String, onYes: () -> Unit) = this@MainActivity.confirm(message, onYes)
+        override fun confirm(message: String, onYes: () -> Unit) = this@MainActivity.confirm(message, onYes = onYes)
     })
 
     /** A message along the bottom in the app's colours, above the mode buttons so it never hides them. */
@@ -1195,7 +1197,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val s = track.stats
         if (track.points.size < 2) {
             confirm("Stop recording? The boat hasn't moved yet, so there's no track to save. " +
-                "Catches and marks are kept.") {
+                "Catches and marks are kept.", yes = "Stop", no = "Keep recording") {
                 recording = false; clearTrack(); recordingChanged()
             }
             return
@@ -1334,7 +1336,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             }
             override fun savedChanged() { locationActive = false; loadStyle() }
             override fun beforeShow() { displayPanelOpen = false }
-            override fun confirm(message: String, onYes: () -> Unit) = this@MainActivity.confirm(message, onYes)
+            override fun confirm(message: String, onYes: () -> Unit) = this@MainActivity.confirm(message, onYes = onYes)
             override fun askText(title: String, initial: String, onOk: (String) -> Unit) = this@MainActivity.askText(title, initial, onOk)
         })
 
@@ -2391,10 +2393,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
     // Small dialogs
     // =========================================================================
 
-    private fun confirm(message: String, onYes: () -> Unit) {
+    private fun confirm(message: String, yes: String? = null, no: String? = null, onYes: () -> Unit) {
         MaterialAlertDialogBuilder(this).setMessage(message)
-            .setPositiveButton(android.R.string.ok) { _, _ -> onYes() }
-            .setNegativeButton(android.R.string.cancel, null).show()
+            .setPositiveButton(yes ?: getString(android.R.string.ok)) { _, _ -> onYes() }
+            .setNegativeButton(no ?: getString(android.R.string.cancel), null).show()
     }
 
     private fun askText(title: String, initial: String, onOk: (String) -> Unit) {
