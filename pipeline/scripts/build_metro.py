@@ -322,7 +322,9 @@ F = 5                                          # source cells are F x F depth ce
 
 def source_layer(sources, sid, from_survey, water_m, river_m, valid, abt_have, abt30, T, shape, lat):
     """Polygons saying where the depth came from and how good it is: src (text), acc (1 good, 2 fair, 3 poor,
-    4 rough: background grid; 0: no depth), near (metres to the nearest measured depth, rounded up to NEAR)."""
+    4 rough: background grid; 0: no depth), near (metres to the nearest measured depth, rounded up to NEAR).
+    Outside the detailed boxes there is no source layer: readers take a chart that has one anywhere to mean the
+    250 m grid there (ChartReader.NATIONAL_GRID in the app, NATIONAL_GRID in the planner)."""
     R, C = shape[0] // F * F, shape[1] // F * F
     blk = lambda a, how: getattr(a[:R, :C].reshape(R // F, F, C // F, F), how)((1, 3))
     meas = blk(sid > 0, "any")
@@ -364,7 +366,8 @@ def source_layer(sources, sid, from_survey, water_m, river_m, valid, abt_have, a
             p["near"] = NEAR[b]
         g = shapely.geometry.shape(geom).simplify(RES * 0.5)
         if not g.is_empty:
-            yield g, p, None
+            # Only the most detailed tiles: that is all the app and planner read depths from.
+            yield g, p, {"minzoom": 14}
 
 
 def main():

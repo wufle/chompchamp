@@ -14,7 +14,8 @@ const archive = new pmtiles.PMTiles({ getKey: () => chart, async getBytes(offset
   return { data: b.buffer.slice(b.byteOffset, b.byteOffset + length) };
 } });
 const header = await archive.getHeader();
-const reader = new globalThis.ChompCore.ChartReader(async (z, x, y) => { const t = await archive.getZxy(z, x, y); return t && t.data; }, header.maxZoom);
+const reader = new globalThis.ChompCore.ChartReader(async (z, x, y) => { const t = await archive.getZxy(z, x, y); return t && t.data; }, header.maxZoom,
+  ((await archive.getMetadata()).vector_layers || []).some((l) => l.id === 'source'));
 
 const bands = {};
 let sea = 0, sourced = 0;
@@ -40,6 +41,6 @@ for (const [band, b] of Object.entries(bands)) {
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${band.padEnd(14)} ${b.n} points, land ${b.land}, depth right ${b.good}`);
 }
 // Every depth should say where it came from (the "source" layer).
-console.log(`${sourced / sea >= 0.99 ? 'ok  ' : 'FAIL'} source         ${sea} sea points, ${sourced} with a source`);
-if (sourced / sea < 0.99) failed = true;
+console.log(`${sea && sourced / sea >= 0.99 ? 'ok  ' : 'FAIL'} source         ${sea} sea points, ${sourced} with a source`);
+if (!sea || sourced / sea < 0.99) failed = true;
 if (failed || Object.keys(bands).length < 10) { console.error('Chart does not match the source grid'); process.exit(1); }

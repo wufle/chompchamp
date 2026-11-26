@@ -95,6 +95,8 @@
     files[kind] = { name, size: blob.size, archive, key, header };
     if (kind === 'chart') {
       reader = new C.ChartReader(async (z, x, y) => { const t = await archive.getZxy(z, x, y); return t && t.data; }, header.maxZoom);
+      const r0 = reader;
+      archive.getMetadata().then((m) => { r0.hasSource = (m.vector_layers || []).some((l) => l.id === 'source'); }, () => {});
     }
     return kind;
   }

@@ -14,7 +14,6 @@ tippecanoe -o "$WORK/base.pmtiles" --force \
   -L depth:"$WORK/depth.geojsonl" \
   -L land:"$WORK/land.geojsonl" \
   -L contour:"$WORK/contour.geojsonl" \
-  -L source:"$WORK/source.geojsonl" \
   --detect-shared-borders \
   --coalesce-densest-as-needed \
   --extend-zooms-if-still-dropping \

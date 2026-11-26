@@ -295,7 +295,8 @@ const Core = (() => {
 
   /** Looks things up in the chart file itself, so it works for places that aren't on screen. */
   class ChartReader {
-    constructor(getTile, zoom = 14) { this.getTile = getTile; this.z = zoom; this.cache = new Map(); }
+    /** hasSource: the chart has a "source" layer (0.17.12 on), so no source feature at sea means the 250 m grid. */
+    constructor(getTile, zoom = 14, hasSource = false) { this.getTile = getTile; this.z = zoom; this.hasSource = hasSource; this.cache = new Map(); }
 
     tile(tx, ty) {
       const key = `${tx}/${ty}`;
@@ -327,6 +328,7 @@ const Core = (() => {
       const d = hits('depth').map((f) => [Number(f.props.dmin), Number(f.props.dmax)]);
       // Bands can overlap by a hair at their edges: believe the shallower one.
       if (d.length) res.depth = d.reduce((a, b) => (b[0] < a[0] ? b : a));
+      if (!res.source && this.hasSource && !res.land && res.depth) res.source = NATIONAL_GRID;
       const seen = new Set();
       for (const f of hits('zones')) {
         const k = JSON.stringify(f.props);
@@ -335,6 +337,9 @@ const Core = (() => {
       return res;
     }
   }
+
+  /** Where a depth comes from outside the detailed areas (same as ChartReader.NATIONAL_GRID in the app). */
+  const NATIONAL_GRID = { src: 'AusBathyTopo 250 m national grid (Geoscience Australia), compiled from charts and surveys', acc: 4 };
 
   /** Where a depth came from and how far to trust it (mirrors ChartReader.sourceLines in the app). */
   function sourceLines(src) {

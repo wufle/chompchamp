@@ -34,6 +34,8 @@ class ChartReader(private val file: File) {
         val raf: RandomAccessFile, val stamp: Pair<Long, Long>,
         val rootOff: Long, val rootLen: Int, val leafOff: Long, val dataOff: Long,
         val internal: Int, val tileComp: Int, val maxZoom: Int,
+        /** The chart has a "source" layer (0.17.12 on): no source feature at sea then means the 250 m grid. */
+        val hasSource: Boolean,
     )
 
     private var archive: Archive? = null
@@ -64,8 +66,10 @@ class ChartReader(private val file: File) {
             val lo = (f.props["dmin"] as? Number)?.toInt() ?: return@mapNotNull null
             lo to ((f.props["dmax"] as? Number)?.toInt() ?: 9999)
         }.minByOrNull { it.first }   // bands can overlap by a hair at their edges: believe the shallower one
-        return Result(true, land = hits("land").isNotEmpty(), depth = depth, zones = hits("zones").map { it.props }.distinct(),
-            source = hits("source").firstOrNull()?.props)
+        val land = hits("land").isNotEmpty()
+        val source = hits("source").firstOrNull()?.props
+            ?: if (a.hasSource && !land && depth != null) NATIONAL_GRID else null
+        return Result(true, land = land, depth = depth, zones = hits("zones").map { it.props }.distinct(), source = source)
     }
 
     /** Forget everything, e.g. after a new chart is imported. */
@@ -90,8 +94,12 @@ class ChartReader(private val file: File) {
                 raf.close(); return null
             }
             fun u64(o: Int): Long { var v = 0L; for (i in 7 downTo 0) v = (v shl 8) or (h[o + i].toLong() and 0xff); return v }
+            val meta = runCatching {
+                val b = ByteArray(u64(32).toInt()).also { raf.seek(u64(24)); raf.readFully(it) }
+                String(unzip(b, h[97].toInt()), Charsets.UTF_8)
+            }.getOrDefault("")
             Archive(raf, stamp, u64(8), u64(16).toInt(), u64(40), u64(56),
-                h[97].toInt(), h[98].toInt(), h[101].toInt())
+                h[97].toInt(), h[98].toInt(), h[101].toInt(), Regex("\"id\"\\s*:\\s*\"source\"").containsMatchIn(meta))
         }.getOrNull().also { archive = it }
     }
 
@@ -311,6 +319,10 @@ class ChartReader(private val file: File) {
 
     companion object {
         private val WANT = setOf("land", "depth", "zones", "source")
+
+        /** Where a depth comes from outside the detailed areas. Same as in build_metro.py and the planner. */
+        val NATIONAL_GRID: Map<String, Any?> = mapOf(
+            "src" to "AusBathyTopo 250 m national grid (Geoscience Australia), compiled from charts and surveys", "acc" to 4)
 
         /**
          * Where a depth came from and how far to trust it, as lines of text. Mirrors sourceLines() in the planner.
