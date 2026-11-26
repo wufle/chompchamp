@@ -27,6 +27,7 @@ enum class MapOverlay(val key: String, val shortLabel: String, val defaultOn: Bo
     CONTOUR_LABELS("contour_labels", "Depth labels", true),
     LAND("land", "Land", true),
     HAZARDS("hazards", "Marks & hazards", true),
+    PLACES("places", "Place names", true),
     NO_TAKE("notake", "No fishing", true),
     RESTRICTED("restricted", "Restricted", true),
     PARKS("parks", "Marine parks", true),
@@ -60,6 +61,7 @@ class MapLayers(private val prefs: SharedPreferences) {
             StyleLayer(Hazards.LAYER, Kind.SYMBOL, 1f),
             StyleLayer(Hazards.LABELS, Kind.SYMBOL, 1f),
         ),
+        MapOverlay.PLACES to listOf(StyleLayer(Places.LAYER, Kind.SYMBOL, 1f)),
         MapOverlay.NO_TAKE to listOf(
             StyleLayer("zones-notake-fill", Kind.FILL, 0.22f, queried = true),
             StyleLayer("zones-notake-line", Kind.LINE, 1f),
@@ -159,7 +161,7 @@ class MapLayers(private val prefs: SharedPreferences) {
 
     private val groups = listOf(
         "Chart" to listOf(MapOverlay.SATELLITE, MapOverlay.RELIEF, MapOverlay.DEPTH, MapOverlay.CONTOURS,
-            MapOverlay.CONTOUR_LABELS, MapOverlay.LAND, MapOverlay.HAZARDS),
+            MapOverlay.CONTOUR_LABELS, MapOverlay.LAND, MapOverlay.HAZARDS, MapOverlay.PLACES),
         "Zones" to listOf(MapOverlay.NO_TAKE, MapOverlay.RESTRICTED, MapOverlay.PARKS),
         "My data" to listOf(MapOverlay.ROUTE, MapOverlay.MARKS, MapOverlay.DRIFT, MapOverlay.TRACK, MapOverlay.SAVED_TRIP,
             MapOverlay.CATCHES, MapOverlay.ANCHOR),

@@ -69,6 +69,7 @@ user which they need. The style must also cope with older charts that lack a new
 | `MovableButton.kt` | A button the user can drag in Edit layout (bag limits) |
 | `ScaleBarView.kt` | Scale bar, bottom right |
 | `Hazards.kt` | Nav marks, wrecks and rocks from `assets/hazards.geojson` |
+| `Places.kt`, `PlacesPanel.kt` | Place names from `assets/places.geojson`: map labels (shown by rank and zoom) and the Search places panel |
 | `SettingsPanel.kt`, `Settings.kt`, `Appearance.kt` | Docked panel (Layers, Display); behaviour options; size, opacity, palette |
 | `ChartReader.kt` | Land, depth and zones at a point, read from `wa.pmtiles` (mirrors the planner's `ChartReader`) |
 | `Navigator.kt`, `Geo.kt` | Guidance, drift, track; geodesy and formatting |
@@ -126,7 +127,7 @@ headless Chromium (available locally) before calling it done. Bump `web/VERSION`
    chart, failing the build on a mismatch. (Once, everything over 1000 m deep shipped as land.) Always check a chart
    against the source grid, not just against itself.
 
-`fetch_hazards.py`, `fetch_limit_areas.py`, `build_species_images.py` and `build_relief.py` run separately; all but the last refresh bundled assets.
+`fetch_hazards.py`, `fetch_places.py`, `fetch_limit_areas.py`, `build_species_images.py` and `build_relief.py` run separately; all but the last refresh bundled assets.
 
 Heights are mean sea level (AusBathyTopo) or AHD (DoT), not low-tide chart datum.
 DoT files: `https://s3-ap-southeast-2.amazonaws.com/transport.wa/Bathymetry/{Rasters,PointData}/`.

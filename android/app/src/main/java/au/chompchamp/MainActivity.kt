@@ -81,6 +81,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private var map: MapLibreMap? = null
     private val overlays by lazy { NavOverlays(resources.displayMetrics.density) }
     private val hazards by lazy { Hazards(this) }
+    private val places by lazy { Places(this) }
     private lateinit var navigator: Navigator
     private val drift = DriftTracker()
     private lateinit var track: Track
@@ -94,6 +95,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private lateinit var tripsPanel: TripsPanel
     private lateinit var catchDialogs: CatchDialogs
     private lateinit var bagPanel: BagLimitsPanel
+    private lateinit var placesPanel: PlacesPanel
     private lateinit var bagButton: MovableButton
     private lateinit var recButton: MovableButton
     private lateinit var ais: Ais
@@ -230,6 +232,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         tripsPanel = createTripsPanel()
         catchDialogs = createCatchDialogs()
         bagPanel = createBagPanel()
+        placesPanel = createPlacesPanel()
         offlineAreas = OfflineAreas(File(filesDir, "offline"), userAgent)
         offlinePanel = createOfflinePanel(prefs)
         updater = createUpdater(prefs)
@@ -377,6 +380,20 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun createBagPanel() = BagLimitsPanel(this, panel, look, object : BagLimitsPanel.Host {
         override fun boat() = lastPos()
         override fun mapCentre() = map?.cameraPosition?.target?.let { LatLon(it.latitude, it.longitude) }
+    })
+
+    private fun createPlacesPanel() = PlacesPanel(this, panel, look, places, object : PlacesPanel.Host {
+        override fun boat() = lastPos()
+        override fun mapCentre() = map?.cameraPosition?.target?.let { LatLon(it.latitude, it.longitude) }
+        override fun goTo(p: Places.Place) {
+            val m = map ?: return
+            // Stop following the boat, or the map would jump straight back.
+            m.locationComponent.takeIf { locationActive }?.cameraMode = CameraMode.NONE
+            val zoom = maxOf(m.cameraPosition.zoom, Places.labelZoom(p.rank) + 1.0).coerceAtMost(15.0)
+            m.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(p.pos.lat, p.pos.lon), zoom), 1200)
+            if (!layers.isOn(MapOverlay.PLACES)) Toast.makeText(this@MainActivity,
+                "${p.name}. Place names are off in Layers.", Toast.LENGTH_SHORT).show()
+        }
     })
 
     private fun refreshOverlays() {
@@ -1561,6 +1578,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun showMenu(anchorView: View) {
         val popup = PopupMenu(this, anchorView)
         val items: List<Pair<String, () -> Unit>> = listOf(
+            "Search places…" to { placesPanel.open() },
             "Marks…" to { marksPanel.show() },
             "Trips & catches…" to { tripsPanel.show() },
             "Bag & size limits…" to { bagPanel.open() },
@@ -1948,6 +1966,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         ais.setScale(look.aisScale)
         ais.setColour(look.aisColour)
         overlays.setCatchScale(look.catchScale)
+        map?.style?.let { places.setScale(it, look.placeScale) }
         updateBagButton()
         updateRecordButton()
         recButton.place()
@@ -2026,6 +2045,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             EMPTY_STYLE
         }
         m.setStyle(Style.Builder().fromJson(json)) { style ->
+            places.install(style, look.placeScale)
             hazards.install(style)
             ais.setColour(look.aisColour)
             ais.install(style, resources.displayMetrics.density)

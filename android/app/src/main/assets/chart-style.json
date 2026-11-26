@@ -6,7 +6,7 @@
     "chart": {
       "type": "vector",
       "url": "{{CHART_URL}}",
-      "attribution": "Depth: \u00a9 Geoscience Australia (AusBathyTopo, incorporating AHO data), WA Department of Transport (CC BY 4.0). Coast: \u00a9 OpenStreetMap contributors. Zones: WA DPIRD, DBCA (CC BY-NC 4.0), Parks Australia."
+      "attribution": "Depth: \u00a9 Geoscience Australia (AusBathyTopo, incorporating AHO data), WA Department of Transport (CC BY 4.0). Coast and place names: \u00a9 OpenStreetMap contributors. Boat ramps: WA Department of Transport. Zones: WA DPIRD, DBCA (CC BY-NC 4.0), Parks Australia."
     },
     "satellite-land": {
       "type": "raster",

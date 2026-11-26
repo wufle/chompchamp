@@ -22,6 +22,7 @@ class Appearance(private val ctx: Context, private val prefs: SharedPreferences)
         Knob("control_alpha", "Button & panel opacity", 0.25f, 1f, 0.85f),
         Knob("ais_scale", "AIS vessel size", 0.5f, 2.0f, 1.0f),
         Knob("catch_scale", "Catch symbol size", 0.5f, 2.0f, 1.0f),
+        Knob("place_scale", "Place name size", 0.6f, 2.0f, 1.0f),
     )
 
     private fun get(key: String) = prefs.getFloat("ui_$key", knobs.first { it.key == key }.default)
@@ -32,6 +33,7 @@ class Appearance(private val ctx: Context, private val prefs: SharedPreferences)
     val controlAlpha get() = get("control_alpha")
     val aisScale get() = get("ais_scale")
     val catchScale get() = get("catch_scale")
+    val placeScale get() = get("place_scale")
 
     /** Scale bar at the bottom right of the map. */
     var showScaleBar: Boolean
@@ -101,7 +103,7 @@ class Appearance(private val ctx: Context, private val prefs: SharedPreferences)
         val groups = listOf(
             "Data field style · all modes" to listOf(knobs[0] to "Size", knobs[1] to "Background"),
             "Buttons and panels · all modes" to listOf(knobs[2] to "Size", knobs[3] to "Opacity"),
-            "Map symbols" to listOf(knobs[4] to "AIS vessel size", knobs[5] to "Catch size"),
+            "Map symbols" to listOf(knobs[4] to "AIS vessel size", knobs[5] to "Catch size", knobs[6] to "Place name size"),
         )
         for ((title, items) in groups) {
             rows.section(title)

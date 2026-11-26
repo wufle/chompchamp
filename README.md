@@ -69,6 +69,12 @@ Four modes (switch with the button at the top of the screen):
 - **Navigate**: steers you waypoint by waypoint with BRG, DTW, XTE, VMG, TTG, ETA to waypoint and destination, and distance remaining. Auto-advances at the arrival radius or when you pass abeam. Previous, stop and next buttons.
 - **Fish**: zooms in close, measures drift over a rolling window and draws where you'll be in N minutes. **Mark** saves your catch and the spot together: species, number, length, weight, kept or released, bait, notes and photos, with the time, position and estimated depth filled in. The newest photo shows as a bubble on the map. Sort marks into coloured groups you can show or hide (Menu → Marks), and move or delete many at once. Add more catches or photos (camera or gallery) to a mark by tapping it. Anchor alarm, nearest-mark distance/bearing, breadcrumb track.
 
+**Search places** (Menu): find a town, suburb, harbour, marina, boat ramp, jetty, lighthouse, island, point, bay, beach
+or reef by name and go there on the map. Results show the kind of place, the nearest town and how far it is; boat ramps
+also show lanes, finger jetties and trailer bays where WA's Department of Transport lists them. Type "ramp" and a town
+("ramp mandurah") for that town's ramps. The same names are labelled on the map (Layers → Place names), bigger places
+from further out. Works offline.
+
 **Bag & size limits** (fish-in-a-bag button at the top right in Fish mode, or Menu): daily bag, boat and size limits for
 the area you're in, with closed seasons, pictures, and a search by species. Tap a picture for a bigger one and a
 **Google Images** button that searches the web for more photos of that fish (needs internet). The area follows your position, or choose one. Works
@@ -92,8 +98,8 @@ more behind, and boats without AIS or out of range of a station are missing. It 
 
 Everything is customisable:
 - **Data fields** per mode: SOG (knots or km/h), COG, position, depth, waypoint, BRG, DTW, XTE, VMG, TTG, ETAs, remaining, drift speed/direction, nearest mark, anchor distance, trip distance, time, average and top speed, clock. Show/hide them and drag them anywhere (Menu → Display → Move or resize), or combine them into one group (Menu → Display → Arrangement); tap a field while editing to resize or hide just that one. Each mode keeps its own layout.
-- **Display** (Menu): the data field options above, the scale bar, Record button and bag limits button on/off (move the buttons with Move or resize), the AIS vessel colour (light green, teal or light blue), plus size and transparency of data fields, and of buttons and panels.
-- **Layers** (bottom left): on/off and an opacity slider for every layer: marks and hazards, satellite, 5 m reef relief, depth shading, contours, labels, land, zones, parks, route, marks, drift line, track, saved trip, catches, anchor circle, AIS vessels.
+- **Display** (Menu): the data field options above, the scale bar, Record button and bag limits button on/off (move the buttons with Move or resize), the AIS vessel colour (light green, teal or light blue), plus size and transparency of data fields, and of buttons and panels, and the size of AIS vessels, catches and place names.
+- **Layers** (bottom left): on/off and an opacity slider for every layer: marks and hazards, place names, satellite, 5 m reef relief, depth shading, contours, labels, land, zones, parks, route, marks, drift line, track, saved trip, catches, anchor circle, AIS vessels.
 - **Charts, offline areas & updates** (Menu): save satellite and reef relief imagery for an area, check GitHub for a new app, chart or relief pack, see what is installed (size, date), import, remove the chart or the offline reef relief pack (relief falls back to online), clear the online tile cache.
 - **Data** (Menu): save and load named snapshots on the phone; export and import a backup file (.json) with routes, marks, current track, saved trips, catch log and settings (merge or replace); export and import GPX to move marks, routes and tracks to and from other chartplotter apps.
 - **Settings**: when trip recording starts, recording with the screen off, when a forgotten trip is finished, track history shown (1 min to the entire trip), track point spacing, AIS age limit, arrival radius, planning speed, north-up / course-up, drift window and projection, fish-mode zoom, anchor radius, safety depth.
@@ -126,7 +132,7 @@ about once a minute; it keeps request logs for 90 days. Your own position is nev
 ## Data sources and licences
 
 The app and pipeline code is under the [MIT licence](LICENSE). The **data isn't**: each chart layer keeps its
-source's licence (including the bundled `hazards.geojson`). If you reuse the chart files, follow all of them.
+source's licence (including the bundled `hazards.geojson` and `places.geojson`). If you reuse the chart files, follow all of them.
 **The marine park outlines are non-commercial**, so don't sell charts that include them.
 
 | Layer | Source | Licence |
@@ -140,6 +146,8 @@ source's licence (including the bundled `hazards.geojson`). If you reuse the cha
 | Reef relief (5 m, about 30 nearshore areas) | WA Department of Transport bathymetry imagery, via [SLIP](https://public-services.slip.wa.gov.au/public/rest/services/Landgate_Public_Maps/WA_Bathymetry/MapServer) | CC BY 4.0 |
 | Navigation marks (beacons, buoys, cardinals, lights, leads) | WA Department of Transport, Navigation Aids (DOT-004), via SLIP | CC BY 4.0 |
 | Wrecks, rocks, obstructions | © OpenStreetMap contributors (OpenSeaMap seamark tags) | ODbL 1.0 |
+| Place names: towns, suburbs, harbours, marinas, jetties, lighthouses, islands, points, bays, beaches, reefs | © OpenStreetMap contributors | ODbL 1.0 |
+| Boat ramps and DoT maritime facilities (harbours, public jetties) | WA Department of Transport, Public Boat Ramps (DOT-033) and Maritime Facility Locations (DOT-030), via SLIP | CC BY 4.0 |
 | Satellite (online, or saved for chosen areas) | © Geoscience Australia, [Digital Earth Australia](https://www.dea.ga.gov.au): coast from [DEA Tidal Composites](https://knowledge.dea.ga.gov.au/data/product/dea-tidal-composites/) (Sentinel-2, low tide, 2024), inland from [DEA GeoMAD](https://knowledge.dea.ga.gov.au/data/product/dea-geometric-median-and-median-absolute-deviation-landsat/) (Landsat 8 and 9, 2025). Contains modified Copernicus Sentinel and USGS Landsat data | CC BY 4.0 |
 | Vessels (online, optional layer) | [Open Waters AIS](https://openwaters.io/ais/), around WA passing on AIS from [AISHub](https://www.aishub.net) contributors and [aisstream.io](https://aisstream.io) | Not open data. Free for personal use and display with credit; AISHub's terms don't allow passing on the raw data, so the app never stores or exports it. aisstream.io publishes no licence |
 | Bag and size limits | Facts from WA DPIRD's [Recreational fishing guide 2026](https://www.dpird.wa.gov.au/siteassets/documents/fisheries/recreational/guides-and-infographics/recreational-fishing-guide.pdf) (June 2026, edition 2), checked 25 November 2026. The guide is © State of Western Australia and has no open licence, so only the limits, dates and places are used, in our own wording | Not open data |
@@ -210,6 +218,8 @@ lines aren't stair-stepped, which looks better but adds no real detail.
 **Refresh only the zones:** `python3 pipeline/scripts/fetch_zones.py pipeline/build/zones.geojson`.
 **Refresh the bundled marks and hazards:**
 `python3 pipeline/scripts/fetch_hazards.py android/app/src/main/assets/hazards.geojson`
+**Refresh the bundled place names:**
+`python3 pipeline/scripts/fetch_places.py android/app/src/main/assets/places.geojson`
 
 The chart and relief can also be built with the *Build WA chart data* and *Build WA reef relief pack*
 workflows. They make a workflow artifact, and only publish a release if **publish** is ticked.
