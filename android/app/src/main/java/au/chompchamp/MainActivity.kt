@@ -113,9 +113,14 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private var recording: Boolean
         get() = prefs.getBoolean("trip_recording", false)
         set(v) { prefs.edit().putBoolean("trip_recording", v).apply() }
+    /** When Record was tapped: the clock runs from here, even before the boat moves and the track gets a point. */
+    private var recordingSince: Long
+        get() = prefs.getLong("trip_recording_since", 0L)
+        set(v) { prefs.edit().putLong("trip_recording_since", v).apply() }
     private val ticker = android.os.Handler(android.os.Looper.getMainLooper())
+    /** Every second while recording, so the REC clock visibly runs; otherwise twice a minute. */
     private val tick = object : Runnable {
-        override fun run() { updateModeLabel(); ticker.postDelayed(this, 30_000) }
+        override fun run() { updateModeLabel(); ticker.postDelayed(this, if (recording) 1_000 else 30_000) }
     }
     /** The saved trip drawn on the map. */
     private var shownTrip: String? = null
@@ -1174,7 +1179,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
         // A track left over while not recording (from a loaded backup, say) is its own trip, not the start of this one.
         if (track.points.size >= 2) archiveTrack(keepAll = true) else if (track.points.isNotEmpty()) clearTrack()
         recording = true
+        recordingSince = System.currentTimeMillis()
         recordingChanged(ask = true)
+        ticker.removeCallbacks(tick); ticker.post(tick)
         lastFix?.let { recordTrack(it, LatLon(it.latitude, it.longitude), if (it.hasSpeed()) it.speed * Geo.KN_PER_MS else null) }
         if (quiet) return
         snack(message ?: if (look.showRecordButton) "Recording a trip. To stop, press and hold REC." else "Recording a trip.")
@@ -1234,8 +1241,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         updateRecordButton()
         val label = "${mode.label} ▾"
         if (!recording || look.showRecordButton) { modeButton.text = label; modeButton.contentDescription = "Mode: ${mode.label}"; return }
-        val ms = track.stats.durationMs.coerceAtLeast(0)
-        val time = String.format(Locale.US, "%d:%02d", ms / 3_600_000, ms / 60_000 % 60)
+        val time = recTime()
         val rec = "●  REC $time"
         val text = android.text.SpannableString("$rec   $label")
         text.setSpan(android.text.style.ForegroundColorSpan(ContextCompat.getColor(this, R.color.ui_danger_text)),
@@ -1244,9 +1250,16 @@ class MainActivity : AppCompatActivity(), LocationListener {
         modeButton.contentDescription = "Mode: ${mode.label}. Recording a trip, $time"
     }
 
+    /** Time since recording started: "4:07" (minutes and seconds), then "1:04:07". */
     private fun recTime(): String {
-        val ms = track.stats.durationMs.coerceAtLeast(0)
-        return String.format(Locale.US, "%d:%02d", ms / 3_600_000, ms / 60_000 % 60)
+        val now = System.currentTimeMillis()
+        val first = track.points.firstOrNull()?.t
+        // Trips recorded before 0.17.4 have no start time: go by the track, or start the clock now.
+        if (recordingSince <= 0L || recordingSince > now) recordingSince = first ?: now
+        val start = minOf(recordingSince, first ?: recordingSince)
+        val sec = ((now - start) / 1000).coerceAtLeast(0)
+        return if (sec < 3600) String.format(Locale.US, "%d:%02d", sec / 60, sec % 60)
+        else String.format(Locale.US, "%d:%02d:%02d", sec / 3600, sec / 60 % 60, sec % 60)
     }
 
     /** "● Record" when not recording; red "● REC 1:23" with a red edge while recording. */
@@ -1264,13 +1277,18 @@ class MainActivity : AppCompatActivity(), LocationListener {
         text.setSpan(android.text.style.ForegroundColorSpan(red), 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         if (recording) text.setSpan(android.text.style.ForegroundColorSpan(red), 3, 6, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         b.text = text
+        b.contentDescription = if (recording) "Recording a trip, ${recTime()}. Press and hold to stop." else "Record a trip"
+        // The clock ticks every second: restyle only when something else changed.
+        val key = "$recording ${look.controlAlpha} $scale"
+        if (b.tag == key) return
+        b.tag = key
+        b.fontFeatureSettings = "tnum"   // same-width digits, so the button doesn't twitch as the seconds change
         b.minHeight = controlSizePx()
         b.textSize = 13f * scale
         b.setTextColor(look.onSurface)
         b.background = look.surfaceBg(if (recording) maxOf(look.controlAlpha, 0.85f) else look.controlAlpha, 22f * scale).apply {
             if (recording) setStroke((2 * dp).toInt().coerceAtLeast(1), red)
         }
-        b.contentDescription = if (recording) "Recording a trip, ${recTime()}. Press and hold to stop." else "Record a trip"
         TooltipCompat.setTooltipText(b, null)
         b.post { recButton.place() }
     }
