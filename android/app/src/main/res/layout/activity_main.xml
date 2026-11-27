@@ -230,6 +230,14 @@
             android:layout_marginEnd="12dp"
             android:visibility="gone" />
 
+        <!-- Credit for the online map (Esri requires it on screen), beside MapLibre's "i". Only shown while that layer is on. -->
+        <TextView
+            android:id="@+id/onlineCredit"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|start"
+            android:visibility="gone" />
+
         <!-- Non-blocking settings panel (layers, appearance). No scrim, so the map stays
              visible and changes preview live. Filled in code by SettingsPanel. -->
         <FrameLayout
