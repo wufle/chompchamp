@@ -38,8 +38,6 @@ enum class MapOverlay(val key: String, val shortLabel: String, val defaultOn: Bo
     ANCHOR("anchor", "Anchor circle", true),
     SAVED_TRIP("saved_trip", "Saved trip", true),
     CATCHES("catches", "Catches", true),
-    /** Esri World Imagery or the user's own tile address (OnlineMap). Needs internet; never saved offline. */
-    ONLINE("online_map", "Online map", false),
     /** Off by default: needs internet, and tells the AIS server which area is on screen. */
     AIS("ais", "Vessels (AIS)", false),
 }
@@ -51,7 +49,6 @@ class MapLayers(private val prefs: SharedPreferences) {
             StyleLayer("satellite-land", Kind.RASTER, 1f),
             StyleLayer("satellite", Kind.RASTER, 1f),
         ),
-        MapOverlay.ONLINE to listOf(StyleLayer(ONLINE_LAYER, Kind.RASTER, 1f)),
         MapOverlay.RELIEF to listOf(StyleLayer("relief", Kind.RASTER, 0.9f)),
         MapOverlay.DEPTH to listOf(
             StyleLayer("water-fill", Kind.FILL, 1f),
@@ -129,9 +126,7 @@ class MapLayers(private val prefs: SharedPreferences) {
     /** Apply saved toggles and opacities to a loaded style. */
     fun apply(style: Style) {
         // How much satellite shows: on but at 0% is the same as off.
-        // An online map (when set up) counts the same.
-        val online = if (isOn(MapOverlay.ONLINE) && style.getLayer(ONLINE_LAYER) != null) opacity(MapOverlay.ONLINE) else 0f
-        val sat = maxOf(if (isOn(MapOverlay.SATELLITE)) opacity(MapOverlay.SATELLITE) else 0f, online)
+        val sat = if (isOn(MapOverlay.SATELLITE)) opacity(MapOverlay.SATELLITE) else 0f
         val saved = style.layers.map { it.id }.filter { '@' in it }
         for ((overlay, styleLayers) in layers) {
             val on = isOn(overlay)
@@ -170,7 +165,7 @@ class MapLayers(private val prefs: SharedPreferences) {
         "Zones" to listOf(MapOverlay.NO_TAKE, MapOverlay.RESTRICTED, MapOverlay.PARKS),
         "My data" to listOf(MapOverlay.ROUTE, MapOverlay.MARKS, MapOverlay.DRIFT, MapOverlay.TRACK, MapOverlay.SAVED_TRIP,
             MapOverlay.CATCHES, MapOverlay.ANCHOR),
-        "Live (needs internet)" to listOf(MapOverlay.ONLINE, MapOverlay.AIS),
+        "Live (needs internet)" to listOf(MapOverlay.AIS),
     )
 
     /** Fill the docked settings panel: switch + opacity slider per layer, applied live. */
@@ -182,18 +177,13 @@ class MapLayers(private val prefs: SharedPreferences) {
                     label = o.shortLabel,
                     percent = (opacity(o) * 100).roundToInt(),
                     checked = isOn(o),
-                    onChecked = { on ->
-                        setOn(o, on); style?.let { apply(it) }; onToggled?.invoke(o)
-                        if (on && o == MapOverlay.ONLINE && !onlineReady()) onlineSetup?.invoke()
-                    },
-                    onPercent = { p -> setOpacity(o, p / 100f); style?.let { apply(it) }; onToggled?.invoke(o) },
+                    onChecked = { on -> setOn(o, on); style?.let { apply(it) }; onToggled?.invoke(o) },
+                    onPercent = { p -> setOpacity(o, p / 100f); style?.let { apply(it) } },
                 )
-                if (o == MapOverlay.ONLINE) rows.actionRow("Online map source", onlineLabel()) { onlineSetup?.invoke() }
             }
         }
         rows.note("Sliders set each layer's opacity. No-fishing alerts keep working when zones are hidden. " +
             "Satellite and online reef relief need internet, except in areas you've saved (☰ → Charts, offline areas & updates). " +
-            "The online map loads only while it's on, and is never saved for offline use. " +
             "AIS asks openwaters.io for vessels in the area on screen.")
         rows.button("Reset layers") {
             val e = prefs.edit()
@@ -209,13 +199,4 @@ class MapLayers(private val prefs: SharedPreferences) {
 
     /** Set by the activity to reopen the panel after a reset (so the controls refresh). */
     var onReset: (() -> Unit)? = null
-
-    /** Set by the activity: open the online map setup, and describe its source. */
-    var onlineSetup: (() -> Unit)? = null
-    var onlineLabel: () -> String = { "not set up" }
-    var onlineReady: () -> Boolean = { false }
-
-    companion object {
-        const val ONLINE_LAYER = "online-map"
-    }
 }

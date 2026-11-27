@@ -99,12 +99,7 @@ more behind, and boats without AIS or out of range of a station are missing. It 
 Everything is customisable:
 - **Data fields** per mode: SOG (knots or km/h), COG, position, depth, waypoint, BRG, DTW, XTE, VMG, TTG, ETAs, remaining, drift speed/direction, nearest mark, anchor distance, trip distance, time, average and top speed, clock. Show/hide them and drag them anywhere (Menu → Display → Move or resize), or combine them into one group (Menu → Display → Arrangement); tap a field while editing to resize or hide just that one. Each mode keeps its own layout.
 - **Display** (Menu): the data field options above, the scale bar, Record button and bag limits button on/off (move the buttons with Move or resize), the AIS vessel colour (light green, teal or light blue), plus size and transparency of data fields, and of buttons and panels, and the size of AIS vessels, catches and place names.
-- **Layers** (bottom left): on/off and an opacity slider for every layer: marks and hazards, place names, satellite, 5 m reef relief, depth shading, contours, labels, land, zones, parks, route, marks, drift line, track, saved trip, catches, anchor circle, online map, AIS vessels.
-- **Online map** (Layers → Online map source): a sharper map under the chart while you have signal. Choose Esri World
-  Imagery (aerial and satellite photos, often under 1 m along the coast) with your own free API key from an
-  [ArcGIS Location Platform](https://location.arcgis.com/) account, or paste any `https://` tile address you're allowed to use.
-  It's the one layer that never works offline: Esri's terms don't allow saving its tiles. The key stays on the device and
-  is left out of exported settings.
+- **Layers** (bottom left): on/off and an opacity slider for every layer: marks and hazards, place names, satellite, 5 m reef relief, depth shading, contours, labels, land, zones, parks, route, marks, drift line, track, saved trip, catches, anchor circle, AIS vessels.
 - **Charts, offline areas & updates** (Menu): save satellite and reef relief imagery for an area, check GitHub for a new app, chart or relief pack, see what is installed (size, date), import, remove the chart or the offline reef relief pack (relief falls back to online), clear the online tile cache.
 - **Data** (Menu): save and load named snapshots on the phone; export and import a backup file (.json) with routes, marks, current track, saved trips, catch log and settings (merge or replace); export and import GPX to move marks, routes and tracks to and from other chartplotter apps.
 - **Settings**: when trip recording starts, recording with the screen off, when a forgotten trip is finished, track history shown (1 min to the entire trip), track point spacing, AIS age limit, arrival radius, planning speed, north-up / course-up, drift window and projection, fish-mode zoom, anchor radius, safety depth.
@@ -128,8 +123,7 @@ location when you update it, because some browsers tie your saved data to them. 
 No accounts, ads or analytics. Your position, trips, catches, marks and photos stay on the phone unless you export
 them (or Android's own device backup copies them). When online, the app requests map imagery for the area
 you're viewing from the WA Government (SLIP) and Digital Earth Australia (Geoscience Australia), so those servers
-see your IP address and the area on screen. If you set up the online map, Esri (or the server you chose) sees the same,
-plus your API key. Saving an area for offline use downloads from the same servers.
+see your IP address and the area on screen. Saving an area for offline use downloads from the same servers.
 Tapping **Google Images** on a fish opens a Google search in your browser.
 Checking for updates asks GitHub for the latest release; it only happens when you ask, unless you turn on
 automatic checks. With the AIS layer on, Open Waters also sees your IP address and the area on screen
@@ -155,7 +149,6 @@ source's licence (including the bundled `hazards.geojson` and `places.geojson`).
 | Wrecks, rocks, obstructions | © OpenStreetMap contributors (OpenSeaMap seamark tags) | ODbL 1.0 |
 | Place names: towns, suburbs, harbours, marinas, jetties, lighthouses, islands, points, bays, beaches, reefs | © OpenStreetMap contributors | ODbL 1.0 |
 | Boat ramps and DoT maritime facilities (harbours, public jetties) | WA Department of Transport, Public Boat Ramps (DOT-033) and Maritime Facility Locations (DOT-030), via SLIP | CC BY 4.0 |
-| Online map (optional, online only, your own key) | Esri World Imagery via [ArcGIS Location Platform](https://location.arcgis.com/): Esri, Vantor, Earthstar Geographics, and the GIS User Community. Powered by Esri | Esri's terms; not saved offline |
 | Satellite (online, or saved for chosen areas) | © Geoscience Australia, [Digital Earth Australia](https://www.dea.ga.gov.au): coast from [DEA Tidal Composites](https://knowledge.dea.ga.gov.au/data/product/dea-tidal-composites/) (Sentinel-2, low tide, 2024), inland from [DEA GeoMAD](https://knowledge.dea.ga.gov.au/data/product/dea-geometric-median-and-median-absolute-deviation-landsat/) (Landsat 8 and 9, 2025). Contains modified Copernicus Sentinel and USGS Landsat data | CC BY 4.0 |
 | Vessels (online, optional layer) | [Open Waters AIS](https://openwaters.io/ais/), around WA passing on AIS from [AISHub](https://www.aishub.net) contributors and [aisstream.io](https://aisstream.io) | Not open data. Free for personal use and display with credit; AISHub's terms don't allow passing on the raw data, so the app never stores or exports it. aisstream.io publishes no licence |
 | Bag and size limits | Facts from WA DPIRD's [Recreational fishing guide 2026](https://www.dpird.wa.gov.au/siteassets/documents/fisheries/recreational/guides-and-infographics/recreational-fishing-guide.pdf) (June 2026, edition 2), checked 25 November 2026. The guide is © State of Western Australia and has no open licence, so only the limits, dates and places are used, in our own wording | Not open data |

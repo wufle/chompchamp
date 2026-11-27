@@ -18,9 +18,7 @@ README.md covers features, signing, data sources/licences and zone classificatio
 - **Everything overlaid on the map is user-adjustable** (size, transparency, position, on/off).
 - **Colours come from `res/values/colors.xml` / `Appearance`.** Soft blue accent; no yellow/amber controls.
 - **Free data only, and it must work offline** once imported. Check the licence and add the source to
-  the README table and the style/tile attribution. The one exception the owner approved: the **online map** layer
-  (`OnlineMap.kt`), with the user's own Esri key or tile address. It is never saved offline, and its keys use the
-  `secret_` pref prefix, so they stay out of exported settings.
+  the README table and the style/tile attribution.
 - The signing key is kept outside the repo. Don't read, move or commit it.
 - **Don't test on the tablet unless the owner asks** for that task. Don't run `adb` or connect to it otherwise.
 
@@ -69,7 +67,6 @@ user which they need. The style must also cope with older charts that lack a new
 | `OfflineAreas.kt`, `OfflinePanel.kt` | Save online imagery (satellite, reef relief) for a box as MBTiles, one file per area and layer, never written after; docked panel |
 | `Updater.kt` | Checks the latest GitHub release, downloads with DownloadManager, installs the APK or imports the chart |
 | `MovableButton.kt` | A button the user can drag in Edit layout (bag limits) |
-| `OnlineMap.kt` | Online-only map layer: Esri World Imagery (user's API key) or a pasted tile address; test fetch; on-screen Esri credit |
 | `ScaleBarView.kt` | Scale bar, bottom right |
 | `Hazards.kt` | Nav marks, wrecks and rocks from `assets/hazards.geojson` |
 | `Places.kt`, `PlacesPanel.kt` | Place names from `assets/places.geojson`: map labels (shown by rank and zoom) and the Search places panel |

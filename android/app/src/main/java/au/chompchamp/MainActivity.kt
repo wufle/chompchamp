@@ -100,8 +100,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private lateinit var recButton: MovableButton
     private lateinit var ais: Ais
     private lateinit var aisLabel: TextView
-    private lateinit var onlineMap: OnlineMap
-    private lateinit var onlineCredit: TextView
     private lateinit var offlineAreas: OfflineAreas
     private lateinit var offlinePanel: OfflinePanel
     private lateinit var updater: Updater
@@ -201,7 +199,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
         prefs = getSharedPreferences("app", MODE_PRIVATE)
         settings = Settings(prefs)
         layers = MapLayers(prefs)
-        onlineMap = OnlineMap(prefs)
         store = Store(File(filesDir, "data"))
         navigator = Navigator(settings)
         track = Track(store.track())
@@ -257,10 +254,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
             else (menu.x - b.width - 10 * resources.displayMetrics.density) to menu.y
         }
         aisLabel = findViewById(R.id.aisLabel)
-        onlineCredit = findViewById(R.id.onlineCredit)
-        onlineCredit.setOnClickListener {
-            Toast.makeText(this, map?.style?.getSource(MapLayers.ONLINE_LAYER)?.attribution ?: "", Toast.LENGTH_LONG).show()
-        }
         aisLabel.setOnClickListener { showAisInfo() }
         ais = createAis()
         fields = DataFieldsOverlay(findViewById<FrameLayout>(R.id.fieldsContainer), prefs, look) { f -> fieldOptions(f) }
@@ -299,11 +292,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         findViewById<View>(R.id.btnLayers).setOnClickListener {
             if (panel.isOpen) panel.hide() else showLayersPanel()
         }
-        layers.onReset = { showLayersPanel(); updateAis(); updateOnlineCredit() }
-        layers.onToggled = { if (it == MapOverlay.AIS) updateAis(); if (it == MapOverlay.ONLINE) updateOnlineCredit() }
-        layers.onlineSetup = { showOnlineMapPanel() }
-        layers.onlineLabel = { onlineMap.label }
-        layers.onlineReady = { onlineMap.ready }
+        layers.onReset = { showLayersPanel(); updateAis() }
+        layers.onToggled = { if (it == MapOverlay.AIS) updateAis() }
         // Back closes the settings panel / layout editor before leaving the app.
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -1981,13 +1971,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
         scaleBar.setLook(look.surface, scale, bgAlpha)
         scaleBar.visibility = if (look.showScaleBar) View.VISIBLE else View.GONE
         styleButtonLabel(aisLabel)
-        onlineCredit.apply {
-            textSize = 9f * scale
-            setTextColor(look.onSurface)
-            background = look.surfaceBg(bgAlpha, 6f * scale)
-            setPadding((5 * dp).toInt(), (1 * dp).toInt(), (5 * dp).toInt(), (1 * dp).toInt())
-            maxLines = 1
-        }
         aisLabel.maxLines = 4
         aisLabel.gravity = Gravity.END
         aisLabel.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
@@ -2059,14 +2042,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         ui.setCompassMargins(0, barInsets.top + size + (24 * dp).toInt(), barInsets.right + pad, 0)
         ui.isLogoEnabled = false
         ui.attributionGravity = Gravity.BOTTOM or Gravity.START
-        val attributionBottom = barInsets.bottom + size + ((20 + 16 * look.controlScale) * dp).toInt()
-        ui.setAttributionMargins(barInsets.left + pad, 0, 0, attributionBottom)
-        // The online map credit sits just right of the "i".
-        (onlineCredit.layoutParams as FrameLayout.LayoutParams).let { lp ->
-            lp.marginStart = barInsets.left + pad + (28 * dp).toInt()
-            lp.bottomMargin = attributionBottom + (2 * dp).toInt()
-            onlineCredit.layoutParams = lp
-        }
+        ui.setAttributionMargins(barInsets.left + pad, 0, 0, barInsets.bottom + size + ((20 + 16 * look.controlScale) * dp).toInt())
     }
 
     // =========================================================================
@@ -2086,7 +2062,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
             ais.install(style, resources.displayMetrics.density)
             overlays.install(style)
             layers.apply(style)
-            updateOnlineCredit()
             refreshOverlays()
             tripLog.trip(shownTrip)?.let { showTripOnMap(it, tripLog.points(it.id), zoom = false) }
             startLocation(style)
@@ -2122,130 +2097,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
         style.put("layers", out)
         offlineAreas.addToStyle(style)
-        addOnlineMap(style)
         return style.toString()
-    }
-
-    /** The online map, if set up: above satellite (and saved satellite areas), below the chart's water and depths. */
-    private fun addOnlineMap(style: JSONObject) {
-        val source = onlineMap.source() ?: return
-        style.getJSONObject("sources").put(MapLayers.ONLINE_LAYER, source)
-        val src = style.getJSONArray("layers")
-        var at = -1
-        for (i in 0 until src.length()) {
-            val id = src.getJSONObject(i).getString("id")
-            if (id.startsWith("satellite")) at = i
-        }
-        val out = JSONArray()
-        val layer = JSONObject().put("id", MapLayers.ONLINE_LAYER).put("type", "raster").put("source", MapLayers.ONLINE_LAYER)
-            .put("layout", JSONObject().put("visibility", "none"))
-        if (at < 0) out.put(layer)
-        for (i in 0 until src.length()) {
-            out.put(src.getJSONObject(i))
-            if (i == at) out.put(layer)
-        }
-        style.put("layers", out)
-    }
-
-    /** Esri's credit stays on screen while its imagery shows. */
-    private fun updateOnlineCredit() {
-        val text = onlineMap.credit
-        val show = text != null && chartFile.exists() && layers.isOn(MapOverlay.ONLINE) && layers.opacity(MapOverlay.ONLINE) > 0f
-        onlineCredit.text = text
-        onlineCredit.visibility = if (show) View.VISIBLE else View.GONE
-    }
-
-    /** Docked panel: choose and set up the online map. */
-    private fun showOnlineMapPanel() {
-        displayPanelOpen = false
-        panel.show("Online map", { rows ->
-            rows.section("Source")
-            rows.actionRow("Map", onlineMap.kind.label) {
-                val kinds = OnlineMap.Kind.entries
-                MaterialAlertDialogBuilder(this).setTitle("Online map")
-                    .setSingleChoiceItems(kinds.map { if (it == OnlineMap.Kind.NONE) "None" else it.label }.toTypedArray(),
-                        kinds.indexOf(onlineMap.kind)) { d, which ->
-                        d.dismiss()
-                        onlineMap.setKind(kinds[which])
-                        onlineMapChanged(test = false)
-                    }
-                    .setNegativeButton(android.R.string.cancel, null).show()
-            }
-            when (onlineMap.kind) {
-                OnlineMap.Kind.NONE -> rows.note("Shows a map from the internet under the chart: Esri's sharp aerial and " +
-                    "satellite photos with your own free key, or any tile address you have the right to use. " +
-                    "It loads only while you have signal and is never saved for offline use.")
-                OnlineMap.Kind.ESRI -> {
-                    val key = onlineMap.esriKey
-                    rows.actionRow("API key", if (key.isBlank()) "Add" else "…" + key.takeLast(4)) {
-                        askSecret("Esri API key", key) { onlineMap.setEsriKey(it); onlineMapChanged(test = true) }
-                    }
-                    rows.note("Esri World Imagery: aerial and satellite photos, often 0.3–1 m along the WA coast. " +
-                        "It needs your own API key from a free ArcGIS Location Platform account: sign up, create an API key " +
-                        "with the Basemaps privilege, and paste it here. The free tier covers 2 million map tiles a month. " +
-                        "Esri's terms don't allow saving it for offline use, so it shows only with internet. The key stays " +
-                        "on this tablet and is left out of exported settings.")
-                    rows.button("Open ArcGIS Location Platform") {
-                        runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://location.arcgis.com/"))) }
-                    }
-                }
-                OnlineMap.Kind.CUSTOM -> {
-                    val url = onlineMap.customUrl
-                    rows.actionRow("Tile address", if (url.isBlank()) "Add" else if (OnlineMap.validUrl(url)) "Set" else "Check") {
-                        askSecret("Tile address", url, url = true) { onlineMap.setCustomUrl(it); onlineMapChanged(test = true) }
-                    }
-                    rows.actionRow("Name", onlineMap.customName.ifBlank { "Add" }) {
-                        askText("Name for this map", onlineMap.customName) { onlineMap.setCustomName(it); onlineMapChanged(test = false) }
-                    }
-                    rows.note("A web address starting https:// with {z}, {x} and {y} where the zoom and tile numbers go " +
-                        "(or {bbox-epsg-3857} for a WMS server, or {quadkey}). 256-pixel tiles. Only use a service whose " +
-                        "terms allow it. It's never saved for offline use, and the address is left out of exported settings.")
-                }
-            }
-            if (onlineMap.ready) rows.button("Test") { testOnlineMap() }
-            rows.note("Turn it on and set how much shows in Layers → Online map.")
-        })
-    }
-
-    private fun onlineMapChanged(test: Boolean) {
-        if (chartFile.exists()) loadStyle()
-        updateOnlineCredit()
-        showOnlineMapPanel()
-        if (test && onlineMap.ready) testOnlineMap()
-    }
-
-    private fun testOnlineMap() {
-        Toast.makeText(this, "Testing the online map…", Toast.LENGTH_SHORT).show()
-        io.execute {
-            val problem = onlineMap.test(userAgent)
-            runOnUiThread {
-                if (isFinishing || isDestroyed) return@runOnUiThread
-                if (problem == null) {
-                    val on = layers.isOn(MapOverlay.ONLINE)
-                    Toast.makeText(this, if (on) "Online map works" else "Online map works. Turn it on in Layers.",
-                        Toast.LENGTH_LONG).show()
-                } else {
-                    MaterialAlertDialogBuilder(this).setTitle("Online map didn't load").setMessage(problem)
-                        .setPositiveButton(android.R.string.ok, null).show()
-                }
-            }
-        }
-    }
-
-    /** Like askText, but for keys and addresses: no capitals or suggestions, and an empty answer clears it. */
-    private fun askSecret(title: String, initial: String, url: Boolean = false, onOk: (String) -> Unit) {
-        val input = EditText(this).apply {
-            setText(initial)
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or
-                (if (url) InputType.TYPE_TEXT_VARIATION_URI else InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD)
-            setSelection(text.length)
-            maxLines = 4
-        }
-        val pad = (20 * resources.displayMetrics.density).toInt()
-        val box = FrameLayout(this).apply { setPadding(pad, pad / 2, pad, 0); addView(input) }
-        MaterialAlertDialogBuilder(this).setTitle(title).setView(box)
-            .setPositiveButton(android.R.string.ok) { _, _ -> onOk(input.text.toString().trim()) }
-            .setNegativeButton(android.R.string.cancel, null).show()
     }
 
     // ---- Chart & relief data manager ------------------------------------------------
@@ -2277,7 +2129,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             }
         }
         items += "Clear online map cache" to {
-            confirm("Clear cached online satellite, online map and reef relief tiles? They'll download again when needed. Areas you saved for offline use are kept.") {
+            confirm("Clear cached online satellite and reef relief tiles? They'll download again when needed. Areas you saved for offline use are kept.") {
                 OfflineManager.getInstance(this).clearAmbientCache(object : OfflineManager.FileSourceCallback {
                     override fun onSuccess() {
                         Toast.makeText(this@MainActivity, "Online cache cleared", Toast.LENGTH_SHORT).show()

@@ -179,7 +179,6 @@ class UserData(dir: File, private val store: Store, private val tripLog: TripLog
     private fun prefsToJson(): JSONObject {
         val o = JSONObject()
         for ((k, v) in prefs.all) {
-            if (k.startsWith(OnlineMap.SECRET)) continue   // API keys stay on the device
             val typed = when (v) {
                 is Boolean -> JSONObject().put("t", "b").put("v", v)
                 is Float -> JSONObject().put("t", "f").put("v", v.toDouble())
@@ -195,12 +194,8 @@ class UserData(dir: File, private val store: Store, private val tripLog: TripLog
 
     private fun jsonToPrefs(o: JSONObject, clearFirst: Boolean) {
         val e = prefs.edit()
-        if (clearFirst) {
-            // Keep API keys: they were never exported, so restoring must not wipe them.
-            prefs.all.keys.filterNot { it.startsWith(OnlineMap.SECRET) }.forEach { e.remove(it) }
-        }
+        if (clearFirst) e.clear()
         for (k in o.keys()) {
-            if (k.startsWith(OnlineMap.SECRET)) continue
             val t = o.getJSONObject(k)
             when (t.getString("t")) {
                 "b" -> e.putBoolean(k, t.getBoolean("v"))
