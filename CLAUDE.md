@@ -121,7 +121,8 @@ headless Chromium (available locally) before calling it done. Bump `web/VERSION`
 3. `build_metro.py REGION`: detailed areas in `REGIONS`, from DoT 5 m grids and soundings with OpenStreetMap coast. `metro`:
    Two Rocks to Preston Beach (Perth, Cockburn Sound, Swan/Canning, Mandurah, Peel–Harvey). `kalbarri`: Kalbarri to Horrocks,
    also using LiDAR and multibeam cells from AusBathyTopo 30m (Perth) 2026, read in windows from the zip online (it stops at
-   28 S). At sea, sparse soundings fade into the background grid over `sea_gap_m`. Never invents depths for rivers;
+   28 S). `dongara`: Cliff Head to Seven Mile Beach; `lidar_first` lets LiDAR win over interpolated soundings (they agree
+   to ~0.5 m), keeping soundings over 1 m shallower. At sea, sparse soundings fade into the background grid over `sea_gap_m`. Never invents depths for rivers;
    smoothing is shoal-biased. `CHART_DEBUG_TIF=z.tif` saves the final grid to look at.
 4. `clip_metro.py`: cuts the detailed boxes out of the statewide layers.
 5. `build_tiles.sh`: tippecanoe and tile-join into `out/wa.pmtiles` (layers: depth, land, water, contour, zones, source).

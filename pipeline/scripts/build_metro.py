@@ -57,6 +57,13 @@ REGIONS = {
         rasters=["Kalbarri"],
         points=["KL", "PG"],                            # KL: Kalbarri; PG: Port Gregory, Horrocks, Bowes
         sea_gap_m=1200, abt30=True),
+    # Cliff Head to Seven Mile Beach. Airborne LiDAR covers almost all of the nearshore here and agrees with the
+    # DoT soundings (1991-2011) to about 0.5 m, so it wins over depths interpolated between sounding lines.
+    "dongara": dict(
+        bbox=(114.72, -29.60, 115.05, -29.05),
+        rasters=["PortDenison"],
+        points=["PD"],                                  # PD: Port Denison and Dongara
+        sea_gap_m=1200, abt30=True, lidar_first=True),
 }
 METRO_BBOX = REGIONS["metro"]["bbox"]
 BOXES = [r["bbox"] for r in REGIONS.values()]
@@ -214,7 +221,7 @@ def osm_shapes(elements, frame):
 
 AREAS = {"SC": "Swan and Canning rivers", "CS": "Cockburn Sound", "FR": "Fremantle", "WB": "Warnbro Sound",
          "MH": "Mandurah", "DV": "Dawesville and Peel Inlet", "KL": "Kalbarri", "PG": "Port Gregory area",
-         "RT": "Rottnest", "RK": "Rockingham", "JB": "Jervoise Bay"}
+         "RT": "Rottnest", "RK": "Rockingham", "JB": "Jervoise Bay", "PD": "Port Denison and Dongara"}
 METHODS = {"Single": "single beam", "Multi": "multibeam", "DigiSingle": "single beam, digitised from paper charts"}
 
 
@@ -225,7 +232,7 @@ def sounding_source(name, zip_code):
     code, year, sub, method = m.groups()
     area = AREAS.get(code) or AREAS.get(zip_code, zip_code)
     sub = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", sub)
-    if len(sub) > 3 and sub.replace(" ", "").isalpha() and sub not in ("Chart",):
+    if len(sub) > 3 and sub.replace(" ", "").isalpha() and sub not in ("Chart", "White"):
         area = f"{area}, {sub}"
     acc = 3 if method == "DigiSingle" else 1 if int(year) >= 2000 else 2
     return f"WA DoT soundings, {area} {year} ({METHODS[method]})", acc
@@ -413,12 +420,14 @@ def main():
         sid[ok] = add_source(f"WA DoT survey grid, {re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', name)} (multibeam, LiDAR or laser, 5 m)", 1)
         log(f"  {name}: {ok.mean():.2%}")
     surv[land_m] = np.nan
+    grid_m = np.isfinite(surv)
 
     # 2. Soundings, interpolated between survey lines, only close to real data: within MAX_GAP_M in
     # rivers and harbours, sea_gap_m at sea (where lines can be a few hundred metres apart).
     zips = [download(f"{S3}/PointData/{p}.zip", os.path.join(raw, f"{p}.zip")) for p in cfg["points"]]
     pts, pid = read_points(zips, T, shape, add_source)
     pts[land_m | np.isfinite(surv)] = np.nan
+    measured = np.isfinite(pts)   # sounding cells, before filling between the lines
     cellx = RES * 111320 * np.cos(np.radians((s + n) / 2))
     celly = RES * 110900
     gap = cfg["sea_gap_m"]
@@ -480,6 +489,13 @@ def main():
         # 2b. LiDAR and multibeam from the 30 m compilation, where the DoT surveys don't reach.
         abt, real, tid = read_abt30(raw, cfg["bbox"], T, shape)
         ok = real & ~land_m & ~river_m & ~np.isfinite(surv) & (abt < 0)
+        if cfg.get("lidar_first"):
+            # Also over soundings and what was filled between them, but not the DoT 5 m grids, and not a
+            # sounding over 1 m shallower than the LiDAR (a shoal it may have smoothed away).
+            shoal = measured & (surv > abt + 1)
+            ok |= real & ~land_m & ~river_m & ~grid_m & ~shoal & (abt < 0)
+            weight[ok] = 1
+            log(f"LiDAR over soundings: {(ok & measured).sum()} sounding cells, kept {shoal.sum()} shoaler ones")
         surv[ok] = abt[ok]
         for code, what in ((15, "airborne LiDAR"), (11, "multibeam")):
             sid[ok & (tid == code)] = add_source(f"{what.capitalize()}, from AusBathyTopo 30m (Perth) 2026", 1)

@@ -20,9 +20,9 @@ tippecanoe -o "$WORK/base.pmtiles" --force \
   --simplification=2 \
   --attribution="$ATTR"
 
-echo ">> Tiling the detailed areas (Two Rocks to Preston Beach, Kalbarri to Horrocks) (z4-14)"
+echo ">> Tiling the detailed areas (Two Rocks to Preston Beach, Kalbarri to Horrocks, Dongara) (z4-14)"
 for layer in depth land water contour source; do
-  cat "$WORK"/metro_$layer.geojsonl "$WORK"/kalbarri_$layer.geojsonl > "$WORK/detail_$layer.geojsonl"
+  cat "$WORK"/metro_$layer.geojsonl "$WORK"/kalbarri_$layer.geojsonl "$WORK"/dongara_$layer.geojsonl > "$WORK/detail_$layer.geojsonl"
 done
 tippecanoe -o "$WORK/metro.pmtiles" --force \
   -Z4 -z14 \

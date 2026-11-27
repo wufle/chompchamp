@@ -140,7 +140,8 @@ source's licence (including the bundled `hazards.geojson` and `places.geojson`).
 | Depth, contours, land (statewide, 250 m) | Geoscience Australia, [AusBathyTopo (Australia) 250m 2024](https://pid.geoscience.gov.au/dataset/ga/150050). Incorporates source bathymetry data reproduced under licence by permission of the Australian Hydrographic Office © Commonwealth of Australia 2009-2023 | CC BY 4.0 |
 | Depth, contours: the coast from Two Rocks to Preston Beach, Rottnest, Cockburn Sound, the Swan and Canning rivers, Mandurah, the Dawesville Cut and the Peel–Harvey estuary | WA Department of Transport 5 m composite grids (DOT-022) and point soundings (DOT-021). Heights relative to AHD (about mean sea level), not low-tide chart datum | CC BY 4.0 |
 | Depth, contours: Kalbarri to Horrocks, including the Murchison River entrance, Port Gregory and Horrocks | WA Department of Transport 5 m composite grid (DOT-022) and point soundings (DOT-021); south of 28° S also the LiDAR and multibeam in Geoscience Australia's [AusBathyTopo 30m (Perth) 2026](https://ecat.ga.gov.au/geonetwork/srv/eng/catalog.search#/metadata/61a348f7-077f-476a-b8a2-b8e3feb2a304), incorporating data © Commonwealth of Australia (AHO) | CC BY 4.0 |
-| Coastline, river, estuary and marina outlines (Two Rocks to Preston Beach, Kalbarri to Horrocks) | © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) | ODbL 1.0 |
+| Depth, contours: Dongara, from Cliff Head to Seven Mile Beach, including Port Denison harbour | Airborne LiDAR from Geoscience Australia's [AusBathyTopo 30m (Perth) 2026](https://ecat.ga.gov.au/geonetwork/srv/eng/catalog.search#/metadata/61a348f7-077f-476a-b8a2-b8e3feb2a304), incorporating data © Commonwealth of Australia (AHO); WA Department of Transport 5 m grid (DOT-022) and point soundings (DOT-021), 1991–2011 | CC BY 4.0 |
+| Coastline, river, estuary and marina outlines (Two Rocks to Preston Beach, Kalbarri to Horrocks, Dongara) | © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) | ODbL 1.0 |
 | No-fishing / restricted zones | WA DPIRD Fisheries Guide, consolidated notices and orders (DPIRD-061), via [SLIP](https://public-services.slip.wa.gov.au/public/rest/services/SLIP_Public_Services/DPIRD_Fisheries_Guide/MapServer) | CC BY 4.0 |
 | State marine park outlines | WA DBCA Legislated Lands and Waters (DBCA-011) | CC BY-NC 4.0 (non-commercial) |
 | Commonwealth marine park zones | Australian Marine Parks © Commonwealth of Australia (DCCEEW), via [Parks Australia](https://gis.environment.gov.au/gispubmap/rest/services/ogc_services/Australian_Marine_Parks/FeatureServer) | CC BY 4.0 |
@@ -176,7 +177,7 @@ and obstructions known only from hydrographic surveys (AHO ENCs) are not in any 
 
 ## Roadmap
 
-- [ ] More high-detail areas from WA DoT surveys (Two Rocks to Preston Beach and Kalbarri to Horrocks are done)
+- [ ] More high-detail areas from WA DoT surveys (Two Rocks to Preston Beach, Kalbarri to Horrocks and Dongara are done)
 - [ ] Newer national depth grid (AusBathyTopo 2026), and GA's 30 m Northern Australia grid
 - [ ] Depths adjusted to low-tide chart datum
 - [x] Bundle fonts so labels work fully offline on first launch
@@ -210,7 +211,7 @@ python3 -m venv .venv && .venv/bin/pip install -r pipeline/requirements.txt
 PY="$PWD/.venv/bin/python" ./pipeline/build.sh      # -> pipeline/out/wa.pmtiles
 ```
 
-The first run downloads about 3 GB. Outside the detailed areas (Two Rocks to Preston Beach, Kalbarri to Horrocks) the 250 m grid is smoothed before contouring so
+The first run downloads about 3 GB. Outside the detailed areas (Two Rocks to Preston Beach, Kalbarri to Horrocks, Dongara) the 250 m grid is smoothed before contouring so
 lines aren't stair-stepped, which looks better but adds no real detail.
 
 **Relief pack** (needs `pip install pillow pmtiles`):
