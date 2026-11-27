@@ -23,6 +23,8 @@ class Appearance(private val ctx: Context, private val prefs: SharedPreferences)
         Knob("ais_scale", "AIS vessel size", 0.5f, 2.0f, 1.0f),
         Knob("catch_scale", "Catch symbol size", 0.5f, 2.0f, 1.0f),
         Knob("place_scale", "Place name size", 0.6f, 2.0f, 1.0f),
+        Knob("boat_scale", "Boat size", 0.5f, 2.5f, 1.0f),
+        Knob("boat_alpha", "Boat opacity", 0.3f, 1f, 1.0f),
     )
 
     private fun get(key: String) = prefs.getFloat("ui_$key", knobs.first { it.key == key }.default)
@@ -34,6 +36,16 @@ class Appearance(private val ctx: Context, private val prefs: SharedPreferences)
     val aisScale get() = get("ais_scale")
     val catchScale get() = get("catch_scale")
     val placeScale get() = get("place_scale")
+    val boatScale get() = get("boat_scale")
+    val boatAlpha get() = get("boat_alpha")
+
+    /** Your boat's shape and hull colour (BoatIcons). */
+    var boatShape: BoatShape
+        get() = BoatShape.entries.firstOrNull { it.key == prefs.getString("ui_boat_shape", null) } ?: BoatShape.ARROW
+        set(v) = prefs.edit().putString("ui_boat_shape", v.key).apply()
+    var boatColourKey: String
+        get() = prefs.getString("ui_boat_colour", null) ?: "natural"
+        set(v) = prefs.edit().putString("ui_boat_colour", v).apply()
 
     /** Scale bar at the bottom right of the map. */
     var showScaleBar: Boolean
@@ -103,7 +115,8 @@ class Appearance(private val ctx: Context, private val prefs: SharedPreferences)
         val groups = listOf(
             "Data field style · all modes" to listOf(knobs[0] to "Size", knobs[1] to "Background"),
             "Buttons and panels · all modes" to listOf(knobs[2] to "Size", knobs[3] to "Opacity"),
-            "Map symbols" to listOf(knobs[4] to "AIS vessel size", knobs[5] to "Catch size", knobs[6] to "Place name size"),
+            "Map symbols" to listOf(knobs[4] to "AIS vessel size", knobs[5] to "Catch size", knobs[6] to "Place name size",
+                knobs[7] to "Boat size", knobs[8] to "Boat opacity"),
         )
         for ((title, items) in groups) {
             rows.section(title)

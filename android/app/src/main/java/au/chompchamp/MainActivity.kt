@@ -47,6 +47,7 @@ import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.location.LocationComponentActivationOptions
+import org.maplibre.android.location.LocationComponentOptions
 import org.maplibre.android.location.OnLocationCameraTransitionListener
 import org.maplibre.android.location.modes.CameraMode
 import org.maplibre.android.location.modes.RenderMode
@@ -100,6 +101,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private lateinit var recButton: MovableButton
     private lateinit var ais: Ais
     private lateinit var aisLabel: TextView
+    private val boatIcons by lazy { BoatIcons(this) }
     private lateinit var offlineAreas: OfflineAreas
     private lateinit var offlinePanel: OfflinePanel
     private lateinit var updater: Updater
@@ -1888,6 +1890,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                     }
                     .setNegativeButton(android.R.string.cancel, null).show()
             }
+            boatPicker(rows)
             rows.actionRow("Record button", if (look.showRecordButton) "On" else "Off") {
                 look.showRecordButton = !look.showRecordButton
                 updateModeLabel()
@@ -1917,6 +1920,57 @@ class MainActivity : AppCompatActivity(), LocationListener {
             }
         }, onClose = { displayPanelOpen = false })
         displayPanelOpen = true
+    }
+
+    /** A strip of boats to tap, and the hull colour. Size and opacity are under Map symbols. */
+    private fun boatPicker(rows: SettingsPanel.Rows) {
+        val dp = resources.displayMetrics.density
+        rows.section("Your boat")
+        val name = TextView(this).apply {
+            text = look.boatShape.label
+            textSize = 13f
+            setTextColor(look.muted)
+        }
+        val tiles = mutableMapOf<BoatShape, View>()
+        fun mark() = tiles.forEach { (s, v) -> v.background = if (s == look.boatShape) look.pillBg() else null }
+        val strip = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        for (shape in BoatShape.entries) {
+            val tile = android.widget.ImageView(this).apply {
+                setImageBitmap(boatIcons.draw(shape, look.boatColourKey, (44 * dp).toInt()))
+                contentDescription = shape.label
+                val pad = (6 * dp).toInt()
+                setPadding(pad, pad, pad, pad)
+                setOnClickListener {
+                    look.boatShape = shape
+                    name.text = shape.label
+                    mark()
+                    updateBoatIcon()
+                }
+            }
+            tiles[shape] = tile
+            strip.addView(tile, LinearLayout.LayoutParams((56 * dp).toInt(), (56 * dp).toInt()))
+        }
+        mark()
+        val scroller = android.widget.HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(strip)
+        }
+        rows.view(scroller)
+        rows.view(name)
+        // Keep the chosen boat in view when the panel opens.
+        scroller.post { tiles[look.boatShape]?.let { scroller.scrollTo(maxOf(0, it.left - (56 * dp).toInt()), 0) } }
+        val colours = boatIcons.colours
+        rows.actionRow("Boat colour", colours.firstOrNull { it.first == look.boatColourKey }?.second ?: colours[0].second) {
+            MaterialAlertDialogBuilder(this).setTitle("Boat colour")
+                .setSingleChoiceItems(colours.map { it.second }.toTypedArray(),
+                    colours.indexOfFirst { it.first == look.boatColourKey }.coerceAtLeast(0)) { d, i ->
+                    look.boatColourKey = colours[i].first
+                    updateBoatIcon()
+                    d.dismiss()
+                    refreshDisplayPanel()
+                }
+                .setNegativeButton(android.R.string.cancel, null).show()
+        }
     }
 
     private fun refreshDisplayPanel() {
@@ -1975,6 +2029,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         aisLabel.gravity = Gravity.END
         aisLabel.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
         ais.setScale(look.aisScale)
+        updateBoatIcon()
         ais.setColour(look.aisColour)
         overlays.setCatchScale(look.catchScale)
         map?.style?.let { places.setScale(it, look.placeScale) }
@@ -2253,9 +2308,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
             return
         }
         val lc = m.locationComponent
+        addBoatImage(style)
         lc.activateLocationComponent(
             LocationComponentActivationOptions.builder(this, style)
                 .useDefaultLocationEngine(false) // we feed fixes from LocationManager ourselves
+                .locationComponentOptions(boatOptions())
                 .build()
         )
         lc.isLocationComponentEnabled = true
@@ -2267,6 +2324,23 @@ class MainActivity : AppCompatActivity(), LocationListener {
         if (mode == AppMode.NAVIGATE || mode == AppMode.FISH) {
             followBoat(if (mode == AppMode.FISH) settings.fishZoom else null)
         }
+    }
+
+    /** Your boat, drawn by MapLibre's location component from a style image (it turns it to the heading). */
+    private fun boatOptions() = LocationComponentOptions.builder(this)
+        .gpsName(BOAT_IMAGE).foregroundName(BOAT_IMAGE).foregroundStaleName(BOAT_IMAGE)
+        .elevation(0f)
+        .build()
+
+    private fun addBoatImage(style: Style) {
+        val px = (56 * resources.displayMetrics.density * look.boatScale).toInt()
+        style.addImage(BOAT_IMAGE, boatIcons.draw(look.boatShape, look.boatColourKey, px, look.boatAlpha))
+    }
+
+    /** Redraw the boat after a change of shape, colour, size or opacity. */
+    private fun updateBoatIcon() {
+        val style = map?.style?.takeIf { it.isFullyLoaded } ?: return
+        addBoatImage(style)
     }
 
     @SuppressLint("MissingPermission")
@@ -2594,6 +2668,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         /** Catches listed in a mark's window before they fold into one row. */
         private const val SHOWN_CATCHES = 4
         private const val GITHUB_URL = "https://github.com/wufle/chompchamp"
+        /** Style image for your boat (BoatIcons). */
+        private const val BOAT_IMAGE = "own-boat"
         /** Zooming to fit a trip, route or area stops here (about 1:2000), however small it is. */
         private const val MAX_FIT_ZOOM = 16.0
         private const val RELIEF_ONLINE =

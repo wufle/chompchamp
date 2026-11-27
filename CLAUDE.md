@@ -67,6 +67,7 @@ user which they need. The style must also cope with older charts that lack a new
 | `OfflineAreas.kt`, `OfflinePanel.kt` | Save online imagery (satellite, reef relief) for a box as MBTiles, one file per area and layer, never written after; docked panel |
 | `Updater.kt` | Checks the latest GitHub release, downloads with DownloadManager, installs the APK or imports the chart |
 | `MovableButton.kt` | A button the user can drag in Edit layout (bag limits) |
+| `BoatIcons.kt` | Your boat on the map: shapes drawn in code (tinny, yacht, rubber duck, pirate ship...), hull colours; shown by the location component as style image `own-boat` |
 | `ScaleBarView.kt` | Scale bar, bottom right |
 | `Hazards.kt` | Nav marks, wrecks and rocks from `assets/hazards.geojson` |
 | `Places.kt`, `PlacesPanel.kt` | Place names from `assets/places.geojson`: map labels (shown by rank and zoom) and the Search places panel |

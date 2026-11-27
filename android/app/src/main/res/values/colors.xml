@@ -16,4 +16,17 @@
     <color name="ais_light_green">#9CCC65</color>
     <color name="ais_teal">#00796B</color>
     <color name="ais_light_blue">#4FC3F7</color>
+
+    <!-- Your boat on the map (Display → Your boat). Hull colours, plus a few for the details. -->
+    <color name="boat_white">#F5F7FA</color>
+    <color name="boat_alu">#B0BEC5</color>
+    <color name="boat_red">#E53935</color>
+    <color name="boat_blue">#1E88E5</color>
+    <color name="boat_green">#43A047</color>
+    <color name="boat_pink">#F06292</color>
+    <color name="boat_charcoal">#37474F</color>
+    <color name="boat_wood">#8D6E63</color>
+    <color name="boat_duck">#FFD54F</color>
+    <color name="boat_beak">#FF9800</color>
+    <color name="boat_glass">#4FC3F7</color>
 </resources>
