@@ -70,7 +70,7 @@ user which they need. The style must also cope with older charts that lack a new
 | `BoatIcons.kt` | Your boat on the map: shapes drawn in code (tinny, yacht, rubber duck, pirate ship...), hull colours; shown by the location component as style image `own-boat` |
 | `ScaleBarView.kt` | Scale bar, bottom right |
 | `Hazards.kt` | Nav marks, wrecks and rocks from `assets/hazards.geojson` |
-| `Wind.kt`, `WindView.kt` | Wind forecast from Open-Meteo (ECMWF IFS 9 km) for the area on screen, kept in `files/wind/wind.bin` for offline use; streaks drawn over the map (Mercator affine from three screen corners) |
+| `Wind.kt`, `WindView.kt`, `WaveView.kt` | Wind (ECMWF IFS 9 km) and sea/swell (MFWAM, Copernicus Marine) forecasts from Open-Meteo for the area on screen, kept in `files/wind/wind.bin` for offline use; streaks drawn over the map (Mercator affine from three screen corners) |
 | `Tides.kt`, `TideChartView.kt` | Tide prediction on the device from `assets/tides.json` (EOT20 constituents from `fetch_tides.py`); the Wind & tide panel is in `MainActivity` |
 | `Places.kt`, `PlacesPanel.kt` | Place names from `assets/places.geojson`: map labels (shown by rank and zoom) and the Search places panel |
 | `SettingsPanel.kt`, `Settings.kt`, `Appearance.kt` | Docked panel (Layers, Display); behaviour options; size, opacity, palette |
@@ -106,7 +106,7 @@ Gotchas:
 - `Tides.kt` phase offsets (K1 -90°, O1 +90° ...) and the EOT20 phase sign (atan2(imag, real)) were settled by comparing
   with UHSLC hourly tide gauge data (Fremantle h175, Esperance h176, Port Hedland h169, Broome h166). Check again against
   those if you touch the astronomy: a wrong diurnal sign still looks like a tide but is worse than none at Fremantle.
-- Wind data from Open-Meteo must show its credit next to it (the label beside the map's "i" while the layer is on).
+- Wind and wave data from Open-Meteo must show their credit next to them (the label beside the map's "i" while the layer is on).
 - Pref keys (`f.<mode>.*`, `layer_*`, `set_*`), overlay keys and the track format are stored on the
   user's phone. Don't rename them; keep reading old formats.
 

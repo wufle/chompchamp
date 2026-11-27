@@ -105,6 +105,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private val boatIcons by lazy { BoatIcons(this) }
     private lateinit var wind: Wind
     private lateinit var windView: WindView
+    private lateinit var waveView: WaveView
     private lateinit var windCredit: TextView
     /** The wind time picked on the Wind & tide panel, or null for now. */
     private var windTime: Long? = null
@@ -303,7 +304,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             if (panel.isOpen) panel.hide() else showLayersPanel()
         }
         layers.onReset = { showLayersPanel(); updateAis() }
-        layers.onToggled = { if (it == MapOverlay.AIS) updateAis(); if (it == MapOverlay.WIND) updateWind() }
+        layers.onToggled = { if (it == MapOverlay.AIS) updateAis(); if (it == MapOverlay.WIND || it == MapOverlay.WAVES) updateWind() }
         setUpWind()
         // Back closes the settings panel / layout editor before leaving the app.
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
@@ -330,7 +331,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 .target(LatLng(-32.0, 115.6)) // Perth / Rottnest
                 .zoom(8.0)
                 .build()
-            m.addOnCameraMoveListener { updateScaleBar() }
+            m.addOnCameraMoveListener { updateScaleBar(); if (waveView.showing) waveView.invalidate() }
             m.addOnCameraIdleListener { updateScaleBar(); offlinePanel.onCameraIdle(); fetchWindForView() }
             m.addOnMapClickListener { p -> onMapTap(p); true }
             m.addOnMapLongClickListener { p -> onMapLongPress(p); true }
@@ -1518,6 +1519,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }.orEmpty()
         val windHere = wind.forecast?.at(p.lat, p.lon, windTime ?: System.currentTimeMillis())?.let {
             "\nWind " + (if (windTime == null) "now" else windLabel(windTime!!)) + " (forecast): " + it.text()
+        }.orEmpty() + wind.forecast?.wavesAt(p.lat, p.lon, windTime ?: System.currentTimeMillis())?.let {
+            "\nWaves (forecast): " + it.text()
         }.orEmpty()
         MaterialAlertDialogBuilder(this)
             .setTitle("${Geo.formatDdm(p.lat, true)}  ${Geo.formatDdm(p.lon, false)}")
@@ -1608,7 +1611,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val popup = PopupMenu(this, anchorView)
         val items: List<Pair<String, () -> Unit>> = listOf(
             "Search places…" to { placesPanel.open() },
-            "Wind & tide…" to { showWindTidePanel() },
+            "Wind, waves & tide…" to { showWindTidePanel() },
             "Marks…" to { marksPanel.show() },
             "Trips & catches…" to { tripsPanel.show() },
             "Bag & size limits…" to { bagPanel.open() },
@@ -2474,6 +2477,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         fields.set(DataField.TIME, SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date()))
         fields.set(DataField.TRIP, Geo.fmtNm(track.tripNm))
         fields.set(DataField.WIND, wind.forecast?.at(pos.lat, pos.lon, System.currentTimeMillis())?.short() ?: "--")
+        fields.set(DataField.WAVES, wind.forecast?.wavesAt(pos.lat, pos.lon, System.currentTimeMillis())?.short() ?: "--")
         fields.set(DataField.TIDE, tideNow(pos)?.let { (h, rising) ->
             String.format(Locale.US, "%+.2f %s", h, if (rising) "↑" else "↓") } ?: "--")
         val trip = track.stats
@@ -2530,10 +2534,18 @@ class MainActivity : AppCompatActivity(), LocationListener {
             override fun forecast() = wind.forecast
             override fun time() = windTime ?: System.currentTimeMillis()
         }
-        // Just above the map, under every control. Not clickable, so touches go through to the map.
+        waveView = WaveView(this)
+        waveView.host = object : WaveView.Host {
+            override fun toScreen(lat: Double, lon: Double) =
+                map?.projection?.toScreenLocation(LatLng(lat, lon))?.let { it.x to it.y }
+            override fun forecast() = wind.forecast
+            override fun time() = windTime ?: System.currentTimeMillis()
+        }
+        // Just above the map (waves, then wind), under every control. Not clickable, so touches reach the map.
         val root = mapView.parent as FrameLayout
-        root.addView(windView, root.indexOfChild(mapView) + 1,
-            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        val full = { FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT) }
+        root.addView(waveView, root.indexOfChild(mapView) + 1, full())
+        root.addView(windView, root.indexOfChild(waveView) + 1, full())
         windCredit = TextView(this).apply {
             visibility = View.GONE
             maxLines = 1
@@ -2546,28 +2558,37 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     /** Start or stop the wind streaks, and fetch a forecast for the view if needed. */
     private fun updateWind(fetch: Boolean = true) {
-        val on = layers.isOn(MapOverlay.WIND) && started && chartFile.exists()
+        val ok = started && chartFile.exists()
+        val windOn = layers.isOn(MapOverlay.WIND) && ok
+        val wavesOn = layers.isOn(MapOverlay.WAVES) && ok
+        val on = windOn || wavesOn
         windView.opacity = layers.opacity(MapOverlay.WIND)
-        if (windView.running != on) windView.running = on
+        if (windView.running != windOn) windView.running = windOn
+        waveView.opacity = layers.opacity(MapOverlay.WAVES)
+        waveView.showing = wavesOn
         windCredit.visibility = if (on) View.VISIBLE else View.GONE
         if (on) {
+            val what = if (windOn && wavesOn) "Wind & waves" else if (windOn) "Wind" else "Waves"
+            val by = listOfNotNull("ECMWF".takeIf { windOn }, "Copernicus Marine".takeIf { wavesOn }).joinToString(", ")
             val f = wind.forecast
             val t = windTime ?: System.currentTimeMillis()
             windCredit.text = when {
-                f == null && wind.busy -> "Wind: getting the forecast…"
-                f == null -> "Wind: no forecast yet (needs internet) · tap"
-                t > f.tEnd -> "Wind: forecast ran out · go online"
-                else -> "Wind ${if (windTime == null) "now" else windLabel(t)} · ECMWF via Open-Meteo.com"
+                f == null && wind.busy -> "$what: getting the forecast…"
+                f == null -> "$what: no forecast yet (needs internet) · tap"
+                t > f.tEnd -> "$what: forecast ran out · go online"
+                wavesOn && f.waves == null -> "Waves: not in this forecast yet · go online"
+                else -> "$what ${if (windTime == null) "now" else windLabel(t)} · $by via Open-Meteo.com"
             }
             if (fetch) fetchWindForView()
         }
     }
 
     private fun fetchWindForView(force: Boolean = false) {
-        if (!force && !(layers.isOn(MapOverlay.WIND) && started)) return
+        if (!force && !((layers.isOn(MapOverlay.WIND) || layers.isOn(MapOverlay.WAVES)) && started)) return
         val b = map?.projection?.visibleRegion?.latLngBounds ?: return
         if (!b.latitudeSouth.isFinite() || b.latitudeNorth <= b.latitudeSouth) return
-        wind.ensure(b.longitudeWest, b.latitudeSouth, b.longitudeEast, b.latitudeNorth, force)
+        wind.ensure(b.longitudeWest, b.latitudeSouth, b.longitudeEast, b.latitudeNorth, force,
+            wantWaves = layers.isOn(MapOverlay.WAVES))
         if (wind.busy) updateWind(fetch = false)
     }
 
@@ -2594,7 +2615,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private var windTidePanelOpen = false
 
     private fun refreshWindTidePanel() {
-        if (windTidePanelOpen && panel.isOpen && panel.current == "Wind & tide") showWindTidePanel()
+        if (windTidePanelOpen && panel.isOpen && panel.current == WIND_PANEL) showWindTidePanel()
     }
 
     /** Forecast time and status, the wind colours, and the tide where the boat (or the map centre) is. */
@@ -2603,7 +2624,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         windTidePanelOpen = true
         val dp = resources.displayMetrics.density
         val here = lastPos() ?: map?.cameraPosition?.target?.let { LatLon(it.latitude, it.longitude) }
-        panel.show("Wind & tide", { rows ->
+        panel.show(WIND_PANEL, { rows ->
             rows.section("Wind forecast")
             val f = wind.forecast
             val now = System.currentTimeMillis()
@@ -2625,8 +2646,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 fun describe(t: Long?) {
                     val at = t ?: now
                     val w = here?.let { f.at(it.lat, it.lon, at) }
+                    val wv = here?.let { f.wavesAt(it.lat, it.lon, at) }
                     label.text = (if (t == null) "Now" else windLabel(at)) +
-                        (w?.let { " · " + it.text() + if (lastPos() != null) " at the boat" else " at the map centre" } ?: "")
+                        (if (lastPos() != null) " at the boat" else " at the map centre") +
+                        (w?.let { "\nWind " + it.text() } ?: "") + (wv?.let { "\n" + it.text() } ?: "")
                 }
                 describe(pick)
                 rows.view(label)
@@ -2643,11 +2666,14 @@ class MainActivity : AppCompatActivity(), LocationListener {
                             windTime = if (v == 0f) null else now + (v * WindForecast.HOUR).toLong()
                             describe(windTime)
                             updateWind(fetch = false)
+                            waveView.invalidate()
                         }
                     }
                     rows.view(slider)
                 }
-                if (pick != null) rows.button("Back to now") { windTime = null; updateWind(fetch = false); showWindTidePanel() }
+                if (pick != null) rows.button("Back to now") {
+                    windTime = null; updateWind(fetch = false); waveView.invalidate(); showWindTidePanel()
+                }
                 val ago = ((now - f.fetched) / 60_000).toInt()
                 rows.note("ECMWF IFS 9 km forecast via Open-Meteo.com (CC BY 4.0), downloaded " +
                     (if (ago < 60) "$ago min ago" else "${ago / 60} h ago") +
@@ -2660,6 +2686,17 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 fetchWindForView(force = true); showWindTidePanel()
             }
             rows.view(windLegend(dp))
+            if (!layers.isOn(MapOverlay.WAVES)) {
+                rows.actionRow("Waves on the map", "Turn on") {
+                    layers.setOnFromPanel(MapOverlay.WAVES, true)
+                    updateWind()
+                    showWindTidePanel()
+                }
+            }
+            rows.view(waveLegend(dp))
+            rows.note("Waves: colour is the combined height of sea and swell; arrows show which way the swell runs, " +
+                "with its height in metres. MFWAM 8 km model, generated using E.U. Copernicus Marine Service Information, " +
+                "via Open-Meteo.com. Close to the coast and inside reefs it's only a guide: the model's cells are 8 km.")
 
             rows.section("Tide")
             val td = tides
@@ -2689,6 +2726,21 @@ class MainActivity : AppCompatActivity(), LocationListener {
                     "weather (wind, pressure) can move the sea by more than the tide here.")
             }
         }, onClose = { windTidePanelOpen = false })
+    }
+
+    /** The wave height colours. */
+    private fun waveLegend(dp: Float): View = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        setPadding(0, (6 * dp).toInt(), 0, (2 * dp).toInt())
+        val stops = floatArrayOf(0f, 0.5f, 1f, 1.5f, 2f, 3f, 4f, 6f)
+        for ((i, l) in WaveView.KEY.withIndex()) addView(TextView(this@MainActivity).apply {
+            text = l
+            textSize = 11f
+            gravity = Gravity.CENTER
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ui_surface))
+            setBackgroundColor(waveView.colourFor(stops[i]))
+        }, LinearLayout.LayoutParams(0, (20 * dp).toInt(), 1f))
+        addView(TextView(this@MainActivity).apply { text = " m"; textSize = 11f; setTextColor(look.muted) })
     }
 
     /** The wind colours and what speeds they mean. */
@@ -2901,6 +2953,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         private const val GITHUB_URL = "https://github.com/wufle/chompchamp"
         /** Style image for your boat (BoatIcons). */
         private const val BOAT_IMAGE = "own-boat"
+        private const val WIND_PANEL = "Wind, waves & tide"
         /** Zooming to fit a trip, route or area stops here (about 1:2000), however small it is. */
         private const val MAX_FIT_ZOOM = 16.0
         private const val RELIEF_ONLINE =

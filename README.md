@@ -97,11 +97,16 @@ name, type, speed, course and how long ago each was heard. No account or receive
 more behind, and boats without AIS or out of range of a station are missing. It is for interest, not for avoiding collisions.
 
 **Wind** (Layers → Wind, off by default): the forecast drawn as streaks drifting across the map, coloured by speed, like
-Windy. **☰ → Wind & tide** has a time slider for the next 7 days, the colour key, and the wind at your boat. The forecast
+Windy. **☰ → Wind, waves & tide** has a time slider for the next 7 days, the colour key, and the wind at your boat. The forecast
 (ECMWF 9 km, via Open-Meteo) downloads for the area on screen while you're online and is kept, so it still shows at sea:
 open the map over where you're going before you leave. Long-press shows the wind at that spot.
 
-**Tides** (☰ → Wind & tide): the tide now, rising or falling, a curve for the next two days, and the highs and lows,
+**Sea and swell** (Layers → Waves, off by default): combined wave height as colour, and arrows showing which way the
+swell runs with its height. The panel and long-press give swell and sea (wind waves) separately: height, period and
+direction. From the MFWAM 8 km wave model (Copernicus Marine, via Open-Meteo), downloaded and kept with the wind. Near
+the coast and inside reefs it's only a guide. Data field **Sea / swell**.
+
+**Tides** (☰ → Wind, waves & tide): the tide now, rising or falling, a curve for the next two days, and the highs and lows,
 for the boat or the map centre, anywhere on the WA coast. Worked out on the tablet from the EOT20 tide model, so it works
 offline for any date. Heights are above mean sea level, the same level as the chart's depths, so long-press and the
 **Depth now** data field add the tide to the charted depth. Checked against the tide gauges at Fremantle, Esperance,
@@ -114,7 +119,7 @@ Everything is customisable:
 - **Your boat** (Display): choose how you show on the map: classic arrow, tinny, centre console, cabin cruiser, yacht,
   catamaran, kayak, jet ski, tugboat, rubber duck, pirate ship, Viking longship or submarine. Pick its own colour or white,
   red, blue, green, pink or charcoal, and set its size and opacity. It turns with your heading.
-- **Layers** (bottom left): on/off and an opacity slider for every layer: marks and hazards, place names, satellite, 5 m reef relief, depth shading, contours, labels, land, zones, parks, route, marks, drift line, track, saved trip, catches, anchor circle, wind, AIS vessels.
+- **Layers** (bottom left): on/off and an opacity slider for every layer: marks and hazards, place names, satellite, 5 m reef relief, depth shading, contours, labels, land, zones, parks, route, marks, drift line, track, saved trip, catches, anchor circle, wind, waves, AIS vessels.
 - **Charts, offline areas & updates** (Menu): save satellite and reef relief imagery for an area, check GitHub for a new app, chart or relief pack, see what is installed (size, date), import, remove the chart or the offline reef relief pack (relief falls back to online), clear the online tile cache.
 - **Data** (Menu): save and load named snapshots on the phone; export and import a backup file (.json) with routes, marks, current track, saved trips, catch log and settings (merge or replace); export and import GPX to move marks, routes and tracks to and from other chartplotter apps.
 - **Settings**: when trip recording starts, recording with the screen off, when a forgotten trip is finished, track history shown (1 min to the entire trip), track point spacing, AIS age limit, arrival radius, planning speed, north-up / course-up, drift window and projection, fish-mode zoom, anchor radius, safety depth.
@@ -167,6 +172,7 @@ source's licence (including the bundled `hazards.geojson` and `places.geojson`).
 | Place names: towns, suburbs, harbours, marinas, jetties, lighthouses, islands, points, bays, beaches, reefs | © OpenStreetMap contributors | ODbL 1.0 |
 | Boat ramps and DoT maritime facilities (harbours, public jetties) | WA Department of Transport, Public Boat Ramps (DOT-033) and Maritime Facility Locations (DOT-030), via SLIP | CC BY 4.0 |
 | Wind forecast (downloaded for the area on screen, kept offline) | [Open-Meteo.com](https://open-meteo.com/), ECMWF IFS 9 km open data | CC BY 4.0 |
+| Wave forecast: sea and swell (downloaded with the wind, kept offline) | MFWAM via [Open-Meteo.com](https://open-meteo.com/): generated using E.U. Copernicus Marine Service Information ([doi:10.48670/moi-00017](https://doi.org/10.48670/moi-00017)) | Copernicus Marine licence (free, with attribution) |
 | Tide predictions (built in) | EOT20 global ocean tide model, Hart-Davis et al. 2021, DGFI-TUM ([doi:10.17882/79489](https://doi.org/10.17882/79489)) | CC BY 4.0 |
 | Satellite (online, or saved for chosen areas) | © Geoscience Australia, [Digital Earth Australia](https://www.dea.ga.gov.au): coast from [DEA Tidal Composites](https://knowledge.dea.ga.gov.au/data/product/dea-tidal-composites/) (Sentinel-2, low tide, 2024), inland from [DEA GeoMAD](https://knowledge.dea.ga.gov.au/data/product/dea-geometric-median-and-median-absolute-deviation-landsat/) (Landsat 8 and 9, 2025). Contains modified Copernicus Sentinel and USGS Landsat data | CC BY 4.0 |
 | Vessels (online, optional layer) | [Open Waters AIS](https://openwaters.io/ais/), around WA passing on AIS from [AISHub](https://www.aishub.net) contributors and [aisstream.io](https://aisstream.io) | Not open data. Free for personal use and display with credit; AISHub's terms don't allow passing on the raw data, so the app never stores or exports it. aisstream.io publishes no licence |

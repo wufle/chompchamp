@@ -29,6 +29,27 @@ class WindAt(val kn: Double, val gustKn: Double?, val fromDeg: Double, val u: Do
     }
 }
 
+/** Sea (wind waves) and swell at a point: heights in metres, periods in seconds, directions they come FROM (°T). */
+class WavesAt(
+    val total: Double, val seaM: Double?, val seaS: Double?, val seaFrom: Double?,
+    val swellM: Double?, val swellS: Double?, val swellFrom: Double?,
+) {
+    private fun part(m: Double?, sec: Double?, from: Double?) = if (m == null) null else
+        String.format(java.util.Locale.US, "%.1f m", m) + (sec?.let { " ${it.roundToInt()} s" } ?: "") +
+            (from?.let { " from ${WindAt.compass(it)}" } ?: "")
+    fun text() = listOfNotNull(part(swellM, swellS, swellFrom)?.let { "Swell $it" }, part(seaM, seaS, seaFrom)?.let { "Sea $it" },
+        String.format(java.util.Locale.US, "Combined %.1f m", total)).joinToString(" · ")
+    fun short() = String.format(java.util.Locale.US, "%.1f / %.1f", seaM ?: 0.0, swellM ?: 0.0)
+}
+
+/** Waves on the same grid and hours as the wind: [hour][row][col], NaN over land or with no data. */
+class WaveGrids(
+    val total: FloatArray, val seaH: FloatArray, val seaDir: FloatArray, val seaPer: FloatArray,
+    val swellH: FloatArray, val swellDir: FloatArray, val swellPer: FloatArray,
+) {
+    val all get() = listOf(total, seaH, seaDir, seaPer, swellH, swellDir, swellPer)
+}
+
 /**
  * A wind forecast on a regular grid: [nx] x [ny] points from ([w], [s]) to ([e], [n]), one frame an hour from [t0].
  * u/v are east/north components in knots; NaN where the model had nothing.
@@ -37,6 +58,7 @@ class WindForecast(
     val w: Double, val s: Double, val e: Double, val n: Double, val nx: Int, val ny: Int,
     val t0: Long, val hours: Int, val fetched: Long,
     val u: FloatArray, val v: FloatArray, val gust: FloatArray,   // [hour][row from south][col from west]
+    val waves: WaveGrids? = null,
 ) {
     val tEnd get() = t0 + (hours - 1) * HOUR
 
@@ -57,6 +79,40 @@ class WindForecast(
         val kn = hypot(uu, vv).toDouble()
         val from = (Math.toDegrees(atan2(-uu.toDouble(), -vv.toDouble())) + 360) % 360
         return WindAt(kn, g.toDouble().takeIf { it.isFinite() && it >= kn }, from, uu.toDouble(), vv.toDouble())
+    }
+
+    /**
+     * Waves at the nearest hour: heights and periods averaged from the grid points around (skipping land), the
+     * direction from the nearest of them with data.
+     */
+    fun wavesAt(lat: Double, lon: Double, t: Long): WavesAt? {
+        val g = waves ?: return null
+        if (!covers(lat, lon) || t < t0 || t > tEnd) return null
+        val h = ((t - t0 + HOUR / 2) / HOUR).toInt().coerceIn(0, hours - 1)
+        val fx = (lon - w) / (e - w) * (nx - 1)
+        val fy = (lat - s) / (n - s) * (ny - 1)
+        val x0 = min(floor(fx).toInt(), nx - 2).coerceAtLeast(0)
+        val y0 = min(floor(fy).toInt(), ny - 2).coerceAtLeast(0)
+        val corners = listOf(0 to 0, 1 to 0, 0 to 1, 1 to 1).map { (dx, dy) ->
+            val wt = (if (dx == 0) 1 - (fx - x0) else fx - x0) * (if (dy == 0) 1 - (fy - y0) else fy - y0)
+            h * nx * ny + (y0 + dy) * nx + x0 + dx to wt
+        }
+        fun avg(a: FloatArray): Double? {
+            var sum = 0.0; var ws = 0.0
+            for ((i, wt) in corners) if (a[i].isFinite()) { sum += a[i] * wt; ws += wt }
+            return if (ws > 1e-6) sum / ws else null
+        }
+        fun dir(a: FloatArray) = corners.filter { a[it.first].isFinite() }.maxByOrNull { it.second }?.let { a[it.first].toDouble() }
+        val total = avg(g.total) ?: return null
+        return WavesAt(total, avg(g.seaH), avg(g.seaPer), dir(g.seaDir), avg(g.swellH), avg(g.swellPer), dir(g.swellDir))
+    }
+
+    /** One hour's grid of one wave quantity (nearest hour). */
+    fun waveFrame(t: Long, pick: (WaveGrids) -> FloatArray): FloatArray? {
+        val g = waves ?: return null
+        val h = ((t - t0 + HOUR / 2) / HOUR).toInt().coerceIn(0, hours - 1)
+        val m = nx * ny
+        return pick(g).copyOfRange(h * m, (h + 1) * m)
     }
 
     private fun sample(h: Int, lat: Double, lon: Double): FloatArray? {
@@ -99,13 +155,15 @@ class WindForecast(
             o.writeDouble(w); o.writeDouble(s); o.writeDouble(e); o.writeDouble(n)
             o.writeInt(nx); o.writeInt(ny); o.writeLong(t0); o.writeInt(hours); o.writeLong(fetched)
             for (arr in listOf(u, v, gust)) for (x in arr) o.writeFloat(x)
+            o.writeBoolean(waves != null)
+            waves?.all?.forEach { arr -> for (x in arr) o.writeFloat(x) }
         }
         tmp.renameTo(f)
     }
 
     companion object {
         const val HOUR = 3_600_000L
-        private const val VERSION = 1
+        private const val VERSION = 2
 
         fun load(f: File): WindForecast? = runCatching {
             DataInputStream(f.inputStream().buffered()).use { i ->
@@ -114,7 +172,10 @@ class WindForecast(
                 val nx = i.readInt(); val ny = i.readInt(); val t0 = i.readLong(); val hours = i.readInt(); val fetched = i.readLong()
                 val m = nx * ny * hours
                 val arrs = List(3) { FloatArray(m) { i.readFloat() } }
-                WindForecast(w, s, e, n, nx, ny, t0, hours, fetched, arrs[0], arrs[1], arrs[2])
+                val waves = if (i.readBoolean()) List(7) { FloatArray(m) { i.readFloat() } }.let {
+                    WaveGrids(it[0], it[1], it[2], it[3], it[4], it[5], it[6])
+                } else null
+                WindForecast(w, s, e, n, nx, ny, t0, hours, fetched, arrs[0], arrs[1], arrs[2], waves)
             }
         }.getOrNull()
     }
@@ -149,12 +210,13 @@ class Wind(private val dir: File, private val userAgent: String, private val io:
      * runs out within a day. Tries at most every 2 minutes (every 20 after a failure would be kinder, but
      * the view usually just moved).
      */
-    fun ensure(w: Double, s: Double, e: Double, n: Double, force: Boolean = false) {
+    fun ensure(w: Double, s: Double, e: Double, n: Double, force: Boolean = false, wantWaves: Boolean = false) {
         val now = System.currentTimeMillis()
         val f = forecast
         val cLat = (s + n) / 2
         val cLon = (w + e) / 2
-        val fresh = f != null && now - f.fetched < 3 * WindForecast.HOUR && f.tEnd - now > 24 * WindForecast.HOUR
+        val fresh = f != null && now - f.fetched < 3 * WindForecast.HOUR && f.tEnd - now > 24 * WindForecast.HOUR &&
+            !(wantWaves && f.waves == null)
         val vw = e - w
         val vh = n - s
         // Mostly inside the forecast's box. Zoomed out past what one forecast covers, the centre is enough.
@@ -221,10 +283,42 @@ class Wind(private val dir: File, private val userAgent: String, private val io:
                 }
             }
         }
+        // Waves from the marine API on the same grid; the wind still works if this fails.
+        val waves = runCatching { fetchWaves(pts, nx, ny, t0, hours) }.getOrNull()
         val f = WindForecast(w, s, w + (nx - 1) * step, s + (ny - 1) * step, nx, ny, t0, hours,
-            System.currentTimeMillis(), u, v, g)
+            System.currentTimeMillis(), u, v, g, waves)
         f.save(file)
         return f
+    }
+
+    private fun fetchWaves(pts: List<Pair<Double, Double>>, nx: Int, ny: Int, t0: Long, hours: Int): WaveGrids {
+        val m = nx * ny * hours
+        val keys = listOf("wave_height", "wind_wave_height", "wind_wave_direction", "wind_wave_period",
+            "swell_wave_height", "swell_wave_direction", "swell_wave_period")
+        val out = List(keys.size) { FloatArray(m) { Float.NaN } }
+        for (chunk in pts.indices.chunked(100)) {
+            val lats = chunk.joinToString(",") { String.format(Locale.US, "%.4f", pts[it].first) }
+            val lons = chunk.joinToString(",") { String.format(Locale.US, "%.4f", pts[it].second) }
+            // "nearest", not "sea": a point on land stays empty rather than borrowing the sea next to it.
+            val url = "https://marine-api.open-meteo.com/v1/marine?latitude=$lats&longitude=$lons" +
+                "&hourly=${keys.joinToString(",")}&models=meteofrance_wave&forecast_days=7" +
+                "&timeformat=unixtime&cell_selection=nearest"
+            val text = get(url)
+            val arr = if (text.trimStart().startsWith("[")) JSONArray(text) else JSONArray().put(org.json.JSONObject(text))
+            for ((j, idx) in chunk.withIndex()) {
+                val h = arr.getJSONObject(j).getJSONObject("hourly")
+                val times = h.getJSONArray("time")
+                for (t in 0 until times.length()) {
+                    val hr = ((times.getLong(t) * 1000 - t0) / WindForecast.HOUR).toInt()
+                    if (hr !in 0 until hours) continue
+                    for ((ki, key) in keys.withIndex()) {
+                        val a = h.optJSONArray(key) ?: continue
+                        if (t < a.length() && !a.isNull(t)) out[ki][hr * nx * ny + idx] = a.getDouble(t).toFloat()
+                    }
+                }
+            }
+        }
+        return WaveGrids(out[0], out[1], out[2], out[3], out[4], out[5], out[6])
     }
 
     private fun get(url: String): String {
@@ -247,6 +341,7 @@ class Wind(private val dir: File, private val userAgent: String, private val io:
 
     companion object {
         const val CREDIT = "Wind: ECMWF via Open-Meteo.com (CC BY 4.0)"
+        const val WAVE_CREDIT = "Waves: generated using E.U. Copernicus Marine Service Information (MFWAM), via Open-Meteo.com"
         const val LINK = "https://open-meteo.com/"
     }
 }

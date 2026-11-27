@@ -52,6 +52,7 @@ enum class DataField(val key: String, val label: String, vararg val defaultIn: A
     TIME("time", "TIME"),
     WIND("wind", "WIND  kn (forecast)"),
     TIDE("tide", "TIDE  m (est.)"),
+    WAVES("waves", "SEA / SWELL  m"),
     DEPTH_NOW("depth_now", "DEPTH NOW  m (est.)"),
     ;
 
