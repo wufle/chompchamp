@@ -70,7 +70,7 @@ user which they need. The style must also cope with older charts that lack a new
 | `BoatIcons.kt` | Your boat on the map: shapes drawn in code (tinny, yacht, rubber duck, pirate ship...), hull colours; shown by the location component as style image `own-boat` |
 | `ScaleBarView.kt` | Scale bar, bottom right |
 | `Hazards.kt` | Nav marks, wrecks and rocks from `assets/hazards.geojson` |
-| `Wind.kt`, `WindView.kt`, `WaveView.kt` | Wind (ECMWF IFS 9 km) and sea/swell (MFWAM, Copernicus Marine) forecasts from Open-Meteo for the area on screen, kept in `files/wind/wind.bin` for offline use; streaks drawn over the map (Mercator affine from three screen corners) |
+| `Wind.kt`, `WindView.kt`, `WaveView.kt`, `ForecastChartView.kt` | Wind (ECMWF IFS 9 km) and sea/swell (MFWAM, Copernicus Marine) forecasts from Open-Meteo for the area on screen, kept in `files/wind/wind.bin` for offline use; streaks drawn over the map (Mercator affine from three screen corners); week charts in the Wind & tide panel |
 | `Tides.kt`, `TideChartView.kt` | Tide prediction on the device from `assets/tides.json` (EOT20 constituents from `fetch_tides.py`); the Wind & tide panel is in `MainActivity` |
 | `Places.kt`, `PlacesPanel.kt` | Place names from `assets/places.geojson`: map labels (shown by rank and zoom) and the Search places panel |
 | `SettingsPanel.kt`, `Settings.kt`, `Appearance.kt` | Docked panel (Layers, Display); behaviour options; size, opacity, palette |

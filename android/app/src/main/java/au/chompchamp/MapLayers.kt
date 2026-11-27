@@ -124,6 +124,7 @@ class MapLayers(private val prefs: SharedPreferences) {
     private fun setOn(o: MapOverlay, on: Boolean) = prefs.edit().putBoolean("layer_${o.key}", on).apply()
     /** For panels that turn a layer on themselves (Wind & tide). */
     fun setOnFromPanel(o: MapOverlay, on: Boolean) = setOn(o, on)
+    fun setOpacityFromPanel(o: MapOverlay, v: Float) = setOpacity(o, v)
 
     /** User opacity multiplier 0..1 (default 1). */
     fun opacity(o: MapOverlay) = prefs.getFloat("layer_opacity_${o.key}", 1f)

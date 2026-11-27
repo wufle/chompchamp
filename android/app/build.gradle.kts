@@ -15,8 +15,8 @@ android {
         applicationId = "au.chompchamp"
         minSdk = 26
         targetSdk = 35
-        versionCode = 48
-        versionName = "0.17.13"
+        versionCode = 49
+        versionName = "0.18.0"
     }
 
     signingConfigs {

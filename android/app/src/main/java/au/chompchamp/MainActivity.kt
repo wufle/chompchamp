@@ -2625,16 +2625,22 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val dp = resources.displayMetrics.density
         val here = lastPos() ?: map?.cameraPosition?.target?.let { LatLon(it.latitude, it.longitude) }
         panel.show(WIND_PANEL, { rows ->
-            rows.section("Wind forecast")
+            rows.section("Wind, sea & swell forecast")
             val f = wind.forecast
             val now = System.currentTimeMillis()
-            if (!layers.isOn(MapOverlay.WIND)) {
-                rows.actionRow("Wind on the map", "Turn on") {
-                    layers.setOnFromPanel(MapOverlay.WIND, true)
-                    map?.style?.let { layers.apply(it) }
-                    updateWind()
-                    showWindTidePanel()
-                }
+            // On/off and opacity for each, as in Layers. Off hides it from the map; the charts stay here.
+            for ((o, name) in listOf(MapOverlay.WIND to "Wind on the map", MapOverlay.WAVES to "Sea & swell on the map")) {
+                rows.sliderRow(
+                    label = name,
+                    percent = kotlin.math.round(layers.opacity(o) * 100).toInt(),
+                    checked = layers.isOn(o),
+                    onChecked = { on ->
+                        layers.setOnFromPanel(o, on)
+                        map?.style?.let { layers.apply(it) }
+                        updateWind()
+                    },
+                    onPercent = { p -> layers.setOpacityFromPanel(o, p / 100f); updateWind(fetch = false) },
+                )
             }
             if (f == null) {
                 rows.note(if (wind.busy) "Getting the forecast…" else
@@ -2653,8 +2659,22 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 }
                 describe(pick)
                 rows.view(label)
+                // Wind and wave charts for the week, at the boat or map centre, one point an hour from now.
+                val charts = mutableListOf<ForecastChartView>()
+                var slider: com.google.android.material.slider.Slider? = null
+                // One time for the slider, both charts, the wind streaks and the sea and swell on the map.
+                fun pickTime(t: Long?, fromSlider: Boolean) {
+                    windTime = t
+                    describe(t)
+                    charts.forEach { it.selected = t ?: now }
+                    if (!fromSlider) slider?.value = (((t ?: now) - now) / WindForecast.HOUR).toFloat()
+                        .coerceIn(0f, hoursAhead.toFloat())
+                    updateWind(fetch = false)
+                    waveView.invalidate()
+                }
                 if (hoursAhead > 0) {
-                    val slider = com.google.android.material.slider.Slider(this).apply {
+                    rows.note("Forecast time: moves the wind, sea and swell on the map and on the charts below.")
+                    slider = com.google.android.material.slider.Slider(this).apply {
                         valueFrom = 0f
                         valueTo = hoursAhead.toFloat()
                         stepSize = 1f
@@ -2662,17 +2682,48 @@ class MainActivity : AppCompatActivity(), LocationListener {
                             .let { kotlin.math.round(it) }
                         setLabelFormatter { v -> if (v == 0f) "Now" else windLabel(now + (v * WindForecast.HOUR).toLong()) }
                         addOnChangeListener { _, v, fromUser ->
-                            if (!fromUser) return@addOnChangeListener
-                            windTime = if (v == 0f) null else now + (v * WindForecast.HOUR).toLong()
-                            describe(windTime)
-                            updateWind(fetch = false)
-                            waveView.invalidate()
+                            if (fromUser) pickTime(if (v == 0f) null else now + (v * WindForecast.HOUR).toLong(), true)
                         }
                     }
                     rows.view(slider)
                 }
-                if (pick != null) rows.button("Back to now") {
-                    windTime = null; updateWind(fetch = false); waveView.invalidate(); showWindTidePanel()
+                if (pick != null) rows.button("Back to now") { pickTime(null, false); showWindTidePanel() }
+                if (here != null && hoursAhead > 0) {
+                    val hrs = (0..hoursAhead).map { now + it * WindForecast.HOUR }
+                    val windPts = hrs.map { t ->
+                        val w = f.at(here.lat, here.lon, t)
+                        ForecastChartView.Point(t, w?.kn?.toFloat() ?: Float.NaN, w?.gustKn?.toFloat() ?: Float.NaN,
+                            w?.fromDeg?.toFloat() ?: Float.NaN)
+                    }
+                    if (windPts.any { it.main.isFinite() }) {
+                        rows.note("Wind (kn): colour is the mean speed, the dashed line gusts, arrows the way it blows. Tap or drag to pick a time.")
+                        val ids = intArrayOf(R.color.wind_0, R.color.wind_1, R.color.wind_2, R.color.wind_3,
+                            R.color.wind_4, R.color.wind_5, R.color.wind_6, R.color.wind_7)
+                        val chart = ForecastChartView(this, look)
+                        chart.set(windPts, floatArrayOf(0f, 5f, 10f, 15f, 20f, 25f, 30f, 40f),
+                            IntArray(ids.size) { ContextCompat.getColor(this, ids[it]) }, "kn", 20f, 10f, 0, now)
+                        chart.selected = pick ?: now
+                        chart.onPick = { t -> pickTime(if (t <= now) null else t, false) }
+                        charts += chart
+                        rows.custom(chart, 170)
+                    } else rows.note("The wind forecast doesn't reach here: download it for this area.")
+                    val wavePts = hrs.map { t ->
+                        val w = f.wavesAt(here.lat, here.lon, t)
+                        ForecastChartView.Point(t, w?.total?.toFloat() ?: Float.NaN, w?.swellM?.toFloat() ?: Float.NaN,
+                            w?.swellFrom?.toFloat() ?: Float.NaN)
+                    }
+                    if (wavePts.any { it.main.isFinite() }) {
+                        rows.note("Sea & swell (m): colour is the combined height, the dashed line the swell, arrows the way the swell runs.")
+                        val ids = intArrayOf(R.color.wave_0, R.color.wave_1, R.color.wave_2, R.color.wave_3,
+                            R.color.wave_4, R.color.wave_5, R.color.wave_6, R.color.wave_7)
+                        val chart = ForecastChartView(this, look)
+                        chart.set(wavePts, floatArrayOf(0f, 0.5f, 1f, 1.5f, 2f, 3f, 4f, 6f),
+                            IntArray(ids.size) { ContextCompat.getColor(this, ids[it]) }, "m", 2f, 1f, 1, now)
+                        chart.selected = pick ?: now
+                        chart.onPick = { t -> pickTime(if (t <= now) null else t, false) }
+                        charts += chart
+                        rows.custom(chart, 150)
+                    } else if (f.waves != null) rows.note("No sea & swell forecast here (land, or too close to the coast for the model).")
                 }
                 val ago = ((now - f.fetched) / 60_000).toInt()
                 rows.note("ECMWF IFS 9 km forecast via Open-Meteo.com (CC BY 4.0), downloaded " +
@@ -2686,13 +2737,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 fetchWindForView(force = true); showWindTidePanel()
             }
             rows.view(windLegend(dp))
-            if (!layers.isOn(MapOverlay.WAVES)) {
-                rows.actionRow("Waves on the map", "Turn on") {
-                    layers.setOnFromPanel(MapOverlay.WAVES, true)
-                    updateWind()
-                    showWindTidePanel()
-                }
-            }
             rows.view(waveLegend(dp))
             rows.note("Waves: colour is the combined height of sea and swell; arrows show which way the swell runs, " +
                 "with its height in metres. MFWAM 8 km model, generated using E.U. Copernicus Marine Service Information, " +
