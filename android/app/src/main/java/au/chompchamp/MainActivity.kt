@@ -18,6 +18,7 @@ import android.text.InputType
 import android.text.method.LinkMovementMethod
 import android.text.util.Linkify
 import android.view.Gravity
+import android.view.ViewGroup
 import android.view.View
 import android.view.WindowManager
 import android.widget.EditText
@@ -102,6 +103,13 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private lateinit var ais: Ais
     private lateinit var aisLabel: TextView
     private val boatIcons by lazy { BoatIcons(this) }
+    private lateinit var wind: Wind
+    private lateinit var windView: WindView
+    private lateinit var windCredit: TextView
+    /** The wind time picked on the Wind & tide panel, or null for now. */
+    private var windTime: Long? = null
+    /** Tide predictions; null if the asset couldn't be read. */
+    private val tides by lazy { runCatching { Tides(this) }.getOrNull() }
     private lateinit var offlineAreas: OfflineAreas
     private lateinit var offlinePanel: OfflinePanel
     private lateinit var updater: Updater
@@ -295,7 +303,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
             if (panel.isOpen) panel.hide() else showLayersPanel()
         }
         layers.onReset = { showLayersPanel(); updateAis() }
-        layers.onToggled = { if (it == MapOverlay.AIS) updateAis() }
+        layers.onToggled = { if (it == MapOverlay.AIS) updateAis(); if (it == MapOverlay.WIND) updateWind() }
+        setUpWind()
         // Back closes the settings panel / layout editor before leaving the app.
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -322,7 +331,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 .zoom(8.0)
                 .build()
             m.addOnCameraMoveListener { updateScaleBar() }
-            m.addOnCameraIdleListener { updateScaleBar(); offlinePanel.onCameraIdle() }
+            m.addOnCameraIdleListener { updateScaleBar(); offlinePanel.onCameraIdle(); fetchWindForView() }
             m.addOnMapClickListener { p -> onMapTap(p); true }
             m.addOnMapLongClickListener { p -> onMapLongPress(p); true }
             loadStyle()
@@ -1503,9 +1512,16 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val source = chart?.takeIf { !it.land }?.let { ChartReader.sourceLines(it.source) }.orEmpty()
         val about = if (source.isEmpty()) "" else "\n\n" + source.joinToString("\n") +
             "\nDepths are from about mean sea level: less water at low tide."
+        val tide = tideNow(p)?.let { (h, rising) ->
+            "\n\nTide now (est.): " + String.format(Locale.US, "%+.2f m, %s", h, if (rising) "rising" else "falling") +
+                (chart?.let { depthNow(it, p) }?.takeIf { it != "--" && it != "land" }?.let { ". Depth now about $it m" } ?: "")
+        }.orEmpty()
+        val windHere = wind.forecast?.at(p.lat, p.lon, windTime ?: System.currentTimeMillis())?.let {
+            "\nWind " + (if (windTime == null) "now" else windLabel(windTime!!)) + " (forecast): " + it.text()
+        }.orEmpty()
         MaterialAlertDialogBuilder(this)
             .setTitle("${Geo.formatDdm(p.lat, true)}  ${Geo.formatDdm(p.lon, false)}")
-            .setMessage("Depth (est.): ${Geo.depthText(depth)}$dist$about")
+            .setMessage("Depth (est.): ${Geo.depthText(depth)}$dist$about$tide$windHere")
             .setPositiveButton("Navigate here") { _, _ ->
                 startNavigation(Route(name = "Go to", waypoints = mutableListOf(Waypoint(p.lat, p.lon, "Target"))))
             }
@@ -1592,6 +1608,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         val popup = PopupMenu(this, anchorView)
         val items: List<Pair<String, () -> Unit>> = listOf(
             "Search places…" to { placesPanel.open() },
+            "Wind & tide…" to { showWindTidePanel() },
             "Marks…" to { marksPanel.show() },
             "Trips & catches…" to { tripsPanel.show() },
             "Bag & size limits…" to { bagPanel.open() },
@@ -2025,6 +2042,12 @@ class MainActivity : AppCompatActivity(), LocationListener {
         scaleBar.setLook(look.surface, scale, bgAlpha)
         scaleBar.visibility = if (look.showScaleBar) View.VISIBLE else View.GONE
         styleButtonLabel(aisLabel)
+        windCredit.apply {
+            textSize = 10f * scale
+            setTextColor(look.onSurface)
+            background = look.surfaceBg(bgAlpha, 6f * scale)
+            setPadding((6 * dp).toInt(), (2 * dp).toInt(), (6 * dp).toInt(), (2 * dp).toInt())
+        }
         aisLabel.maxLines = 4
         aisLabel.gravity = Gravity.END
         aisLabel.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
@@ -2097,7 +2120,14 @@ class MainActivity : AppCompatActivity(), LocationListener {
         ui.setCompassMargins(0, barInsets.top + size + (24 * dp).toInt(), barInsets.right + pad, 0)
         ui.isLogoEnabled = false
         ui.attributionGravity = Gravity.BOTTOM or Gravity.START
-        ui.setAttributionMargins(barInsets.left + pad, 0, 0, barInsets.bottom + size + ((20 + 16 * look.controlScale) * dp).toInt())
+        val attributionBottom = barInsets.bottom + size + ((20 + 16 * look.controlScale) * dp).toInt()
+        ui.setAttributionMargins(barInsets.left + pad, 0, 0, attributionBottom)
+        // The wind credit and time sit just right of the "i".
+        (windCredit.layoutParams as FrameLayout.LayoutParams).let { lp ->
+            lp.marginStart = barInsets.left + pad + (28 * dp).toInt()
+            lp.bottomMargin = attributionBottom + (2 * dp).toInt()
+            windCredit.layoutParams = lp
+        }
     }
 
     // =========================================================================
@@ -2443,6 +2473,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
         fields.set(DataField.POSITION, "${Geo.formatDdm(loc.latitude, true)}\n${Geo.formatDdm(loc.longitude, false)}")
         fields.set(DataField.TIME, SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date()))
         fields.set(DataField.TRIP, Geo.fmtNm(track.tripNm))
+        fields.set(DataField.WIND, wind.forecast?.at(pos.lat, pos.lon, System.currentTimeMillis())?.short() ?: "--")
+        fields.set(DataField.TIDE, tideNow(pos)?.let { (h, rising) ->
+            String.format(Locale.US, "%+.2f %s", h, if (rising) "↑" else "↓") } ?: "--")
         val trip = track.stats
         fields.set(DataField.TRIP_TIME, if (recording) Geo.fmtDuration((System.currentTimeMillis() - recStart()) / 3_600_000.0) else "--")
         fields.set(DataField.TRIP_AVG, trip.avgMovingKn?.let { String.format(Locale.US, "%.1f", it) } ?: "--.-")
@@ -2482,6 +2515,201 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private fun estimateDepthAt(p: LatLng): String {
         chartAt(p.latitude, p.longitude)?.let { return depthOf(it) }
         return renderedDepthAt(p)
+    }
+
+    // ---- Wind and tide ----------------------------------------------------------------
+
+    private fun setUpWind() {
+        wind = Wind(File(filesDir, "wind"), userAgent, io)
+        wind.post = { r -> runOnUiThread(r) }
+        wind.onChanged = { updateWind(fetch = false); refreshWindTidePanel() }
+        windView = WindView(this)
+        windView.host = object : WindView.Host {
+            override fun toLatLon(x: Float, y: Float) =
+                map?.projection?.fromScreenLocation(android.graphics.PointF(x, y))?.let { it.latitude to it.longitude }
+            override fun forecast() = wind.forecast
+            override fun time() = windTime ?: System.currentTimeMillis()
+        }
+        // Just above the map, under every control. Not clickable, so touches go through to the map.
+        val root = mapView.parent as FrameLayout
+        root.addView(windView, root.indexOfChild(mapView) + 1,
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        windCredit = TextView(this).apply {
+            visibility = View.GONE
+            maxLines = 1
+            setOnClickListener { showWindTidePanel() }
+        }
+        findViewById<FrameLayout>(R.id.overlay).addView(windCredit,
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM or Gravity.START))
+    }
+
+    /** Start or stop the wind streaks, and fetch a forecast for the view if needed. */
+    private fun updateWind(fetch: Boolean = true) {
+        val on = layers.isOn(MapOverlay.WIND) && started && chartFile.exists()
+        windView.opacity = layers.opacity(MapOverlay.WIND)
+        if (windView.running != on) windView.running = on
+        windCredit.visibility = if (on) View.VISIBLE else View.GONE
+        if (on) {
+            val f = wind.forecast
+            val t = windTime ?: System.currentTimeMillis()
+            windCredit.text = when {
+                f == null && wind.busy -> "Wind: getting the forecast…"
+                f == null -> "Wind: no forecast yet (needs internet) · tap"
+                t > f.tEnd -> "Wind: forecast ran out · go online"
+                else -> "Wind ${if (windTime == null) "now" else windLabel(t)} · ECMWF via Open-Meteo.com"
+            }
+            if (fetch) fetchWindForView()
+        }
+    }
+
+    private fun fetchWindForView(force: Boolean = false) {
+        if (!force && !(layers.isOn(MapOverlay.WIND) && started)) return
+        val b = map?.projection?.visibleRegion?.latLngBounds ?: return
+        if (!b.latitudeSouth.isFinite() || b.latitudeNorth <= b.latitudeSouth) return
+        wind.ensure(b.longitudeWest, b.latitudeSouth, b.longitudeEast, b.latitudeNorth, force)
+        if (wind.busy) updateWind(fetch = false)
+    }
+
+    private fun windLabel(t: Long) = SimpleDateFormat("EEE h a", Locale.getDefault()).format(Date(t))
+
+    /** Tide height above mean sea level now, and whether it's rising; null outside the model. */
+    private fun tideNow(p: LatLon): Pair<Double, Boolean>? {
+        val td = tides ?: return null
+        val st = td.nearest(p.lat, p.lon) ?: return null
+        val now = System.currentTimeMillis()
+        val h = td.height(st, now)
+        return h to (td.height(st, now + 10 * 60_000L) > h)
+    }
+
+    /** The chart's depth band with the tide added: how much water there is about now. */
+    private fun depthNow(r: ChartReader.Result, p: LatLon): String {
+        val d = r.depth
+        if (r.land) return "land"
+        if (d == null || d.second >= 2000) return depthOf(r)
+        val h = tideNow(p)?.first ?: return "--"
+        return String.format(Locale.US, "%.1f–%.1f", maxOf(0.0, d.first + h), maxOf(0.0, d.second + h))
+    }
+
+    private var windTidePanelOpen = false
+
+    private fun refreshWindTidePanel() {
+        if (windTidePanelOpen && panel.isOpen && panel.current == "Wind & tide") showWindTidePanel()
+    }
+
+    /** Forecast time and status, the wind colours, and the tide where the boat (or the map centre) is. */
+    private fun showWindTidePanel() {
+        displayPanelOpen = false
+        windTidePanelOpen = true
+        val dp = resources.displayMetrics.density
+        val here = lastPos() ?: map?.cameraPosition?.target?.let { LatLon(it.latitude, it.longitude) }
+        panel.show("Wind & tide", { rows ->
+            rows.section("Wind forecast")
+            val f = wind.forecast
+            val now = System.currentTimeMillis()
+            if (!layers.isOn(MapOverlay.WIND)) {
+                rows.actionRow("Wind on the map", "Turn on") {
+                    layers.setOnFromPanel(MapOverlay.WIND, true)
+                    map?.style?.let { layers.apply(it) }
+                    updateWind()
+                    showWindTidePanel()
+                }
+            }
+            if (f == null) {
+                rows.note(if (wind.busy) "Getting the forecast…" else
+                    "No forecast yet. With internet, it downloads for the area on screen.")
+            } else {
+                val hoursAhead = ((f.tEnd - now) / WindForecast.HOUR).toInt()
+                val pick = windTime
+                val label = TextView(this).apply { textSize = 14f; setTextColor(look.onSurface) }
+                fun describe(t: Long?) {
+                    val at = t ?: now
+                    val w = here?.let { f.at(it.lat, it.lon, at) }
+                    label.text = (if (t == null) "Now" else windLabel(at)) +
+                        (w?.let { " · " + it.text() + if (lastPos() != null) " at the boat" else " at the map centre" } ?: "")
+                }
+                describe(pick)
+                rows.view(label)
+                if (hoursAhead > 0) {
+                    val slider = com.google.android.material.slider.Slider(this).apply {
+                        valueFrom = 0f
+                        valueTo = hoursAhead.toFloat()
+                        stepSize = 1f
+                        value = (((pick ?: now) - now) / WindForecast.HOUR).toFloat().coerceIn(0f, hoursAhead.toFloat())
+                            .let { kotlin.math.round(it) }
+                        setLabelFormatter { v -> if (v == 0f) "Now" else windLabel(now + (v * WindForecast.HOUR).toLong()) }
+                        addOnChangeListener { _, v, fromUser ->
+                            if (!fromUser) return@addOnChangeListener
+                            windTime = if (v == 0f) null else now + (v * WindForecast.HOUR).toLong()
+                            describe(windTime)
+                            updateWind(fetch = false)
+                        }
+                    }
+                    rows.view(slider)
+                }
+                if (pick != null) rows.button("Back to now") { windTime = null; updateWind(fetch = false); showWindTidePanel() }
+                val ago = ((now - f.fetched) / 60_000).toInt()
+                rows.note("ECMWF IFS 9 km forecast via Open-Meteo.com (CC BY 4.0), downloaded " +
+                    (if (ago < 60) "$ago min ago" else "${ago / 60} h ago") +
+                    String.format(Locale.US, " for %.1f–%.1f° S, %.1f–%.1f° E. ", -f.n, -f.s, f.w, f.e) +
+                    "It's kept for when you have no signal: open the map over where you're going while online. " +
+                    "It updates by itself when you're online, it's over 3 hours old, or you move outside it.")
+            }
+            wind.lastError?.let { rows.note(it) }
+            rows.button(if (wind.busy) "Downloading…" else "Download for this area now") {
+                fetchWindForView(force = true); showWindTidePanel()
+            }
+            rows.view(windLegend(dp))
+
+            rows.section("Tide")
+            val td = tides
+            val st = here?.let { td?.nearest(it.lat, it.lon) }
+            if (td == null || st == null || here == null) {
+                rows.note("No tide prediction here: it covers the WA coast, within about 60 km of a model cell.")
+            } else {
+                val (h, rising) = tideNow(here)!!
+                val km = Geo.distanceNm(here, LatLon(st.lat, st.lon)) * 1.852
+                rows.view(TextView(this).apply {
+                    textSize = 14f; setTextColor(look.onSurface)
+                    text = String.format(Locale.US, "Now %+.2f m, %s", h, if (rising) "rising" else "falling") +
+                        " · near ${st.near}" + (if (km >= 1) String.format(Locale.US, " (model point %.0f km away)", km) else "")
+                })
+                val chart = TideChartView(this, look)
+                val from = now - 6 * WindForecast.HOUR
+                chart.set(td, st, from, now + 42 * WindForecast.HOUR, now)
+                rows.custom(chart, 150)
+                val fmt = SimpleDateFormat("EEE HH:mm", Locale.getDefault())
+                val next = td.turns(st, now, now + 48 * WindForecast.HOUR)
+                rows.note(next.joinToString("\n") {
+                    (if (it.high) "High  " else "Low   ") + fmt.format(Date(it.time)) + String.format(Locale.US, "   %+.2f m", it.metres)
+                })
+                rows.note("Heights are above mean sea level, the same level as the chart's depths, so the water is about " +
+                    "chart depth + tide. A global model (EOT20, CC BY 4.0) worked out on this tablet: roughly ±0.1–0.2 m " +
+                    "and a few minutes on the open coast. Not right inside rivers and estuaries (Swan, Peel–Harvey), and " +
+                    "weather (wind, pressure) can move the sea by more than the tide here.")
+            }
+        }, onClose = { windTidePanelOpen = false })
+    }
+
+    /** The wind colours and what speeds they mean. */
+    private fun windLegend(dp: Float): View {
+        val ids = intArrayOf(R.color.wind_0, R.color.wind_1, R.color.wind_2, R.color.wind_3,
+            R.color.wind_4, R.color.wind_5, R.color.wind_6, R.color.wind_7)
+        val labels = listOf("0", "5", "10", "15", "20", "25", "30", "40+")
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, (6 * dp).toInt(), 0, (2 * dp).toInt())
+            for (i in ids.indices) addView(TextView(this@MainActivity).apply {
+                text = labels[i]
+                textSize = 11f
+                gravity = Gravity.CENTER
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.ui_surface))
+                setBackgroundColor(ContextCompat.getColor(this@MainActivity, ids[i]))
+            }, LinearLayout.LayoutParams(0, (20 * dp).toInt(), 1f))
+            addView(TextView(this@MainActivity).apply {
+                text = " kn"; textSize = 11f; setTextColor(look.muted)
+            })
+        }
     }
 
     private fun chartAt(lat: Double, lon: Double): ChartReader.Result? =
@@ -2530,6 +2758,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 if (isDestroyed) return@runOnUiThread
                 val here = LatLng(pos.lat, pos.lon)
                 if (started) fields.set(DataField.DEPTH, r?.let { depthOf(it) } ?: renderedDepthAt(here))
+                if (started) fields.set(DataField.DEPTH_NOW, r?.let { depthNow(it, pos) } ?: "--")
                 setZone(if (r != null) zoneIn(r) else renderedZone(here))
                 updateBanner()
             }
@@ -2625,6 +2854,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         finishStaleTrip()
         overlays.setTrack(visibleTrack())   // may have grown while the screen was off
         updateAis()
+        updateWind()
         updateModeLabel()
         ticker.post(tick)
         if (!updateChecked) {
@@ -2645,6 +2875,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         super.onStop()
         started = false
         ais.stop()
+        windView.running = false
         updater.stopPolling()
         ticker.removeCallbacks(tick)
         updateRecordButton()   // stops the light's animation while off screen

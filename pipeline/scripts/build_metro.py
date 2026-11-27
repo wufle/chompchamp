@@ -498,7 +498,7 @@ def main():
             log(f"LiDAR over soundings: {(ok & measured).sum()} sounding cells, kept {shoal.sum()} shoaler ones")
         surv[ok] = abt[ok]
         for code, what in ((15, "airborne LiDAR"), (11, "multibeam")):
-            sid[ok & (tid == code)] = add_source(f"{what.capitalize()}, from AusBathyTopo 30m (Perth) 2026", 1)
+            sid[ok & (tid == code)] = add_source(f"{what[0].upper() + what[1:]}, from AusBathyTopo 30m (Perth) 2026", 1)
         del real, tid
     have = np.isfinite(surv)
     log(f"surveyed share of river/harbour water: {(have & river_m).sum() / max(1, river_m.sum()):.1%}; "

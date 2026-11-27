@@ -50,6 +50,9 @@ enum class DataField(val key: String, val label: String, vararg val defaultIn: A
     TRIP_AVG("trip_avg", "TRIP AVG  kn"),
     TRIP_MAX("trip_max", "TRIP MAX  kn"),
     TIME("time", "TIME"),
+    WIND("wind", "WIND  kn (forecast)"),
+    TIDE("tide", "TIDE  m (est.)"),
+    DEPTH_NOW("depth_now", "DEPTH NOW  m (est.)"),
     ;
 
     val placeholder: String

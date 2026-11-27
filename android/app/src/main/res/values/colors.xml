@@ -17,6 +17,16 @@
     <color name="ais_teal">#00796B</color>
     <color name="ais_light_blue">#4FC3F7</color>
 
+    <!-- Wind streaks by speed: under 5, 5-10, 10-15, 15-20, 20-25, 25-30, 30-40, over 40 kn (map only, not controls). -->
+    <color name="wind_0">#E3F2FD</color>
+    <color name="wind_1">#B3E5FC</color>
+    <color name="wind_2">#80DEEA</color>
+    <color name="wind_3">#A5D6A7</color>
+    <color name="wind_4">#FFF59D</color>
+    <color name="wind_5">#FFCC80</color>
+    <color name="wind_6">#EF9A9A</color>
+    <color name="wind_7">#CE93D8</color>
+
     <!-- Your boat on the map (Display → Your boat). Hull colours, plus a few for the details. -->
     <color name="boat_white">#F5F7FA</color>
     <color name="boat_alu">#B0BEC5</color>

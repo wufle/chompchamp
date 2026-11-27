@@ -96,13 +96,25 @@ the break in Settings (6 hours) is saved and stopped by itself.
 name, type, speed, course and how long ago each was heard. No account or receiver needed. Positions run a minute or
 more behind, and boats without AIS or out of range of a station are missing. It is for interest, not for avoiding collisions.
 
+**Wind** (Layers → Wind, off by default): the forecast drawn as streaks drifting across the map, coloured by speed, like
+Windy. **☰ → Wind & tide** has a time slider for the next 7 days, the colour key, and the wind at your boat. The forecast
+(ECMWF 9 km, via Open-Meteo) downloads for the area on screen while you're online and is kept, so it still shows at sea:
+open the map over where you're going before you leave. Long-press shows the wind at that spot.
+
+**Tides** (☰ → Wind & tide): the tide now, rising or falling, a curve for the next two days, and the highs and lows,
+for the boat or the map centre, anywhere on the WA coast. Worked out on the tablet from the EOT20 tide model, so it works
+offline for any date. Heights are above mean sea level, the same level as the chart's depths, so long-press and the
+**Depth now** data field add the tide to the charted depth. Checked against the tide gauges at Fremantle, Esperance,
+Port Hedland and Broome: within about 0.1 m (0.2 m at Broome), not counting weather. It isn't right inside rivers and
+estuaries, and wind and pressure can move the sea by more than the tide. Data fields **Wind**, **Tide** and **Depth now**.
+
 Everything is customisable:
 - **Data fields** per mode: SOG (knots or km/h), COG, position, depth, waypoint, BRG, DTW, XTE, VMG, TTG, ETAs, remaining, drift speed/direction, nearest mark, anchor distance, trip distance, time, average and top speed, clock. Show/hide them and drag them anywhere (Menu → Display → Move or resize), or combine them into one group (Menu → Display → Arrangement); tap a field while editing to resize or hide just that one. Each mode keeps its own layout.
 - **Display** (Menu): the data field options above, the scale bar, Record button and bag limits button on/off (move the buttons with Move or resize), the AIS vessel colour (light green, teal or light blue), plus size and transparency of data fields, and of buttons and panels, and the size of AIS vessels, catches and place names.
 - **Your boat** (Display): choose how you show on the map: classic arrow, tinny, centre console, cabin cruiser, yacht,
   catamaran, kayak, jet ski, tugboat, rubber duck, pirate ship, Viking longship or submarine. Pick its own colour or white,
   red, blue, green, pink or charcoal, and set its size and opacity. It turns with your heading.
-- **Layers** (bottom left): on/off and an opacity slider for every layer: marks and hazards, place names, satellite, 5 m reef relief, depth shading, contours, labels, land, zones, parks, route, marks, drift line, track, saved trip, catches, anchor circle, AIS vessels.
+- **Layers** (bottom left): on/off and an opacity slider for every layer: marks and hazards, place names, satellite, 5 m reef relief, depth shading, contours, labels, land, zones, parks, route, marks, drift line, track, saved trip, catches, anchor circle, wind, AIS vessels.
 - **Charts, offline areas & updates** (Menu): save satellite and reef relief imagery for an area, check GitHub for a new app, chart or relief pack, see what is installed (size, date), import, remove the chart or the offline reef relief pack (relief falls back to online), clear the online tile cache.
 - **Data** (Menu): save and load named snapshots on the phone; export and import a backup file (.json) with routes, marks, current track, saved trips, catch log and settings (merge or replace); export and import GPX to move marks, routes and tracks to and from other chartplotter apps.
 - **Settings**: when trip recording starts, recording with the screen off, when a forgotten trip is finished, track history shown (1 min to the entire trip), track point spacing, AIS age limit, arrival radius, planning speed, north-up / course-up, drift window and projection, fish-mode zoom, anchor radius, safety depth.
@@ -130,7 +142,8 @@ see your IP address and the area on screen. Saving an area for offline use downl
 Tapping **Google Images** on a fish opens a Google search in your browser.
 Checking for updates asks GitHub for the latest release; it only happens when you ask, unless you turn on
 automatic checks. With the AIS layer on, Open Waters also sees your IP address and the area on screen
-about once a minute; it keeps request logs for 90 days. Your own position is never sent.
+about once a minute; it keeps request logs for 90 days. With the wind layer on, Open-Meteo sees your IP address and
+the area on screen when a forecast downloads (at most every few hours, or when you move to a new area). Your own position is never sent.
 
 ## Data sources and licences
 
@@ -153,6 +166,8 @@ source's licence (including the bundled `hazards.geojson` and `places.geojson`).
 | Wrecks, rocks, obstructions | © OpenStreetMap contributors (OpenSeaMap seamark tags) | ODbL 1.0 |
 | Place names: towns, suburbs, harbours, marinas, jetties, lighthouses, islands, points, bays, beaches, reefs | © OpenStreetMap contributors | ODbL 1.0 |
 | Boat ramps and DoT maritime facilities (harbours, public jetties) | WA Department of Transport, Public Boat Ramps (DOT-033) and Maritime Facility Locations (DOT-030), via SLIP | CC BY 4.0 |
+| Wind forecast (downloaded for the area on screen, kept offline) | [Open-Meteo.com](https://open-meteo.com/), ECMWF IFS 9 km open data | CC BY 4.0 |
+| Tide predictions (built in) | EOT20 global ocean tide model, Hart-Davis et al. 2021, DGFI-TUM ([doi:10.17882/79489](https://doi.org/10.17882/79489)) | CC BY 4.0 |
 | Satellite (online, or saved for chosen areas) | © Geoscience Australia, [Digital Earth Australia](https://www.dea.ga.gov.au): coast from [DEA Tidal Composites](https://knowledge.dea.ga.gov.au/data/product/dea-tidal-composites/) (Sentinel-2, low tide, 2024), inland from [DEA GeoMAD](https://knowledge.dea.ga.gov.au/data/product/dea-geometric-median-and-median-absolute-deviation-landsat/) (Landsat 8 and 9, 2025). Contains modified Copernicus Sentinel and USGS Landsat data | CC BY 4.0 |
 | Vessels (online, optional layer) | [Open Waters AIS](https://openwaters.io/ais/), around WA passing on AIS from [AISHub](https://www.aishub.net) contributors and [aisstream.io](https://aisstream.io) | Not open data. Free for personal use and display with credit; AISHub's terms don't allow passing on the raw data, so the app never stores or exports it. aisstream.io publishes no licence |
 | Bag and size limits | Facts from WA DPIRD's [Recreational fishing guide 2026](https://www.dpird.wa.gov.au/siteassets/documents/fisheries/recreational/guides-and-infographics/recreational-fishing-guide.pdf) (June 2026, edition 2), checked 25 November 2026. The guide is © State of Western Australia and has no open licence, so only the limits, dates and places are used, in our own wording | Not open data |
@@ -225,6 +240,8 @@ lines aren't stair-stepped, which looks better but adds no real detail.
 `python3 pipeline/scripts/fetch_hazards.py android/app/src/main/assets/hazards.geojson`
 **Refresh the bundled place names:**
 `python3 pipeline/scripts/fetch_places.py android/app/src/main/assets/places.geojson`
+**Rebuild the tide constituents** (2.3 GB download; needs numpy, scipy, netCDF4):
+`python3 pipeline/scripts/fetch_tides.py /tmp/eot20` writes `android/app/src/main/assets/tides.json`.
 
 The chart and relief can also be built with the *Build WA chart data* and *Build WA reef relief pack*
 workflows. They make a workflow artifact, and only publish a release if **publish** is ticked.

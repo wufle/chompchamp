@@ -38,6 +38,8 @@ enum class MapOverlay(val key: String, val shortLabel: String, val defaultOn: Bo
     ANCHOR("anchor", "Anchor circle", true),
     SAVED_TRIP("saved_trip", "Saved trip", true),
     CATCHES("catches", "Catches", true),
+    /** Wind forecast streaks (WindView, drawn by the app). Fetched online, kept for use offline. */
+    WIND("wind", "Wind (forecast)", false),
     /** Off by default: needs internet, and tells the AIS server which area is on screen. */
     AIS("ais", "Vessels (AIS)", false),
 }
@@ -118,6 +120,8 @@ class MapLayers(private val prefs: SharedPreferences) {
 
     fun isOn(o: MapOverlay) = prefs.getBoolean("layer_${o.key}", o.defaultOn)
     private fun setOn(o: MapOverlay, on: Boolean) = prefs.edit().putBoolean("layer_${o.key}", on).apply()
+    /** For panels that turn a layer on themselves (Wind & tide). */
+    fun setOnFromPanel(o: MapOverlay, on: Boolean) = setOn(o, on)
 
     /** User opacity multiplier 0..1 (default 1). */
     fun opacity(o: MapOverlay) = prefs.getFloat("layer_opacity_${o.key}", 1f)
@@ -165,7 +169,7 @@ class MapLayers(private val prefs: SharedPreferences) {
         "Zones" to listOf(MapOverlay.NO_TAKE, MapOverlay.RESTRICTED, MapOverlay.PARKS),
         "My data" to listOf(MapOverlay.ROUTE, MapOverlay.MARKS, MapOverlay.DRIFT, MapOverlay.TRACK, MapOverlay.SAVED_TRIP,
             MapOverlay.CATCHES, MapOverlay.ANCHOR),
-        "Live (needs internet)" to listOf(MapOverlay.AIS),
+        "Live (needs internet)" to listOf(MapOverlay.WIND, MapOverlay.AIS),
     )
 
     /** Fill the docked settings panel: switch + opacity slider per layer, applied live. */
@@ -178,12 +182,13 @@ class MapLayers(private val prefs: SharedPreferences) {
                     percent = (opacity(o) * 100).roundToInt(),
                     checked = isOn(o),
                     onChecked = { on -> setOn(o, on); style?.let { apply(it) }; onToggled?.invoke(o) },
-                    onPercent = { p -> setOpacity(o, p / 100f); style?.let { apply(it) } },
+                    onPercent = { p -> setOpacity(o, p / 100f); style?.let { apply(it) }; if (o == MapOverlay.WIND) onToggled?.invoke(o) },
                 )
             }
         }
         rows.note("Sliders set each layer's opacity. No-fishing alerts keep working when zones are hidden. " +
             "Satellite and online reef relief need internet, except in areas you've saved (☰ → Charts, offline areas & updates). " +
+            "Wind is a forecast for the area on screen from Open-Meteo, kept for when you're offline (☰ → Wind & tide). " +
             "AIS asks openwaters.io for vessels in the area on screen.")
         rows.button("Reset layers") {
             val e = prefs.edit()

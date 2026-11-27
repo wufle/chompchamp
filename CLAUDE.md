@@ -70,6 +70,8 @@ user which they need. The style must also cope with older charts that lack a new
 | `BoatIcons.kt` | Your boat on the map: shapes drawn in code (tinny, yacht, rubber duck, pirate ship...), hull colours; shown by the location component as style image `own-boat` |
 | `ScaleBarView.kt` | Scale bar, bottom right |
 | `Hazards.kt` | Nav marks, wrecks and rocks from `assets/hazards.geojson` |
+| `Wind.kt`, `WindView.kt` | Wind forecast from Open-Meteo (ECMWF IFS 9 km) for the area on screen, kept in `files/wind/wind.bin` for offline use; streaks drawn over the map (Mercator affine from three screen corners) |
+| `Tides.kt`, `TideChartView.kt` | Tide prediction on the device from `assets/tides.json` (EOT20 constituents from `fetch_tides.py`); the Wind & tide panel is in `MainActivity` |
 | `Places.kt`, `PlacesPanel.kt` | Place names from `assets/places.geojson`: map labels (shown by rank and zoom) and the Search places panel |
 | `SettingsPanel.kt`, `Settings.kt`, `Appearance.kt` | Docked panel (Layers, Display); behaviour options; size, opacity, palette |
 | `ChartReader.kt` | Land, depth and zones at a point, read from `wa.pmtiles` (mirrors the planner's `ChartReader`) |
@@ -101,6 +103,10 @@ Gotchas:
 - Snapshots leave out trips and catches on purpose: loading an old one must not wipe newer trips.
 - `onLocationChanged` also runs with the screen off: no `queryRenderedFeatures` or other map work unless `started`.
 - A mark with no `group` key came from an older file: on merge keep the existing group (`groupKnown`).
+- `Tides.kt` phase offsets (K1 -90°, O1 +90° ...) and the EOT20 phase sign (atan2(imag, real)) were settled by comparing
+  with UHSLC hourly tide gauge data (Fremantle h175, Esperance h176, Port Hedland h169, Broome h166). Check again against
+  those if you touch the astronomy: a wrong diurnal sign still looks like a tide but is worse than none at Fremantle.
+- Wind data from Open-Meteo must show its credit next to it (the label beside the map's "i" while the layer is on).
 - Pref keys (`f.<mode>.*`, `layer_*`, `set_*`), overlay keys and the track format are stored on the
   user's phone. Don't rename them; keep reading old formats.
 
@@ -135,7 +141,7 @@ headless Chromium (available locally) before calling it done. Bump `web/VERSION`
    chart, failing the build on a mismatch. (Once, everything over 1000 m deep shipped as land.) Always check a chart
    against the source grid, not just against itself.
 
-`fetch_hazards.py`, `fetch_places.py`, `fetch_limit_areas.py`, `build_species_images.py` and `build_relief.py` run separately; all but the last refresh bundled assets.
+`fetch_hazards.py`, `fetch_places.py`, `fetch_tides.py`, `fetch_limit_areas.py`, `build_species_images.py` and `build_relief.py` run separately; all but the last refresh bundled assets.
 
 Heights are mean sea level (AusBathyTopo) or AHD (DoT), not low-tide chart datum.
 DoT files: `https://s3-ap-southeast-2.amazonaws.com/transport.wa/Bathymetry/{Rasters,PointData}/`.
