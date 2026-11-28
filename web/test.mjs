@@ -137,4 +137,83 @@ const asset = (f) => JSON.parse(fs.readFileSync(new URL(`../android/app/src/main
   assert.equal(C.wavesText(C.forecastAt(f, 3600000)), 'Swell 1.0 m 12 s from WSW · Sea 0.5 m 4 s from SSW · Combined 1.2 m');
   assert.equal(C.forecastAt(f, 10 * 3600000), null);
 }
+// Navigator: arrival circle, passing abeam, skip and back
+{
+  const nav = new C.Navigator();
+  const r = { id: 'r', name: 'R', waypoints: [{ lat: -32, lon: 115.5, name: 'A' }, { lat: -32.1, lon: 115.5, name: 'B' }, { lat: -32.2, lon: 115.5, name: 'C' }] };
+  nav.start(r, { lat: -31.9, lon: 115.5 });
+  let d = nav.update({ lat: -31.95, lon: 115.5 }, 10, 180, 0.05);
+  assert.equal(d.target.name, 'A'); near(d.bearing, 180, 0.5); near(d.vmg, 10, 0.01); assert.equal(d.arrived, null);
+  d = nav.update({ lat: -32.0002, lon: 115.5 }, 10, 180, 0.05);
+  assert.equal(d.arrived, 'A'); assert.equal(d.target.name, 'B');
+  // Passed B abeam, 0.15 nm off: close enough with a 0.05 nm circle (4x).
+  d = nav.update({ lat: -32.1005, lon: 115.503 }, 10, 180, 0.05);
+  assert.equal(d.arrived, 'B'); assert.equal(d.target.name, 'C');
+  assert.ok(nav.previous({ lat: -32.1, lon: 115.5 })); assert.equal(nav.target.name, 'B');
+  assert.ok(nav.skip()); assert.equal(nav.target.name, 'C'); assert.ok(!nav.skip());
+  d = nav.update({ lat: -32.2, lon: 115.5 }, 0, null, 0.05);
+  assert.ok(d.finished);
+  const saved = new C.Navigator(JSON.parse(JSON.stringify(nav)));
+  assert.equal(saved.target.name, 'C');
+  near(C.alongTrackNm({ lat: -32, lon: 115 }, { lat: -33, lon: 115 }, { lat: -32.5, lon: 115.01 }), 30, 0.1);
+  const p = C.destination({ lat: -32, lon: 115 }, 90, 1);
+  near(C.distanceNm({ lat: -32, lon: 115 }, p), 1, 1e-6); near(C.bearing({ lat: -32, lon: 115 }, p), 90, 0.01);
+  assert.equal(C.fmtXte(-0.02), '37 m L'); assert.equal(C.fieldNm(1.234), '1.23');
+}
+
+// Drift, trips, track encoding
+{
+  const dr = new C.DriftTracker();
+  dr.add(0, { lat: -32, lon: 115 }, 60);
+  assert.equal(dr.drift(), null);
+  dr.add(60000, { lat: -32 - 1 / 60 / 60, lon: 115 }, 60);   // 1 nm/h south
+  near(dr.drift().kn, 1, 0.01); near(dr.drift().dir, 180, 0.5);
+  const pts = [];
+  for (let i = 0; i < 20; i++) C.addTrackPoint(pts, { lat: -32 - i * 0.001, lon: 115 }, 1e12 + i * 10000, 6, 10);
+  assert.equal(pts.length, 20);
+  assert.ok(!C.addTrackPoint(pts.slice(), { lat: -32.019, lon: 115 }, 1e12 + 191000, 0, 10));   // under 10 m, and soon after
+  assert.ok(C.addTrackPoint(pts.slice(), { lat: -32.019, lon: 115 }, 1e12 + 190000 + 120000, 0, 10));   // stopped: repeated every 2 min
+  const st = C.TripStats.of(pts);
+  near(st.distanceNm, 19 * 0.06, 0.01); assert.equal(st.maxKn, 6);
+  const enc = C.encodeTrip(pts), dec = C.decodeTrip(enc);
+  assert.equal(dec.length, pts.length); assert.equal(dec[5].t, pts[5].t); assert.equal(dec[5].sog, 6); near(dec[5].lat, pts[5].lat, 1e-6);
+  assert.equal(C.decodeTrip('-32,115,5,;bad;-32.1,115,10,30')[1].sog, 3);
+  const t = C.tripOf(pts);
+  assert.equal(t.id, 'trip-1000000000000'); assert.equal(t.n, 20);
+  assert.equal(C.splitTrack([...pts, { lat: -32, lon: 115, t: 1e12 + 9e6, sog: -1 }], 3600000).length, 2);
+  assert.equal(C.archiveTrack(pts.slice(0, 2), null, false, () => false).length, 0);   // never left the spot
+  assert.equal(C.archiveTrack(pts, null, false, () => false).length, 1);
+  const cs = [{ id: 'a', time: 1e12 + 50000 }, { id: 'b', time: 1e12 + 5 * 3600000 }];
+  assert.deepEqual(C.catchesIn(cs, t.start, t.end, []).map((c) => c.id), ['a']);
+  // Backups carry trips both ways, in the phone's format.
+  const out = JSON.parse(C.exportBackup({ routes: [], plan: C.emptyRoute(), marks: [], groups: [], catches: [], track: pts, trips: [{ trip: t, pts: enc }] }, ['trips', 'track']));
+  assert.equal(out.trips[0].pts, enc); assert.equal(out.track3.length, 60); assert.equal(out.trackSog[0], 6); assert.equal(out.routes, undefined);
+  const back = C.parseBackup(JSON.stringify(out));
+  assert.equal(back.trips[0].points.length, 20); assert.equal(back.track[3].sog, 6); assert.equal(back.trips[0].trip.name, t.name);
+  assert.ok(C.tripGpx(t, pts, []).includes('<trkpt'));
+  assert.equal(C.speedCsv(pts).split('\n')[1].split(',')[3], '6.0');
+}
+
+// Wind grid: the fetch box, and reading it back
+{
+  const g = C.windGrid(115.5, -32.2, 115.9, -31.9);
+  assert.ok(g.nx <= 17 && g.ny <= 17); assert.equal(g.pts.length, g.nx * g.ny);
+  assert.ok(g.w <= 115.5 && g.e >= 115.9 && g.s <= -32.2 && g.n >= -31.9);
+  const m = g.pts.length, hours = 3;
+  const one = () => ({ hourly: { time: [0, 3600, 7200], wind_speed_10m: [10, 20, 30], wind_direction_10m: [270, 270, 270], wind_gusts_10m: [15, 25, 35] } });
+  const wave = () => ({ hourly: { time: [0, 3600, 7200], wave_height: [1, 2, 3], wind_wave_height: [0.5, 1, 1], wind_wave_direction: [200, 200, 200], wind_wave_period: [4, 4, 4],
+    swell_wave_height: [1, 1.5, 2.5], swell_wave_direction: [240, 240, 240], swell_wave_period: [12, 12, 12] } });
+  const parts = (f) => { const a = []; for (let i = 0; i < m; i += 100) a.push(Array.from({ length: Math.min(100, m - i) }, f)); return a; };
+  const f = C.parseWindGrid(g, parts(one), parts(wave), 0);
+  assert.equal(f.hours, hours);
+  const w = C.windAt(f, -32, 115.7, 1800000);
+  near(w.kn, 15, 1e-3); near(w.from, 270, 1e-3); near(w.gust, 20, 1e-3); assert.ok(w.u > 0);
+  assert.equal(C.windAt(f, -40, 115.7, 0), null);
+  const wv = C.wavesAt(f, -32, 115.7, 3600000);
+  near(wv.wave, 2, 1e-6); assert.equal(wv.swellFrom, 240); assert.equal(C.wavesShort(wv), '1.0 / 1.5');
+  assert.equal(C.windShort(w), '15 G20 W');
+  assert.ok(C.windFits({ ...f, fetched: 0, t0: 0, hours: 200 }, 115.5, -32.2, 115.9, -31.9, true, 1000));
+  assert.ok(!C.windFits({ ...f, fetched: 0, t0: 0, hours: 200 }, 118, -32.2, 118.4, -31.9, true, 1000));
+  assert.equal(C.scaleBar(20, 96).label, '1 nm'); assert.equal(C.scaleBar(15, 96).label, '0.5 nm'); near(C.scaleBar(15, 96).px, 926 / 15, 0.1); assert.equal(C.scaleBar(0.5, 96).label, '20 m');
+}
 console.log('planner tests passed');

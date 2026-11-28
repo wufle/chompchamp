@@ -6,6 +6,7 @@ No network and no dependencies: the libraries and label font are in web/vendor.
 """
 import base64
 import json
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 WEB = Path(__file__).resolve().parent
@@ -27,6 +28,26 @@ def data(v):
     return json.dumps(v, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
 
 
+def icons():
+    """The app's own icons (Android vector drawables, 24 x 24): name -> [[path data, even-odd fill]]."""
+    ns = "{http://schemas.android.com/apk/res/android}"
+    out = {}
+    for f in sorted((ROOT / "android/app/src/main/res/drawable").glob("ic_*.xml")):
+        if "launcher" in f.stem:
+            continue
+        paths = [[p.get(ns + "pathData"), p.get(ns + "fillType") == "evenOdd"] for p in ET.parse(f).getroot().iter("path")]
+        out[f.stem[3:]] = paths
+    return out
+
+
+def species():
+    """Species pictures for the bag limits (about 10 KB each), with their credits."""
+    credits = json.loads(text(ASSETS / "species/credits.json"))
+    for c in credits.values():
+        c["img"] = base64.b64encode((ASSETS / f"species/{c['file']}.webp").read_bytes()).decode()
+    return credits
+
+
 glyphs = {p.stem: base64.b64encode(p.read_bytes()).decode() for p in sorted((WEB / "vendor/glyphs").glob("*.pbf"))}
 parts = {
     "VERSION": VERSION,
@@ -45,11 +66,13 @@ parts = {
         "tides": json.loads(text(ASSETS / "tides.json")),
         "bagLimits": json.loads(text(ASSETS / "bag_limits.json")),
         "limitAreas": json.loads(text(ASSETS / "limit_areas.json")),
+        "icons": icons(),
+        "species": species(),
         "glyphs": glyphs,
     }) + ";",
     "CORE_JS": script(text(WEB / "src/core.js")),
     # The feature modules share app.js's scope: they go where it says %%MODULES%%.
-    "APP_JS": script(text(WEB / "src/app.js").replace("// %%MODULES%%", "\n".join(text(WEB / f"src/{m}.js") for m in ("gps", "weather", "catches")))),
+    "APP_JS": script(text(WEB / "src/app.js").replace("// %%MODULES%%", "\n".join(text(WEB / f"src/{m}.js") for m in ("ui", "fields", "gps", "weather", "catches", "marks", "display")))),
 }
 
 # Split on the placeholders once, so nothing inside a part is ever treated as a placeholder.

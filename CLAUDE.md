@@ -112,21 +112,28 @@ Gotchas:
 
 ## Planner (`web/`)
 
+The planner is the phone app in a browser: same layout, modes, menus, panels, dialogs and wording. When the app's
+interface changes, change the planner to match (and the other way round), unless it's something a browser can't do.
+
 `python3 web/build.py` -> `web/dist/chompchamp-planner.html`, one offline file opened from disk (`file://`), so no
 modules, no fetch of local files and no CDN. It also writes `web/dist/site/` (the same page as `index.html`, `sw.js`,
 manifest, icons from `web/icons/`) for GitHub Pages, where iPhones use it as an installed web app with GPS.
 Vendored libraries are in `web/vendor`. It reuses the Android app's `chart-style.json`, `hazards.geojson`, `places.geojson`,
-`tides.json`, `bag_limits.json`, `limit_areas.json` and logo. `src/core.js` is pure logic (mirrors `Geo.kt`, `Storage.kt`,
-`UserData.kt`, `Tides.kt`, `BagLimits.kt`, `CatchLimits.kt`; keep them in step) and `src/app.js` is the interface;
-`gps.js`, `weather.js` and `catches.js` are pasted into `app.js` at `// %%MODULES%%` and share its scope. Depth, zones
-and the route check read the chart file through `ChartReader`, not rendered features. Keep the filename unversioned:
-some browsers tie saved data to it. Put text on the page with `textContent` / `el()`, never HTML. Test with
+`tides.json`, `bag_limits.json`, `limit_areas.json`, species pictures, `res/drawable` icons and logo. `src/core.js` is pure
+logic (mirrors `Geo.kt`, `Navigator.kt`, `Trips.kt`, `Wind.kt`, `Storage.kt`, `UserData.kt`, `Tides.kt`, `BagLimits.kt`,
+`CatchLimits.kt`; keep them in step) and `src/app.js` is the map and start-up. The modules `ui.js` (dialogs, popup menu,
+docked panel), `fields.js`, `gps.js` (modes, navigation, trips), `weather.js`, `catches.js`, `marks.js` and `display.js`
+are pasted into `app.js` at `// %%MODULES%%` and share its scope: anything used while the map is being made (like
+`look()`) must be defined above it in `app.js`. Depth, zones and the route check read the chart file through
+`ChartReader`, not rendered features. Saved data is in localStorage (`chompchamp.planner.v1`, trip points under
+`chompchamp.planner.trip.<id>`) and IndexedDB (charts, wind): keep reading what older versions saved. Keep the filename
+unversioned: some browsers tie saved data to it. Put text on the page with `textContent` / `el()`, never HTML. Test with
 `node web/test.mjs`, and in headless Chromium (available locally; emulate a phone with touch for the iPhone layout)
 before calling it done. Bump `web/VERSION` for each release.
 
 The website is only published when the owner asks, like a release: `gh workflow run planner.yml -f deploy=true`.
-GPS only works there (https), not from a file. Touch has no right-click or hover: hold the map for the menu, and the
-readout follows the cross in the middle.
+GPS only works there (https), not from a file. Touch has no right-click or hover: hold the map where a computer
+right-clicks.
 
 ## Pipeline (`pipeline/build.sh`)
 

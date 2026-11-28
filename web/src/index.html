@@ -24,61 +24,38 @@ Bundled libraries (map data has its own licences, see the README):
 </head>
 <body>
 <div id="map" aria-label="Chart"></div>
+<canvas id="waves" aria-hidden="true"></canvas>
+<canvas id="wind" aria-hidden="true"></canvas>
 
-<aside id="panel" aria-label="Planner">
-  <header>
-    <img src="data:image/svg+xml;base64,%%LOGO_B64%%" alt="" width="36" height="36">
-    <div><h1>ChompChamp</h1><span class="muted">Planner %%VERSION%%</span></div>
-    <button id="grow" class="icon" aria-label="Taller or shorter" title="Taller or shorter">⇕</button>
-    <button id="collapse" class="icon" aria-label="Hide panel" title="Hide panel">‹</button>
-  </header>
-  <div id="search" role="search">
-    <input type="search" id="search-input" placeholder="Search places: town, harbour, boat ramp, island…" aria-label="Search places" autocomplete="off">
-    <ul id="search-results" hidden></ul>
-  </div>
-  <nav role="tablist" aria-label="Sections">
-    <button role="tab" data-tab="routes" id="tab-routes" aria-controls="pane-routes">Route</button>
-    <button role="tab" data-tab="marks" id="tab-marks" aria-controls="pane-marks">Marks</button>
-    <button role="tab" data-tab="catches" id="tab-catches" aria-controls="pane-catches">Catches</button>
-    <button role="tab" data-tab="weather" id="tab-weather" aria-controls="pane-weather">Weather</button>
-    <button role="tab" data-tab="limits" id="tab-limits" aria-controls="pane-limits">Limits</button>
-    <button role="tab" data-tab="layers" id="tab-layers" aria-controls="pane-layers">Layers</button>
-    <button role="tab" data-tab="data" id="tab-data" aria-controls="pane-data">Data</button>
-  </nav>
-  <section role="tabpanel" id="pane-routes" aria-labelledby="tab-routes"></section>
-  <section role="tabpanel" id="pane-marks" aria-labelledby="tab-marks" hidden></section>
-  <section role="tabpanel" id="pane-catches" aria-labelledby="tab-catches" hidden></section>
-  <section role="tabpanel" id="pane-weather" aria-labelledby="tab-weather" hidden></section>
-  <section role="tabpanel" id="pane-limits" aria-labelledby="tab-limits" hidden></section>
-  <section role="tabpanel" id="pane-layers" aria-labelledby="tab-layers" hidden></section>
-  <section role="tabpanel" id="pane-data" aria-labelledby="tab-data" hidden></section>
-</aside>
-<button id="expand" class="icon" aria-label="Show panel" title="Show panel" hidden>›</button>
-<div id="bar" aria-live="off" hidden></div>
-<div id="alarm" role="alert" hidden></div>
-<div id="cross" aria-hidden="true"></div>
-<div id="mapbtns" aria-label="Map buttons">
-  <button id="b-gps" class="mb" aria-label="My position">◎</button>
-  <button id="b-mark" class="mb" aria-label="Mark here" title="Mark at the boat (or the middle of the map)">📍</button>
-  <button id="b-catch" class="mb" aria-label="Log a catch" title="Log a catch at the boat (or the middle of the map)">🐟</button>
-  <button id="b-rec" class="mb" aria-label="Record track">⏺</button>
-  <button id="b-anchor" class="mb" aria-label="Anchor alarm" title="Anchor alarm">⚓</button>
+<!-- Over the map, like the app's overlay: kept clear of the notch and home bar. -->
+<div id="overlay">
+  <div id="fields" aria-label="Data fields"></div>
+  <button id="btn-mode" class="pill-btn" type="button" aria-haspopup="menu">CHART ▾</button>
+  <div id="editbar" hidden><span>Drag to move · tap to resize</span><button id="done-editing" class="tb" type="button">Done</button></div>
+  <button id="btn-menu" class="circle" type="button" aria-label="Menu" aria-haspopup="menu" title="Menu"></button>
+  <button id="btn-bag" class="circle" type="button" aria-label="Bag &amp; size limits" title="Bag &amp; size limits" hidden></button>
+  <button id="rec" type="button" aria-label="Record a trip"><span class="dot"></span><span id="rec-text">Record</span></button>
+  <div id="banner" role="alert" hidden></div>
+  <div id="modepanel" hidden><div id="mode-summary"></div><div id="mode-buttons"></div></div>
+  <div class="corner left"><button id="btn-layers" class="circle" type="button" aria-label="Map layers" title="Map layers"></button><span class="blabel" aria-hidden="true">Layers</span></div>
+  <div class="corner right"><button id="btn-locate" class="circle" type="button" aria-label="Follow boat" title="Follow boat"></button><span class="blabel" aria-hidden="true">Follow</span></div>
+  <div id="scalebar" aria-hidden="true"><span></span><i></i></div>
+  <button id="credit" type="button" hidden></button>
+  <div id="cursor" hidden><span></span><span></span><span></span></div>
+  <div id="panel" hidden></div>
 </div>
 
 <div id="welcome" hidden>
-  <img src="data:image/svg+xml;base64,%%LOGO_B64%%" alt="" width="96" height="96">
+  <img src="data:image/svg+xml;base64,%%LOGO_B64%%" alt="" width="96" height="96" id="logo">
   <h2>Open your chart</h2>
   <p>Choose the <code>wa.pmtiles</code> file from the ChompChamp release. It's kept in this browser, so you only do this once.</p>
-  <button class="primary" id="welcome-open">Choose wa.pmtiles…</button>
-  <p class="muted" id="welcome-desk">You can also drop the file anywhere on this page.</p>
-  <p class="muted" id="welcome-phone">On a phone: download <code>wa.pmtiles</code> from the <a href="https://github.com/wufle/chompchamp/releases/latest" target="_blank" rel="noopener noreferrer">latest release</a> in Safari first (it goes to Files → Downloads), then choose it here.</p>
+  <button class="tb primary filled" id="welcome-open" type="button">Choose wa.pmtiles…</button>
+  <p class="small" id="welcome-desk">You can also drop the file anywhere on this page.</p>
+  <p class="small" id="welcome-phone">On a phone: download <code>wa.pmtiles</code> from the <a href="https://github.com/wufle/chompchamp/releases/latest" target="_blank" rel="noopener noreferrer">latest release</a> in Safari first (it goes to Files → Downloads), then choose it here.</p>
 </div>
 
-<div id="hint" role="status" hidden></div>
-<div id="status" aria-live="off"><span id="s-pos">–</span><span id="s-depth">–</span><span id="s-zone"></span></div>
 <div id="menu" role="menu" hidden></div>
-<div id="toast" role="status" hidden></div>
-<dialog id="dialog"><form method="dialog"></form></dialog>
+<div id="snack" role="status" hidden></div>
 <input type="file" id="file" hidden>
 
 <script>%%VENDOR_MAPLIBRE%%</script>

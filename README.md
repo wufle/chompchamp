@@ -128,31 +128,36 @@ Everything is customisable:
 
 ## Planner (PC and iPhone)
 
-The planner runs in a browser and reads the same `wa.pmtiles` chart, offline once opened. Use it on a PC to plan, or
-on an iPhone as a simpler chartplotter:
+The planner is the phone app in a browser: the same screen, buttons, menus and panels, reading the same `wa.pmtiles`
+chart, offline once opened. Use it on a PC to plan, or on an iPhone as a chartplotter:
 
-- Chart, depths, zones and hazards; search places by name; draw and check routes; marks in groups.
-- With GPS (website only): your boat, a data bar (speed, course, depth, depth now, tide, wind, sea and swell), go to a
-  mark or point, follow a route with distance, bearing, ETA and cross-track error, record a track, a no-fishing zone
-  alarm and an anchor alarm.
-- **Weather** tab: the tide now, a two-day curve and highs and lows (worked out offline), and week charts of wind
-  (with gusts) and sea and swell, downloaded from Open-Meteo for the boat or map centre and kept for offline use.
-- **Catches** tab: log catches with species, size, weight and bait; the bag and size limits for where you are, with a
-  warning before you keep a fish that's protected, closed, undersize or over the bag. **Limits** tab: the whole guide.
-- Swap routes, marks, catches and the track with the phone app using backup or GPX files.
+- The app's four modes from the button at the top: **Chart**, **Route** (tap to add waypoints, tap one to move,
+  rename or delete it; undo, saved routes, route check, Go), **Navigate** (back, stop, next) and **Fish** (mark a
+  catch, anchor alarm, drift, marks list, bag limits button).
+- Data fields over the map for each mode (speed, course, depth, depth now, tide, wind, sea and swell, waypoint,
+  bearing, distance, cross-track, ETA, drift, nearest mark, trip and more), arranged and sized in **Display**.
+- ☰ menu: Search places, Wind, waves & tide, Marks, Trips & catches, Bag & size limits, Display, Settings,
+  Charts & updates, Data, About. Layers and Follow at the bottom corners, as on the phone.
+- Wind streaks and sea and swell shading on the map, with week charts and the tide (worked out offline), from
+  Open-Meteo for the area on screen and kept for offline use.
+- Trips with a speed log, a catch log with bag and size limit warnings, mark groups, your choice of boat.
+- Swap routes, marks, trips, catches and the track with the phone app using backup or GPX files.
+
+Not in the planner: AIS vessels, saving satellite imagery for offline use, and photos (those stay on the phone).
 
 **On a PC:** download `chompchamp-planner.html` and `wa.pmtiles` from the
 [latest release](https://github.com/wufle/chompchamp/releases/latest), open the HTML file in a browser and choose
-`wa.pmtiles`. The browser keeps the chart, so you only do this once. Right-click the map for more. Keep the file's name
-and location when you update it, because some browsers tie your saved data to them. Tested in Chromium and Firefox on Linux.
+`wa.pmtiles`. The browser keeps the chart, so you only do this once. Right-click the map where the phone has a long
+press; in Route mode you can also drag waypoints. Keep the file's name and location when you update it, because some
+browsers tie your saved data to them. Tested in Chromium on Linux.
 
 **On an iPhone:** in Safari, download `wa.pmtiles` from the latest release (it goes to Files → Downloads), then open
 [wufle.github.io/chompchamp](https://wufle.github.io/chompchamp/), tap Share → **Add to Home Screen**, open it from
-there and choose the chart. It then works offline. Hold the map for the menu. Browsers only give a page your position
-while it's open with the screen on, so the GPS, track and alarms stop when the phone locks. Opened from the Files app
-instead, the planner can't use GPS or keep your data. Tested in Chromium with a phone-sized screen; not yet on a real iPhone.
+there and choose the chart. It then works offline. Browsers only give a page your position while it's open with the
+screen on, so the GPS, trip recording and alarms stop when the phone locks. Opened from the Files app instead, the
+planner can't use GPS or keep your data. Tested in Chromium with a phone-sized screen; not yet on a real iPhone.
 
-Your routes, marks and catches are saved in that browser only, so export a backup now and then (Data tab).
+Your routes, marks, trips and catches are saved in that browser only, so export a backup now and then (☰ → Data).
 
 ## Privacy
 
@@ -165,7 +170,7 @@ Checking for updates asks GitHub for the latest release; it only happens when yo
 automatic checks. With the AIS layer on, Open Waters also sees your IP address and the area on screen
 about once a minute; it keeps request logs for 90 days. With the wind layer on, Open-Meteo sees your IP address and
 the area on screen when a forecast downloads (at most every few hours, or when you move to a new area). Your own position is never sent.
-The planner's Weather tab sends the boat or map centre rounded to about 1 km, only while you have that tab open.
+The planner does the same for wind and waves: it sends the points of a grid over the map, never your position.
 
 ## Data sources and licences
 

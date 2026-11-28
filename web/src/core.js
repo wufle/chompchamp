@@ -113,8 +113,14 @@ const Core = (() => {
     const track = [];
     const a = Array.isArray(o.track3) ? o.track3 : Array.isArray(o.track) ? o.track : [];
     const step = Array.isArray(o.track3) ? 3 : 2;
+    const sog = Array.isArray(o.trackSog) && step === 3 ? o.trackSog : null;
     for (let i = 0; i + step <= a.length; i += step) {
-      track.push({ ...pos({ lat: a[i], lon: a[i + 1] }), t: step === 3 ? Number(a[i + 2]) || 0 : 0 });
+      const k = Number(sog && sog[i / step]);
+      track.push({ ...pos({ lat: a[i], lon: a[i + 1] }), t: step === 3 ? Number(a[i + 2]) || 0 : 0, sog: sog && isFinite(k) && k >= 0 ? k : -1 });
+    }
+    const trips = [];
+    for (const t of Array.isArray(o.trips) ? o.trips : []) {
+      try { const points = decodeTrip(t.pts); if (points.length) trips.push({ trip: cleanTrip(t), points }); } catch (e) { /* skip a bad one */ }
     }
     return {
       routes: (o.routes || []).map(cleanRoute),
@@ -122,19 +128,30 @@ const Core = (() => {
       marks: (o.marks || []).map(cleanMark),
       groups: (o.markGroups || []).map(cleanGroup),
       catches: (o.catches || []).map(cleanCatch),
-      track,
+      track, trips,
+      hasRoutes: Array.isArray(o.routes) || !!o.plan, hasMarks: Array.isArray(o.marks), hasTrips: Array.isArray(o.trips) || Array.isArray(o.catches),
     };
   }
 
-  /** For the phone: routes, plan and marks. Never the track (the phone appends it) or settings. */
-  function exportBackup(s) {
-    return JSON.stringify({
-      app: 'ChompChamp', format: 1, exported: new Date().toISOString().slice(0, 19) + 'Z',
-      routes: s.routes.map(cleanRoute), plan: cleanRoute(s.plan), marks: s.marks.map(cleanMark),
-      markGroups: (s.groups || []).map(cleanGroup),
-      // Catches only if there are any: the phone merges them into its catch log by id.
-      ...(s.catches && s.catches.length ? { catches: s.catches.map(cleanCatch) } : {}),
-    }, null, 1);
+  /**
+   * In the phone's format (UserData.export). [parts]: routes, marks, track, trips (saved trips and the catch log).
+   * [s.trips] = [{ trip, pts }] with the points already encoded. Never settings: the phone's are its own.
+   */
+  function exportBackup(s, parts = ['routes', 'marks', 'trips']) {
+    const has = (k) => parts.includes(k);
+    const o = { app: 'ChompChamp', format: 1, exported: new Date().toISOString().slice(0, 19) + 'Z' };
+    if (has('routes')) { o.routes = s.routes.map(cleanRoute); o.plan = cleanRoute(s.plan); }
+    if (has('marks')) { o.marks = s.marks.map(cleanMark); o.markGroups = (s.groups || []).map(cleanGroup); }
+    if (has('track') && s.track && s.track.length) {
+      o.track3 = s.track.flatMap((p) => [p.lat, p.lon, p.t || 0]);
+      o.trackSog = s.track.map((p) => (p.sog >= 0 ? Math.round(p.sog * 10) / 10 : -1));
+    }
+    // Only when there are some: the phone only offers to import what's in the file.
+    if (has('trips') && ((s.trips && s.trips.length) || (s.catches && s.catches.length))) {
+      o.trips = (s.trips || []).map(({ trip, pts }) => ({ ...cleanTrip(trip), pts }));
+      o.catches = (s.catches || []).map(cleanCatch);
+    }
+    return JSON.stringify(o, null, 1);
   }
 
   const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -732,11 +749,369 @@ const Core = (() => {
     return [part(h.swell, h.swellS, h.swellFrom) && `Swell ${part(h.swell, h.swellS, h.swellFrom)}`, part(h.sea, h.seaS, h.seaFrom) && `Sea ${part(h.sea, h.seaS, h.seaFrom)}`, `Combined ${h.wave.toFixed(1)} m`].filter(Boolean).join(' · ');
   }
 
+  // ---- More of Geo.kt ------------------------------------------------------------------------------------
+  /** Distance along the track a -> b to the point abeam p (nm). Negative if behind a. */
+  function alongTrackNm(a, b, p) {
+    const d13 = distanceNm(a, p) / R_NM, dxt = xteNm(p, a, b) / R_NM;
+    const at = Math.acos(Math.max(-1, Math.min(1, Math.cos(d13) / Math.cos(dxt)))) * R_NM;
+    return Math.cos(rad(bearing(a, p)) - rad(bearing(a, b))) >= 0 ? at : -at;
+  }
+  function destination(from, brg, nm) {
+    const d = nm / R_NM, t = rad(brg), lat1 = rad(from.lat), lon1 = rad(from.lon);
+    const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(t));
+    const lon2 = lon1 + Math.atan2(Math.sin(t) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2));
+    return { lat: deg(lat2), lon: ((deg(lon2) + 540) % 360) - 180 };
+  }
+  /** For data fields labelled "nm": no unit unless it's metres (Geo.fmtNm). fmtNm above is Geo.fmtDist. */
+  const fieldNm = (nm) => (nm < 0.1 ? `${Math.round(nm * M_PER_NM)} m` : nm.toFixed(nm < 10 ? 2 : 1));
+  const fmtXte = (nm) => `${fieldNm(Math.abs(nm))} ${nm >= 0 ? 'R' : 'L'}`;
+  const p2 = (n) => String(n).padStart(2, '0');
+  const fmtClock = (t) => { const d = new Date(t); return `${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+  /** "350 m @ 045° from boat", or "At the boat" within GPS wobble. */
+  function fromBoat(boat, p) {
+    const nm = distanceNm(boat, p);
+    return nm * M_PER_NM < 10 ? 'At the boat' : `${fmtNm(nm)} @ ${fmtBearing(bearing(boat, p))} from boat`;
+  }
+
+  // ---- Navigator.kt: follow a route waypoint by waypoint ----------------------------------------------------
+  /**
+   * A waypoint counts as reached inside the arrival circle, or when passed abeam while reasonably close.
+   * State is plain data ({ route, index, legStart }) so it can be saved and picked up after a reload.
+   */
+  class Navigator {
+    constructor(saved = null) { this.route = null; this.index = 0; this.legStart = null; if (saved && saved.route) Object.assign(this, saved); }
+    get active() { return !!this.route; }
+    get target() { return this.route ? this.route.waypoints[this.index] || null : null; }
+    toJSON() { return this.route ? { route: this.route, index: this.index, legStart: this.legStart } : null; }
+    start(route, from) {
+      if (!route.waypoints.length) throw new Error('no waypoints');
+      this.route = JSON.parse(JSON.stringify(route)); this.index = 0; this.legStart = from ? { lat: from.lat, lon: from.lon } : null;
+    }
+    stop() { this.route = null; }
+    skip() {
+      if (!this.route || this.index >= this.route.waypoints.length - 1) return false;
+      const w = this.route.waypoints[this.index]; this.legStart = { lat: w.lat, lon: w.lon }; this.index++;
+      return true;
+    }
+    previous(from) {
+      if (!this.route || this.index === 0) return false;
+      this.index--;
+      const w = this.route.waypoints[this.index - 1];
+      this.legStart = this.index > 0 ? { lat: w.lat, lon: w.lon } : (from ? { lat: from.lat, lon: from.lon } : null);
+      return true;
+    }
+    /** -> NavData, or null when not navigating. [arrivalNm] from the settings. */
+    update(pos, sog, cog, arrivalNm, now = Date.now()) {
+      const r = this.route;
+      if (!r) return null;
+      if (!this.legStart) this.legStart = { lat: pos.lat, lon: pos.lon };
+      const wps = r.waypoints, n = wps.length;
+      let arrived = null, tgt = wps[this.index], dtw = distanceNm(pos, tgt);
+      const legLen = distanceNm(this.legStart, tgt);
+      const passedAbeam = legLen > 0.01 && alongTrackNm(this.legStart, tgt, pos) >= legLen;
+      if (dtw <= arrivalNm || (passedAbeam && dtw <= arrivalNm * 4)) {
+        arrived = tgt.name;
+        if (this.index === n - 1) {
+          return { target: tgt, index: this.index, count: n, bearing: bearing(pos, tgt), dtw, xte: 0, vmg: null, ttg: null, etaWpt: null, remain: dtw, etaDest: null, arrived, finished: true };
+        }
+        this.legStart = { lat: tgt.lat, lon: tgt.lon }; this.index++;
+        tgt = wps[this.index]; dtw = distanceNm(pos, tgt);
+      }
+      const brg = bearing(pos, tgt);
+      const xte = xteNm(pos, this.legStart, tgt);
+      const vmg = sog !== null && cog !== null ? sog * Math.cos(rad(cog - brg)) : null;
+      const ttg = vmg !== null && vmg > 0.3 ? dtw / vmg : null;
+      const remain = dtw + routeLengthNm(wps.slice(this.index));
+      return { target: tgt, index: this.index, count: n, bearing: brg, dtw, xte, vmg, ttg, etaWpt: ttg !== null ? now + ttg * 3600000 : null,
+        remain, etaDest: sog !== null && sog > 0.5 ? now + (remain / sog) * 3600000 : null, arrived, finished: false };
+    }
+  }
+
+  /** Drift = net movement over a rolling time window (smoother than SOG/COG). */
+  class DriftTracker {
+    constructor() { this.fixes = []; }
+    add(t, p, windowSec) { this.fixes.push({ t, lat: p.lat, lon: p.lon }); while (this.fixes.length > 2 && t - this.fixes[0].t > windowSec * 1000) this.fixes.shift(); }
+    reset() { this.fixes = []; }
+    /** { kn, dir } or null until there's about 10 s of data. */
+    drift() {
+      if (this.fixes.length < 2) return null;
+      const a = this.fixes[0], b = this.fixes[this.fixes.length - 1], h = (b.t - a.t) / 3600000;
+      if (h < 10 / 3600) return null;
+      return { kn: distanceNm(a, b) / h, dir: bearing(a, b) };
+    }
+  }
+
+  // ---- Trips.kt: track points { lat, lon, t, sog } (sog kn, -1 unknown), stats, trips --------------------------
+  const MOVING_KN = 0.7, MAX_KN = 80, JUMP_NM = 5, GAP_MS = 10 * 60000, HOLD_MS = 120000, TRACK_MAX = 50000, SLACK_MS = 3600000, MIN_EXTENT_M = 200;
+  class TripStats {
+    constructor() { this.distanceNm = 0; this.movingMs = 0; this.movingNm = 0; this.maxKn = 0; this.start = 0; this.end = 0; this.last = null; }
+    get durationMs() { return this.start > 0 && this.end > this.start ? this.end - this.start : 0; }
+    get avgMovingKn() { return this.movingMs > 0 ? this.movingNm / (this.movingMs / 3600000) : null; }
+    add(p) {
+      const prev = this.last; this.last = p;
+      const sog = p.sog === undefined ? -1 : p.sog;
+      if (p.t > 0) { if (!this.start) this.start = p.t; if (p.t > this.end) this.end = p.t; }
+      if (sog >= 0 && sog <= MAX_KN && sog > this.maxKn) this.maxKn = sog;
+      if (!prev) return;
+      const d = distanceNm(prev, p);
+      if (d >= JUMP_NM) return;
+      this.distanceNm += d;
+      if (!(prev.t > 0 && p.t > prev.t)) return;
+      const dt = p.t - prev.t;
+      if (dt > GAP_MS) return;
+      const kn = d / (dt / 3600000);
+      if (kn >= MOVING_KN && kn <= MAX_KN) { this.movingMs += dt; this.movingNm += d; }
+      if (sog < 0 && dt >= 5000 && kn <= MAX_KN && kn > this.maxKn) this.maxKn = kn;
+    }
+    static of(points) { const s = new TripStats(); points.forEach((p) => s.add(p)); return s; }
+  }
+  /** Cut a track wherever nothing was recorded for [gapMs] (null = never). */
+  function splitTrack(points, gapMs) {
+    if (gapMs === null) return points.length ? [points] : [];
+    const out = [];
+    for (const p of points) {
+      const part = out[out.length - 1], prev = part && part[part.length - 1];
+      if (!prev || (prev.t > 0 && p.t > 0 && Math.abs(p.t - prev.t) > gapMs)) out.push([p]); else part.push(p);
+    }
+    return out;
+  }
+  /** Speed at each point in knots, or null: recorded, else from the point before. */
+  const trackSpeeds = (points) => points.map((p, i) => {
+    if (p.sog >= 0) return p.sog <= MAX_KN ? p.sog : null;
+    const prev = points[i - 1];
+    if (!prev) return null;
+    const dt = p.t - prev.t;
+    if (prev.t <= 0 || dt <= 0 || dt > GAP_MS) return null;
+    const kn = distanceNm(prev, p) / (dt / 3600000);
+    return kn <= MAX_KN ? kn : null;
+  });
+  /** Add a fix to the track being recorded (Track.add): false if it was too close to the last point. */
+  function addTrackPoint(points, p, t, sog, spacingM) {
+    const last = points[points.length - 1];
+    const kn = sog === null || sog === undefined ? -1 : sog;
+    let pt;
+    if (!last || distanceNm(last, p) * M_PER_NM >= spacingM) pt = { lat: p.lat, lon: p.lon, t, sog: kn };
+    else if (t - last.t >= HOLD_MS) pt = { lat: last.lat, lon: last.lon, t, sog: kn };
+    else return false;
+    points.push(pt);
+    return true;
+  }
+  const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dayLabel = (t) => { const d = new Date(t); return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`; };
+  const cleanTripId = (s) => (/^[A-Za-z0-9_-]{1,64}$/.test(s || '') ? s : uuid());
+  /** A finished trip's summary (Trip.of): named after its day, with an id from its start so saving it twice is harmless. */
+  function tripOf(points) {
+    const s = TripStats.of(points);
+    return { id: s.start > 0 ? `trip-${s.start}` : uuid(), name: s.start > 0 ? dayLabel(s.start) : 'Old track', start: s.start, end: s.end,
+      nm: s.distanceNm, movingMs: s.movingMs, movingNm: s.movingNm, maxKn: s.maxKn, n: points.length };
+  }
+  const fnum = (v) => { const n = Number(v); return isFinite(n) ? n : 0; };
+  const cleanTrip = (o) => ({ id: cleanTripId(o.id), name: str(o.name, 100), start: Math.round(fnum(o.start)), end: Math.round(fnum(o.end)),
+    nm: fnum(o.nm), movingMs: Math.round(fnum(o.movingMs)), movingNm: fnum(o.movingNm), maxKn: fnum(o.maxKn), n: Math.round(fnum(o.n)) });
+  const tripAvg = (t) => (t.movingMs > 0 ? t.movingNm / (t.movingMs / 3600000) : null);
+  const tripDuration = (t) => (t.start > 0 && t.end > t.start ? t.end - t.start : 0);
+  /** "lat,lon,time,speed;…": the first time in ms, then ms since the one before; speed in 0.1 kn, blank if unknown. */
+  function encodeTrip(points) {
+    let prev = 0;
+    return points.map((p) => {
+      const s = `${Math.round(p.lat * 1e6) / 1e6},${Math.round(p.lon * 1e6) / 1e6},${p.t - prev},${p.sog >= 0 ? Math.round(p.sog * 10) : ''}`;
+      prev = p.t;
+      return s;
+    }).join(';');
+  }
+  function decodeTrip(s) {
+    let prev = 0;
+    const out = [];
+    for (const item of String(s || '').split(';')) {
+      const f = item.split(','), lat = Number(f[0]), lon = Number(f[1]), dt = Number(f[2]);
+      if (f.length < 3 || f[0] === '' || f[1] === '' || f[2] === '' || !isFinite(lat) || !isFinite(lon) || !isFinite(dt) || Math.abs(lat) > 90 || Math.abs(lon) > 180) continue;
+      prev += Math.round(dt);
+      const sp = f[3] !== undefined && f[3] !== '' && isFinite(Number(f[3])) ? Number(f[3]) / 10 : -1;
+      out.push({ lat, lon, t: prev, sog: sp });
+    }
+    return out;
+  }
+  /** Catches logged during a trip, or within an hour of it when no other trip is closer (TripLog.catchesIn). */
+  function catchesIn(catches, start, end, others) {
+    if (start <= 0) return [];
+    const away = (t, a, b) => (t < a ? a - t : t > b ? t - b : 0);
+    return catches.filter((c) => {
+      const d = away(c.time, start, end);
+      return d <= SLACK_MS && !others.some(([a, b]) => a > 0 && away(c.time, a, b) < d);
+    }).sort((a, b) => a.time - b.time);
+  }
+  /** Split a finished track into trips (TripLog.archive). [worth](trip) keeps one that never went anywhere. */
+  function archiveTrack(points, gapMs, keepAll, worth) {
+    const out = [];
+    for (const part of splitTrack(points, gapMs)) {
+      if (part.length < 2) continue;
+      const t = tripOf(part);
+      const went = part.some((p) => distanceNm(part[0], p) * M_PER_NM > MIN_EXTENT_M);
+      if (!keepAll && !went && !worth(t)) continue;
+      out.push({ trip: t, points: part });
+    }
+    return out;
+  }
+  function tripGpx(t, points, catches) {
+    const out = ['<?xml version="1.0" encoding="UTF-8"?>', '<gpx version="1.1" creator="ChompChamp" xmlns="http://www.topografix.com/GPX/1/1">'];
+    for (const c of catches) if (c.lat !== undefined) {
+      const desc = [catchDetails(c), c.bait, c.notes].filter(Boolean).join('; ');
+      out.push(`  <wpt lat="${c.lat}" lon="${c.lon}"><time>${iso(c.time)}</time><name>${esc(catchTitle(c))}</name><desc>${esc(desc)}</desc><sym>Fishing Area</sym><type>Catches</type></wpt>`);
+    }
+    out.push(`  <trk><name>${esc(t.name)}</name>`);
+    for (const seg of splitTrack(points, GAP_MS)) {
+      out.push('    <trkseg>');
+      for (const p of seg) out.push(`      <trkpt lat="${p.lat}" lon="${p.lon}">${p.t > 0 ? `<time>${iso(p.t)}</time>` : ''}</trkpt>`);
+      out.push('    </trkseg>');
+    }
+    out.push('  </trk>', '</gpx>', '');
+    return out.join('\n');
+  }
+  /** Speed log: one line per recorded point, local time. */
+  function speedCsv(points) {
+    const sp = trackSpeeds(points);
+    const t = (ms) => { const d = new Date(ms); return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`; };
+    let nm = 0;
+    return 'time,latitude,longitude,speed_kn,course_deg,distance_nm\n' + points.map((p, i) => {
+      const prev = points[i - 1], d = prev ? distanceNm(prev, p) : 0;
+      if (d < JUMP_NM) nm += d;
+      return [p.t > 0 ? t(p.t) : '', p.lat.toFixed(6), p.lon.toFixed(6), sp[i] !== null ? sp[i].toFixed(1) : '',
+        prev && d > 0 ? Math.round(bearing(prev, p)) : '', nm.toFixed(2)].join(',') + '\n';
+    }).join('');
+  }
+
+  // ---- Wind.kt: a forecast on a grid over the area on screen ------------------------------------------------
+  /** The grid to fetch for a view (Wind.ensure): a box a bit bigger than the view, at most 4° a side, at most 17 x 17 points. */
+  function windGrid(w, s, e, n) {
+    const cLat = (s + n) / 2, cLon = (w + e) / 2;
+    const halfW = Math.min(2, Math.max(0.3, (e - w) * 0.65)), halfH = Math.min(2, Math.max(0.3, (n - s) * 0.65));
+    const step = Math.max(0.1, (Math.max(halfW, halfH) * 2) / 16);
+    const bw = Math.floor((cLon - halfW) / step) * step, bs = Math.floor((cLat - halfH) / step) * step;
+    const nx = Math.ceil((halfW * 2) / step) + 1, ny = Math.ceil((halfH * 2) / step) + 1;
+    const pts = [];
+    for (let r = 0; r < ny; r++) for (let c = 0; c < nx; c++) pts.push({ lat: bs + r * step, lon: bw + c * step });
+    return { w: bw, s: bs, e: bw + (nx - 1) * step, n: bs + (ny - 1) * step, nx, ny, step, pts };
+  }
+  /** Does the kept forecast still do for this view? (fresh, and mostly covering it) */
+  function windFits(f, w, s, e, n, wantWaves, now = Date.now()) {
+    if (!f) return false;
+    const fresh = now - f.fetched < 3 * 3600000 && windEnd(f) - now > 24 * 3600000 && !(wantWaves && !f.waves);
+    const vw = e - w, vh = n - s, cLat = (s + n) / 2, cLon = (w + e) / 2;
+    const fits = windCovers(f, cLat, cLon) && ((vw > 3.5 || vh > 3.5) ||
+      (w >= f.w - vw * 0.2 && e <= f.e + vw * 0.2 && s >= f.s - vh * 0.2 && n <= f.n + vh * 0.2));
+    return fresh && fits;
+  }
+  /** Open-Meteo answers one place as an object and several as an array. */
+  const asList = (j) => (Array.isArray(j) ? j : [j]);
+  /** Build the forecast from the wind answers (one per chunk of up to 100 points) and, if any, the marine ones. */
+  function parseWindGrid(g, windParts, marineParts, fetched) {
+    const m = g.nx * g.ny;
+    let hours = -1, t0 = 0, u, v, gust;
+    let idx = 0;
+    for (const part of windParts) for (const o of asList(part)) {
+      const h = o.hourly;
+      if (hours < 0) { hours = h.time.length; t0 = h.time[0] * 1000; u = new Float32Array(m * hours).fill(NaN); v = new Float32Array(m * hours).fill(NaN); gust = new Float32Array(m * hours).fill(NaN); }
+      for (let t = 0; t < Math.min(hours, h.wind_speed_10m.length); t++) {
+        const kn = h.wind_speed_10m[t], dir = h.wind_direction_10m[t];
+        if (kn === null || dir === null) continue;
+        const k = t * m + idx, r = rad(dir);
+        u[k] = -kn * Math.sin(r); v[k] = -kn * Math.cos(r);
+        const gu = h.wind_gusts_10m[t];
+        if (gu !== null && gu !== undefined) gust[k] = gu;
+      }
+      idx++;
+    }
+    if (hours < 0 || idx !== m) throw new Error('the forecast came back incomplete');
+    let waves = null;
+    if (marineParts) {
+      waves = {};
+      for (const k of WAVE_KEYS) waves[k] = new Float32Array(m * hours).fill(NaN);
+      let j = 0;
+      for (const part of marineParts) for (const o of asList(part)) {
+        const h = o.hourly;
+        h.time.forEach((tt, ti) => {
+          const hr = Math.round((tt * 1000 - t0) / 3600000);
+          if (hr < 0 || hr >= hours) return;
+          for (const k of WAVE_KEYS) { const a = h[k]; if (a && a[ti] !== null && a[ti] !== undefined) waves[k][hr * m + j] = a[ti]; }
+        });
+        j++;
+      }
+      if (j !== m) waves = null;
+    }
+    return { w: g.w, s: g.s, e: g.e, n: g.n, nx: g.nx, ny: g.ny, t0, hours, fetched, u, v, gust, waves };
+  }
+  const WAVE_KEYS = ['wave_height', 'wind_wave_height', 'wind_wave_direction', 'wind_wave_period', 'swell_wave_height', 'swell_wave_direction', 'swell_wave_period'];
+  const windEnd = (f) => f.t0 + (f.hours - 1) * 3600000;
+  const windCovers = (f, lat, lon) => lat >= f.s && lat <= f.n && lon >= f.w && lon <= f.e;
+  function cell(f, lat, lon) {
+    const fx = ((lon - f.w) / (f.e - f.w)) * (f.nx - 1), fy = ((lat - f.s) / (f.n - f.s)) * (f.ny - 1);
+    const x0 = Math.max(0, Math.min(Math.floor(fx), f.nx - 2)), y0 = Math.max(0, Math.min(Math.floor(fy), f.ny - 2));
+    return { x0, y0, dx: fx - x0, dy: fy - y0 };
+  }
+  /** Wind at a place and time: bilinear in space, linear in time. -> { kn, gust, from, u, v } or null. */
+  function windAt(f, lat, lon, t) {
+    if (!f || !windCovers(f, lat, lon) || t < f.t0 || t > windEnd(f)) return null;
+    const fh = (t - f.t0) / 3600000, h0 = Math.min(Math.floor(fh), f.hours - 1), h1 = Math.min(h0 + 1, f.hours - 1), k = fh - h0;
+    const { x0, y0, dx, dy } = cell(f, lat, lon), m = f.nx * f.ny;
+    const bil = (arr, h) => {
+      const b = h * m + y0 * f.nx + x0;
+      return (arr[b] * (1 - dx) + arr[b + 1] * dx) * (1 - dy) + (arr[b + f.nx] * (1 - dx) + arr[b + f.nx + 1] * dx) * dy;
+    };
+    const ua = bil(f.u, h0), va = bil(f.v, h0), ub = bil(f.u, h1), vb = bil(f.v, h1);
+    if (![ua, va, ub, vb].every(isFinite)) return null;
+    const u = ua + (ub - ua) * k, v = va + (vb - va) * k, g = bil(f.gust, h0) + (bil(f.gust, h1) - bil(f.gust, h0)) * k;
+    const kn = Math.hypot(u, v);
+    return { kn, gust: isFinite(g) && g >= kn ? g : null, from: (deg(Math.atan2(-u, -v)) + 360) % 360, u, v };
+  }
+  /** Sea and swell at the nearest hour: heights averaged from the grid points around (skipping land). */
+  function wavesAt(f, lat, lon, t) {
+    if (!f || !f.waves || !windCovers(f, lat, lon) || t < f.t0 || t > windEnd(f)) return null;
+    const h = Math.max(0, Math.min(f.hours - 1, Math.floor((t - f.t0 + 1800000) / 3600000)));
+    const { x0, y0, dx, dy } = cell(f, lat, lon), m = f.nx * f.ny;
+    const corners = [[0, 0], [1, 0], [0, 1], [1, 1]].map(([ox, oy]) => [h * m + (y0 + oy) * f.nx + x0 + ox, (ox ? dx : 1 - dx) * (oy ? dy : 1 - dy)]);
+    const avg = (a) => { let s = 0, ws = 0; for (const [i, w] of corners) if (isFinite(a[i])) { s += a[i] * w; ws += w; } return ws > 1e-6 ? s / ws : null; };
+    const dir = (a) => { let best = null; for (const [i, w] of corners) if (isFinite(a[i]) && (!best || w > best[1])) best = [i, w]; return best ? a[best[0]] : null; };
+    const W = f.waves, total = avg(W.wave_height);
+    if (total === null) return null;
+    return { wave: total, sea: avg(W.wind_wave_height), seaS: avg(W.wind_wave_period), seaFrom: dir(W.wind_wave_direction),
+      swell: avg(W.swell_wave_height), swellS: avg(W.swell_wave_period), swellFrom: dir(W.swell_wave_direction) };
+  }
+  /** One hour's grid (nearest hour) of one wave quantity. */
+  function waveFrame(f, t, key) {
+    if (!f || !f.waves) return null;
+    const h = Math.max(0, Math.min(f.hours - 1, Math.floor((t - f.t0 + 1800000) / 3600000))), m = f.nx * f.ny;
+    return f.waves[key].subarray(h * m, (h + 1) * m);
+  }
+  /** One time's u, v grids for the streaks, linear between hours. */
+  function windFrame(f, t) {
+    const fh = Math.max(0, Math.min(f.hours - 1, (t - f.t0) / 3600000)), h0 = Math.floor(fh), h1 = Math.min(h0 + 1, f.hours - 1), k = fh - h0, m = f.nx * f.ny;
+    const u = new Float32Array(m), v = new Float32Array(m);
+    for (let i = 0; i < m; i++) { u[i] = f.u[h0 * m + i] + (f.u[h1 * m + i] - f.u[h0 * m + i]) * k; v[i] = f.v[h0 * m + i] + (f.v[h1 * m + i] - f.v[h0 * m + i]) * k; }
+    return { u, v };
+  }
+  const windShort = (h) => `${Math.round(h.kn)}${h.gust !== null ? ` G${Math.round(h.gust)}` : ''} ${compass(h.from)}`;
+  const wavesShort = (h) => `${(h.sea ?? 0).toFixed(1)} / ${(h.swell ?? 0).toFixed(1)}`;
+
+  // ---- ScaleBarView: a round distance that fits [maxPx] ------------------------------------------------------
+  const SCALE_NM = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000], SCALE_M = [1, 2, 5, 10, 20, 50, 100];
+  function scaleBar(metresPerPx, maxPx) {
+    const room = maxPx * metresPerPx;
+    if (room >= SCALE_NM[0] * M_PER_NM) {
+      const nm = [...SCALE_NM].reverse().find((x) => x * M_PER_NM <= room);
+      return { px: (nm * M_PER_NM) / metresPerPx, label: `${nm < 1 ? nm : Math.round(nm)} nm` };
+    }
+    const m = [...SCALE_M].reverse().find((x) => x <= room) || SCALE_M[0];
+    return { px: m / metresPerPx, label: `${m} m` };
+  }
+
   return { distanceNm, bearing, routeLengthNm, segDistM, fmtNm, fmtBearing, fmtDuration, fmtDdm, fmtPos, uuid,
     emptyRoute, cleanRoute, cleanMark, parseBackup, exportBackup, exportGpx, parseGpx, mergeById, mergeMarks,
     GROUP_COLORS, groupName, cleanGroup, findGroup, ensureGroup, tidyGroups, decodeTile, ChartReader, depthText, checkRoute, pos,
     fold, placeKind, placeZoom, searchPlaces, sourceLines,
     xteNm, sogCog, compass, circle, Tides, BagLimits, LIMIT_AREAS, areaLabel, plain, dayOf, closureOn, checkCatch,
-    cleanCatch, catchTitle, catchDetails, catchesCsv, trimNum, parseForecast, forecastAt, windText, wavesText };
+    cleanCatch, catchTitle, catchDetails, catchesCsv, trimNum, parseForecast, forecastAt, windText, wavesText,
+    alongTrackNm, destination, fieldNm, fmtXte, fmtClock, fromBoat, Navigator, DriftTracker, TripStats, splitTrack, trackSpeeds, addTrackPoint,
+    tripOf, cleanTrip, tripAvg, tripDuration, encodeTrip, decodeTrip, catchesIn, archiveTrack, tripGpx, speedCsv, dayLabel, TRACK_MAX, GAP_MS,
+    windGrid, windFits, parseWindGrid, windEnd, windCovers, windAt, wavesAt, waveFrame, windFrame, windShort, wavesShort, WAVE_KEYS, scaleBar };
 })();
 if (typeof globalThis !== 'undefined') globalThis.ChompCore = Core;
