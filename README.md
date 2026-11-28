@@ -4,6 +4,11 @@
 
 A free, offline fishing chartplotter for Android, starting with **Western Australia**.
 
+![ChompChamp on a tablet: 5 m reef relief in Cockburn Sound, the chart of Cockburn Sound, wind forecast streaks off Kalbarri, and a route from Geraldton out to the Abrolhos Islands](docs/images/banner.webp)
+
+Detailed depths and contours, fishing zones, reef relief, satellite imagery, tides, wind and swell, bag limits and a
+catch log, all working at sea with no signal, built only from free public data.
+
 > ⚠️ **NOT FOR NAVIGATION.** ChompChamp is a hobby project built from free public data. It is not
 > an official nautical chart (those come from the Australian Hydrographic Office). Rocks, reefs, bars
 > and wrecks are missing, depths can be badly wrong, and depths are measured from about mean sea
@@ -69,6 +74,11 @@ Four modes (switch with the button at the top of the screen):
 - **Navigate**: steers you waypoint by waypoint with BRG, DTW, XTE, VMG, TTG, ETA to waypoint and destination, and distance remaining. Auto-advances at the arrival radius or when you pass abeam. Previous, stop and next buttons.
 - **Fish**: zooms in close, measures drift over a rolling window and draws where you'll be in N minutes. **Mark** saves your catch and the spot together: species, number, length, weight, kept or released, bait, notes and photos, with the time, position and estimated depth filled in. As you type, it shows the bag and size limits for that species where you are, and warns before you keep a fish that's protected, closed, undersize or over the bag (you can mark it released or keep it anyway). The newest photo shows as a bubble on the map. Sort marks into coloured groups you can show or hide (Menu → Marks), and move or delete many at once. Add more catches or photos (camera or gallery) to a mark by tapping it. Anchor alarm, nearest-mark distance/bearing, breadcrumb track.
 
+| Chart | Route | Long-press |
+|:---:|:---:|:---:|
+| <img src="docs/images/cockburn-sound.webp" width="260" alt="Chart mode over Cockburn Sound and Garden Island, with depth shading, contours, nav marks and place names over satellite imagery"> | <img src="docs/images/route.webp" width="260" alt="Route mode: four waypoints from Geraldton out to the Abrolhos, 29.1 nm, 1 h 57 m at 15 knots"> | <img src="docs/images/depth-info.webp" width="260" alt="Long-press popup off Rottnest: position, estimated depth 8 to 10 m, tide now and depth now"> |
+| <sub>Cockburn Sound, from 5 m surveys</sub> | <sub>Geraldton to the Abrolhos: 29 nm, 1 h 57 m</sub> | <sub>Depth, tide now and depth now anywhere</sub> |
+
 **Search places** (Menu): find a town, suburb, harbour, marina, boat ramp, jetty, lighthouse, island, point, bay, beach
 or reef by name and go there on the map. Results show the kind of place, the nearest town and how far it is; boat ramps
 also show lanes, finger jetties and trailer bays where WA's Department of Transport lists them. Type "ramp" and a town
@@ -80,6 +90,11 @@ the area you're in, with closed seasons, pictures, and a search by species. Tap 
 **Google Images** button that searches the web for more photos of that fish (needs internet). The area follows your position, or choose one. Works
 offline. The limits are copied from DPIRD's guide by hand and shortened, and they don't update by themselves, so check the
 [current rules](https://www.dpird.wa.gov.au/individuals/recreational-fishing/recreational-fishing-rules/recreational-bag-and-size-limits/).
+
+| Bag & size limits | Zone details | Zones |
+|:---:|:---:|:---:|
+| <img src="docs/images/bag-limits.webp" width="260" alt="Bag and size limits panel searching snapper in the West Coast area, with pictures, sizes and closed seasons"> | <img src="docs/images/zone.webp" width="260" alt="Tapping a zone: Abrolhos Islands Fish Habitat Protection Area, its order and source"> | <img src="docs/images/abrolhos.webp" width="260" alt="Kalbarri to Geraldton and the Abrolhos Islands, with restricted areas in orange and no-fishing zones in red"> |
+| <sub>Limits for where you are, with pictures</sub> | <sub>Tap a zone for its rules and order</sub> | <sub>Kalbarri, Geraldton and the Abrolhos</sub> |
 
 **Trips & catches** (Menu): a trip records your track with the time and speed at each point. Recording starts when you
 tap **Record** at the top left of the map (move it with Menu → Display → Move or resize), start a route, or mark
@@ -115,6 +130,11 @@ offline for any date. Heights are above mean sea level, the same level as the ch
 Port Hedland and Broome: within about 0.1 m (0.2 m at Broome), not counting weather. It isn't right inside rivers and
 estuaries, and wind and pressure can move the sea by more than the tide. Data fields **Wind**, **Tide** and **Depth now**.
 
+| Wind | Sea & swell | Tide |
+|:---:|:---:|:---:|
+| <img src="docs/images/wind.webp" width="260" alt="Wind forecast streaks drifting over the coast from Shark Bay to Geraldton"> | <img src="docs/images/waves.webp" width="260" alt="Sea and swell: combined wave height as colour, with swell arrows and heights in metres"> | <img src="docs/images/tide.webp" width="260" alt="Wind, waves and tide panel: tide now, a two-day tide curve, and the next highs and lows"> |
+| <sub>ECMWF wind, kept for offline use</sub> | <sub>Wave height and swell direction</sub> | <sub>Tides worked out on the device</sub> |
+
 Everything is customisable:
 - **Data fields** per mode: SOG (knots or km/h), COG, position, depth, waypoint, BRG, DTW, XTE, VMG, TTG, ETAs, remaining, drift speed/direction, nearest mark, anchor distance, trip distance, time, average and top speed, clock. Show/hide them and drag them anywhere (Menu → Display → Move or resize), or combine them into one group (Menu → Display → Arrangement); tap a field while editing to resize or hide just that one. Each mode keeps its own layout.
 - **Display** (Menu): the data field options above, the scale bar, Record button and bag limits button on/off (move the buttons with Move or resize), the AIS vessel colour (light green, teal or light blue), plus size and transparency of data fields, and of buttons and panels, and the size of AIS vessels, catches and place names.
@@ -125,6 +145,33 @@ Everything is customisable:
 - **Charts, offline areas & updates** (Menu): save satellite and reef relief imagery for an area, check GitHub for a new app, chart or relief pack, see what is installed (size, date), import, remove the chart or the offline reef relief pack (relief falls back to online), clear the online tile cache.
 - **Data** (Menu): save and load named snapshots on the phone; export and import a backup file (.json) with routes, marks, current track, saved trips, catch log and settings (merge or replace); export and import GPX to move marks, routes and tracks to and from other chartplotter apps.
 - **Settings**: when trip recording starts, recording with the screen off, when a forgotten trip is finished, track history shown (1 min to the entire trip), track point spacing, AIS age limit, arrival radius, planning speed, north-up / course-up, drift window and projection, fish-mode zoom, anchor radius, safety depth.
+
+| Layers | Display |
+|:---:|:---:|
+| <img src="docs/images/layers-panel.webp" width="260" alt="Map layers panel: a switch and opacity slider for each layer"> | <img src="docs/images/display.webp" width="260" alt="Display panel: boat size and opacity, scale bar, AIS colour and a row of boat shapes"> |
+| <sub>Every layer on or off, with its own opacity</sub> | <sub>Sizes, transparency and your boat</sub> |
+
+### Layer by layer
+
+The chart is a stack of layers, each from its own free source, and each one can be turned on or off and faded in the
+**Layers** panel. Here they are pulled apart over Rottnest Island:
+
+<p align="center"><img src="docs/images/layers-stack.webp" width="720" alt="Exploded view of the map layers over Rottnest Island, bottom to top: satellite, depth shading, land, 5 m reef relief, contours and depth labels, fishing zones and marine parks, nav marks, hazards and place names"></p>
+
+And one at a time, then all together:
+
+![Each map layer over Rottnest Island on its own (satellite, depth shading, land, reef relief, contours, zones, marks and names), then all of them together](docs/images/layers-grid.webp)
+
+### Cockburn Sound up close
+
+Inside the detailed areas (Two Rocks to Preston Beach, Kalbarri to Horrocks, Dongara) the depths come from WA Department
+of Transport 5 m surveys rather than the 250 m national grid. With the reef relief layer on, the seabed itself shows: the
+dredged shipping channels, the deep basin of the Sound and the banks along its edges.
+
+| Reef relief | Closer: Woodman Point | Same spot, chart only |
+|:---:|:---:|:---:|
+| <img src="docs/images/cockburn-relief.webp" width="260" alt="Cockburn Sound with the 5 m reef relief layer: shallow banks in red and yellow, the deep basin in blue"> | <img src="docs/images/cockburn-relief-close.webp" width="260" alt="Reef relief zoomed in near Woodman Point and Jervoise Bay: seagrass banks, channels and the basin edge in fine detail"> | <img src="docs/images/cockburn-chart-close.webp" width="260" alt="The same view near Woodman Point with relief off: depth shading, 5 m survey contours and nav marks"> |
+| <sub>The whole Sound with 5 m relief</sub> | <sub>Banks, channels and the basin edge</sub> | <sub>Depth shading and contours</sub> |
 
 ## Planner (PC and iPhone)
 
