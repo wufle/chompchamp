@@ -8,8 +8,15 @@ Bundled libraries (map data has its own licences, see the README):
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' blob:; worker-src blob:; child-src blob:; style-src 'unsafe-inline'; img-src data: blob: https://tiles.maps.eox.at https://public-services.slip.wa.gov.au; connect-src data: blob: https://tiles.maps.eox.at https://public-services.slip.wa.gov.au; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ChompChamp">
+<meta name="theme-color" content="#101C2B">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' blob:; child-src blob:; style-src 'unsafe-inline'; img-src 'self' data: blob: https://tiles.maps.eox.at https://public-services.slip.wa.gov.au; connect-src 'self' data: blob: https://tiles.maps.eox.at https://public-services.slip.wa.gov.au https://api.open-meteo.com https://marine-api.open-meteo.com; worker-src 'self' blob:; manifest-src 'self'; base-uri 'none'; form-action 'none'">
 <title>ChompChamp Planner</title>
 <link rel="icon" href="data:image/svg+xml;base64,%%LOGO_B64%%">
 <style>%%VENDOR_CSS%%</style>
@@ -22,6 +29,7 @@ Bundled libraries (map data has its own licences, see the README):
   <header>
     <img src="data:image/svg+xml;base64,%%LOGO_B64%%" alt="" width="36" height="36">
     <div><h1>ChompChamp</h1><span class="muted">Planner %%VERSION%%</span></div>
+    <button id="grow" class="icon" aria-label="Taller or shorter" title="Taller or shorter">⇕</button>
     <button id="collapse" class="icon" aria-label="Hide panel" title="Hide panel">‹</button>
   </header>
   <div id="search" role="search">
@@ -31,22 +39,39 @@ Bundled libraries (map data has its own licences, see the README):
   <nav role="tablist" aria-label="Sections">
     <button role="tab" data-tab="routes" id="tab-routes" aria-controls="pane-routes">Route</button>
     <button role="tab" data-tab="marks" id="tab-marks" aria-controls="pane-marks">Marks</button>
+    <button role="tab" data-tab="catches" id="tab-catches" aria-controls="pane-catches">Catches</button>
+    <button role="tab" data-tab="weather" id="tab-weather" aria-controls="pane-weather">Weather</button>
+    <button role="tab" data-tab="limits" id="tab-limits" aria-controls="pane-limits">Limits</button>
     <button role="tab" data-tab="layers" id="tab-layers" aria-controls="pane-layers">Layers</button>
     <button role="tab" data-tab="data" id="tab-data" aria-controls="pane-data">Data</button>
   </nav>
   <section role="tabpanel" id="pane-routes" aria-labelledby="tab-routes"></section>
   <section role="tabpanel" id="pane-marks" aria-labelledby="tab-marks" hidden></section>
+  <section role="tabpanel" id="pane-catches" aria-labelledby="tab-catches" hidden></section>
+  <section role="tabpanel" id="pane-weather" aria-labelledby="tab-weather" hidden></section>
+  <section role="tabpanel" id="pane-limits" aria-labelledby="tab-limits" hidden></section>
   <section role="tabpanel" id="pane-layers" aria-labelledby="tab-layers" hidden></section>
   <section role="tabpanel" id="pane-data" aria-labelledby="tab-data" hidden></section>
 </aside>
 <button id="expand" class="icon" aria-label="Show panel" title="Show panel" hidden>›</button>
+<div id="bar" aria-live="off" hidden></div>
+<div id="alarm" role="alert" hidden></div>
+<div id="cross" aria-hidden="true"></div>
+<div id="mapbtns" aria-label="Map buttons">
+  <button id="b-gps" class="mb" aria-label="My position">◎</button>
+  <button id="b-mark" class="mb" aria-label="Mark here" title="Mark at the boat (or the middle of the map)">📍</button>
+  <button id="b-catch" class="mb" aria-label="Log a catch" title="Log a catch at the boat (or the middle of the map)">🐟</button>
+  <button id="b-rec" class="mb" aria-label="Record track">⏺</button>
+  <button id="b-anchor" class="mb" aria-label="Anchor alarm" title="Anchor alarm">⚓</button>
+</div>
 
 <div id="welcome" hidden>
   <img src="data:image/svg+xml;base64,%%LOGO_B64%%" alt="" width="96" height="96">
   <h2>Open your chart</h2>
   <p>Choose the <code>wa.pmtiles</code> file from the ChompChamp release. It's kept in this browser, so you only do this once.</p>
   <button class="primary" id="welcome-open">Choose wa.pmtiles…</button>
-  <p class="muted">You can also drop the file anywhere on this page.</p>
+  <p class="muted" id="welcome-desk">You can also drop the file anywhere on this page.</p>
+  <p class="muted" id="welcome-phone">On a phone: download <code>wa.pmtiles</code> from the <a href="https://github.com/wufle/chompchamp/releases/latest" target="_blank" rel="noopener noreferrer">latest release</a> in Safari first (it goes to Files → Downloads), then choose it here.</p>
 </div>
 
 <div id="hint" role="status" hidden></div>

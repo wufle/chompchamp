@@ -1,4 +1,4 @@
-name: Desktop planner
+name: Planner
 
 on:
   push:
@@ -7,6 +7,11 @@ on:
   pull_request:
     paths: ["web/**"]
   workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Publish the planner website (GitHub Pages)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -23,3 +28,22 @@ jobs:
           name: chompchamp-planner
           path: web/dist/chompchamp-planner.html
           retention-days: 7
+      - if: inputs.deploy
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist/site
+
+  # The website only changes when someone asks for it, like a release.
+  deploy:
+    if: inputs.deploy
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

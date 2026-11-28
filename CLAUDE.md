@@ -110,15 +110,23 @@ Gotchas:
 - Pref keys (`f.<mode>.*`, `layer_*`, `set_*`), overlay keys and the track format are stored on the
   user's phone. Don't rename them; keep reading old formats.
 
-## Desktop planner (`web/`)
+## Planner (`web/`)
 
 `python3 web/build.py` -> `web/dist/chompchamp-planner.html`, one offline file opened from disk (`file://`), so no
-modules, no fetch of local files and no CDN. Vendored libraries are in `web/vendor`. It reuses the Android app's
-`chart-style.json`, `hazards.geojson` and logo. `src/core.js` is pure logic (mirrors `Geo.kt`, `Storage.kt`,
-`UserData.kt`; keep the data formats in step) and `src/app.js` is the interface. Depth, zones and the route check read
-the chart file through `ChartReader`, not rendered features. Keep the filename unversioned: some browsers tie saved
-data to it. Put text on the page with `textContent` / `el()`, never HTML. Test with `node web/test.mjs`, and in
-headless Chromium (available locally) before calling it done. Bump `web/VERSION` for each release.
+modules, no fetch of local files and no CDN. It also writes `web/dist/site/` (the same page as `index.html`, `sw.js`,
+manifest, icons from `web/icons/`) for GitHub Pages, where iPhones use it as an installed web app with GPS.
+Vendored libraries are in `web/vendor`. It reuses the Android app's `chart-style.json`, `hazards.geojson`, `places.geojson`,
+`tides.json`, `bag_limits.json`, `limit_areas.json` and logo. `src/core.js` is pure logic (mirrors `Geo.kt`, `Storage.kt`,
+`UserData.kt`, `Tides.kt`, `BagLimits.kt`, `CatchLimits.kt`; keep them in step) and `src/app.js` is the interface;
+`gps.js`, `weather.js` and `catches.js` are pasted into `app.js` at `// %%MODULES%%` and share its scope. Depth, zones
+and the route check read the chart file through `ChartReader`, not rendered features. Keep the filename unversioned:
+some browsers tie saved data to it. Put text on the page with `textContent` / `el()`, never HTML. Test with
+`node web/test.mjs`, and in headless Chromium (available locally; emulate a phone with touch for the iPhone layout)
+before calling it done. Bump `web/VERSION` for each release.
+
+The website is only published when the owner asks, like a release: `gh workflow run planner.yml -f deploy=true`.
+GPS only works there (https), not from a file. Touch has no right-click or hover: hold the map for the menu, and the
+readout follows the cross in the middle.
 
 ## Pipeline (`pipeline/build.sh`)
 

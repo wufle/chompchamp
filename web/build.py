@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the desktop planner as one self-contained HTML file: web/dist/chompchamp-planner.html
+"""Build the planner as one self-contained HTML file: web/dist/chompchamp-planner.html, and the website in web/dist/site
 
 The map style, hazards and logo come from the Android app's own files, so they can't drift apart.
 No network and no dependencies: the libraries and label font are in web/vendor.
@@ -42,10 +42,14 @@ parts = {
         "style": json.loads(text(ASSETS / "chart-style.json")),
         "hazards": json.loads(text(ASSETS / "hazards.geojson")),
         "places": json.loads(text(ASSETS / "places.geojson")),
+        "tides": json.loads(text(ASSETS / "tides.json")),
+        "bagLimits": json.loads(text(ASSETS / "bag_limits.json")),
+        "limitAreas": json.loads(text(ASSETS / "limit_areas.json")),
         "glyphs": glyphs,
     }) + ";",
     "CORE_JS": script(text(WEB / "src/core.js")),
-    "APP_JS": script(text(WEB / "src/app.js")),
+    # The feature modules share app.js's scope: they go where it says %%MODULES%%.
+    "APP_JS": script(text(WEB / "src/app.js").replace("// %%MODULES%%", "\n".join(text(WEB / f"src/{m}.js") for m in ("gps", "weather", "catches")))),
 }
 
 # Split on the placeholders once, so nothing inside a part is ever treated as a placeholder.
@@ -64,3 +68,17 @@ dist.mkdir(exist_ok=True)
 target = dist / "chompchamp-planner.html"
 target.write_text("".join(out), encoding="utf-8")
 print(f"{target} ({target.stat().st_size / 1e6:.1f} MB)")
+
+# The website (GitHub Pages): the same page as index.html, with what it needs to install and work offline.
+import hashlib
+import shutil
+site = dist / "site"
+site.mkdir(exist_ok=True)
+page = target.read_bytes()
+(site / "index.html").write_bytes(page)
+build = VERSION + "-" + hashlib.sha256(page).hexdigest()[:10]
+(site / "sw.js").write_text(text(WEB / "src/sw.js").replace("%%BUILD%%", build), encoding="utf-8")
+shutil.copy(WEB / "src/manifest.webmanifest", site)
+for icon in sorted((WEB / "icons").glob("*.png")):
+    shutil.copy(icon, site)
+print(f"{site}/ (offline build {build})")

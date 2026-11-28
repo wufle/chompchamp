@@ -121,6 +121,7 @@ const Core = (() => {
       plan: o.plan ? cleanRoute(o.plan) : null,
       marks: (o.marks || []).map(cleanMark),
       groups: (o.markGroups || []).map(cleanGroup),
+      catches: (o.catches || []).map(cleanCatch),
       track,
     };
   }
@@ -131,6 +132,8 @@ const Core = (() => {
       app: 'ChompChamp', format: 1, exported: new Date().toISOString().slice(0, 19) + 'Z',
       routes: s.routes.map(cleanRoute), plan: cleanRoute(s.plan), marks: s.marks.map(cleanMark),
       markGroups: (s.groups || []).map(cleanGroup),
+      // Catches only if there are any: the phone merges them into its catch log by id.
+      ...(s.catches && s.catches.length ? { catches: s.catches.map(cleanCatch) } : {}),
     }, null, 1);
   }
 
@@ -152,6 +155,11 @@ const Core = (() => {
       out.push(`  <rte><name>${esc(r.name || 'Route')}</name>`);
       for (const w of r.waypoints) out.push(`    <rtept lat="${w.lat}" lon="${w.lon}"><name>${esc(w.name)}</name></rtept>`);
       out.push('  </rte>');
+    }
+    if (s.track && s.track.length > 1) {
+      out.push('  <trk><name>Track</name><trkseg>');
+      for (const p of s.track) out.push(`    <trkpt lat="${p.lat}" lon="${p.lon}">${p.t ? `<time>${iso(p.t)}</time>` : ''}</trkpt>`);
+      out.push('  </trkseg></trk>');
     }
     out.push('</gpx>', '');
     return out.join('\n');
@@ -175,7 +183,7 @@ const Core = (() => {
     })).filter((r) => r.waypoints.length);
     const track = all(doc, 'trkpt').map((el) => ({ ...at(el), t: time(el) }));
     if (!marks.length && !routes.length && !track.length) throw new Error('no waypoints, routes or tracks found');
-    return { routes, plan: null, marks, groups: [], track };
+    return { routes, plan: null, marks, groups: [], catches: [], track };
   }
 
   function mergeById(list, incoming) {
@@ -439,9 +447,296 @@ const Core = (() => {
     return hits.slice(0, limit).map((h) => h.f);
   }
 
+  // ---- Navigation (mirrors Navigator.kt) ------------------------------------------------------------
+  /** Cross-track distance in nm from the leg a -> b: positive = right of the track. */
+  function xteNm(p, a, b) {
+    const d13 = distanceNm(a, p) / R_NM, t13 = rad(bearing(a, p)), t12 = rad(bearing(a, b));
+    return Math.asin(Math.max(-1, Math.min(1, Math.sin(d13) * Math.sin(t13 - t12)))) * R_NM;
+  }
+  /** Speed (kn) and course (°T) between two timed fixes, or null if too close in time or space. */
+  function sogCog(a, b) {
+    const dt = (b.t - a.t) / 3600000;
+    if (!(dt > 0)) return null;
+    const d = distanceNm(a, b);
+    return { sog: d / dt, cog: d * M_PER_NM >= 3 ? bearing(a, b) : null };
+  }
+  const compass = (deg) => ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'][Math.round((((deg % 360) + 360) % 360) / 22.5) % 16];
+  /** A ring of [n] points [lon, lat] around p, [m] metres out (for circles on the map). */
+  function circle(p, m, n = 64) {
+    const out = [];
+    for (let i = 0; i <= n; i++) {
+      const a = 2 * Math.PI * i / n;
+      out.push([p.lon + (m * Math.sin(a)) / (M_PER_NM * 60 * Math.cos(rad(p.lat))), p.lat + (m * Math.cos(a)) / (M_PER_NM * 60)]);
+    }
+    return out;
+  }
+
+  // ---- Tides (mirrors Tides.kt: EOT20 constituents, worked out on the device) ------------------------------
+  const NODAL = {
+    none: () => [1, 0],
+    m2: (n) => [1 - 0.037 * Math.cos(n), -2.1 * Math.sin(n)],
+    o1: (n) => [1.009 + 0.187 * Math.cos(n) - 0.015 * Math.cos(2 * n), 10.8 * Math.sin(n) - 1.3 * Math.sin(2 * n) + 0.2 * Math.sin(3 * n)],
+    k1: (n) => [1.006 + 0.115 * Math.cos(n) - 0.009 * Math.cos(2 * n), -8.9 * Math.sin(n) + 0.7 * Math.sin(2 * n)],
+    k2: (n) => [1.024 + 0.286 * Math.cos(n) + 0.008 * Math.cos(2 * n), -17.7 * Math.sin(n) + 0.7 * Math.sin(2 * n)],
+    j1: (n) => [1.013 + 0.168 * Math.cos(n) - 0.017 * Math.cos(2 * n), -12.9 * Math.sin(n) + 1.3 * Math.sin(2 * n) - 0.2 * Math.sin(3 * n)],
+    mf: (n) => [1.043 + 0.414 * Math.cos(n), -23.7 * Math.sin(n) + 2.7 * Math.sin(2 * n) - 0.4 * Math.sin(3 * n)],
+    mm: (n) => [1 - 0.130 * Math.cos(n), 0],
+    m4: (n) => { const [f, u] = NODAL.m2(n); return [f * f, 2 * u]; },
+  };
+  // Doodson numbers (tau, s, h, p, N', p1), phase offset, nodal correction. The diurnal offsets were checked
+  // against tide gauges in the app (Tides.kt): don't change them without checking again.
+  const CONS = {
+    m2: [[2, 0, 0, 0, 0, 0], 0, 'm2'], s2: [[2, 2, -2, 0, 0, 0], 0, 'none'], n2: [[2, -1, 0, 1, 0, 0], 0, 'm2'],
+    k2: [[2, 2, 0, 0, 0, 0], 0, 'k2'], '2n2': [[2, -2, 0, 2, 0, 0], 0, 'm2'], t2: [[2, 2, -3, 0, 0, 1], 0, 'none'],
+    k1: [[1, 1, 0, 0, 0, 0], -90, 'k1'], o1: [[1, -1, 0, 0, 0, 0], 90, 'o1'], p1: [[1, 1, -2, 0, 0, 0], 90, 'none'],
+    q1: [[1, -2, 0, 1, 0, 0], 90, 'o1'], j1: [[1, 2, 0, -1, 0, 0], -90, 'j1'], m4: [[4, 0, 0, 0, 0, 0], 0, 'm4'],
+    mf: [[0, 2, 0, 0, 0, 0], 0, 'mf'], mm: [[0, 1, 0, -1, 0, 0], 0, 'mm'], ssa: [[0, 0, 2, 0, 0, 0], 0, 'none'], sa: [[0, 0, 1, 0, 0, 0], 0, 'none'],
+  };
+  class Tides {
+    /** [json] is the app's assets/tides.json. */
+    constructor(json) {
+      this.cons = json.constituents.map((n) => { const c = CONS[n]; if (!c) throw new Error(`unknown constituent ${n}`); return c; });
+      this.stations = json.stations.map(([lat, lon, near, amp, pha]) => ({ lat, lon, near, amp: amp.map((a) => a / 100), pha }));
+    }
+    nearest(lat, lon, maxKm = 60) {
+      const k = Math.cos(rad(lat));
+      let best = null, bd = Infinity;
+      for (const s of this.stations) { const d = (s.lat - lat) ** 2 + ((s.lon - lon) * k) ** 2; if (d < bd) { bd = d; best = s; } }
+      return best && distanceNm({ lat, lon }, best) * 1.852 <= maxKm ? best : null;
+    }
+    height(st, t) {
+      const days = t / 86400000 - 10957.5;
+      const s = 218.3164 + 13.17639648 * days, h = 280.4661 + 0.98564736 * days, p = 83.3535 + 0.11140353 * days;
+      const nDeg = 125.0445 - 0.05295377 * days, p1 = 282.9384 + 0.0000471 * days, n = rad(nDeg);
+      const hourUt = (((t % 86400000) + 86400000) % 86400000) / 3600000;
+      const tau = 15 * hourUt + 180 + h - s;
+      let out = 0;
+      this.cons.forEach(([d, off, nod], i) => {
+        const [f, u] = NODAL[nod](n);
+        const v = d[0] * tau + d[1] * s + d[2] * h + d[3] * p - d[4] * nDeg + d[5] * p1 + off;
+        out += f * st.amp[i] * Math.cos(rad(v + u - st.pha[i]));
+      });
+      return out;
+    }
+    /** Highs and lows between [from] and [to]: [{ time, metres, high }]. */
+    turns(st, from, to) {
+      const step = 600000, out = [];
+      let t0 = from - step, h0 = this.height(st, t0), t1 = from, h1 = this.height(st, t1);
+      while (t1 <= to) {
+        const t2 = t1 + step, h2 = this.height(st, t2);
+        if ((h1 > h0 && h1 >= h2) || (h1 < h0 && h1 <= h2)) {
+          const den = h0 - 2 * h1 + h2, dt = Math.abs(den) > 1e-9 ? 0.5 * (h0 - h2) / den : 0;
+          const tt = t1 + Math.round(dt * step);
+          if (tt >= from && tt <= to) out.push({ time: tt, metres: this.height(st, tt), high: h1 > h0 });
+        }
+        t0 = t1; h0 = h1; t1 = t2; h1 = h2;
+      }
+      return out;
+    }
+  }
+
+  // ---- Bag and size limits (mirrors BagLimits.kt and CatchLimits.kt) ---------------------------------------
+  const LIMIT_AREAS = [['north', 'North Coast'], ['gascoyne', 'Gascoyne Coast'], ['west', 'West Coast'], ['abrolhos', 'Abrolhos Islands'], ['south', 'South Coast']];
+  const areaLabel = (k) => (LIMIT_AREAS.find((a) => a[0] === k) || [k, k])[1];
+  /** Lower case letters and digits, single spaces, no apostrophes or brackets. */
+  const plain = (s) => String(s).toLowerCase().replace(/'/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+  const dayOf = (t) => { const d = new Date(t); return (d.getMonth() + 1) * 100 + d.getDate(); };
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const dayName = (d) => `${d % 100} ${MONTHS[Math.floor(d / 100) - 1]}`;
+  const parseDay = (s) => Number(s.split('-')[0]) * 100 + Number(s.split('-')[1]);
+
+  class BagLimits {
+    /** [json] = bag_limits.json, [areas] = limit_areas.json. */
+    constructor(json, areas) {
+      this.root = json;
+      this.areas = areas.areas || {};
+      this.source = json.source; this.url = json.url; this.checked = json.checked; this.reviewBy = json.reviewBy;
+    }
+    areaAt(p) {
+      if (p.lat < -39 || p.lat > -11 || p.lon < 108 || p.lon > 129.1) return null;
+      if (this.inside('abrolhos', p)) return 'abrolhos';
+      if (p.lat > -27) return p.lon >= 114 + 50 / 60 && p.lat >= -(21 + 46 / 60) ? 'north' : 'gascoyne';
+      // The South Coast starts at 115°30' E; further north that longitude is the west coast around Perth.
+      if (p.lon >= 117 || (p.lon >= 115.5 && p.lat < -33.9)) return 'south';
+      return 'west';
+    }
+    inside(area, p) {
+      return (this.areas[area] || []).some((ring) => {
+        let odd = false;
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+          const [ax, ay] = ring[i], [bx, by] = ring[j];
+          if ((ay > p.lat) !== (by > p.lat) && p.lon < (bx - ax) * (p.lat - ay) / (by - ay) + ax) odd = !odd;
+        }
+        return odd;
+      });
+    }
+    /** A plain value, or one per area with "other" / "*" for the areas not named. */
+    static pick(o, key, area) {
+      const v = o[key];
+      if (v === undefined || v === null) return null;
+      if (typeof v !== 'object') return String(v);
+      const c = v[area] ?? v.other ?? v['*'];
+      return c === undefined || c === null ? null : String(c);
+    }
+    entry(s, area) {
+      const names = [s.name, ...(s.aka || [])];
+      return {
+        name: s.name, size: BagLimits.pick(s, 'size', area), bag: BagLimits.pick(s, 'bag', area), boat: BagLimits.pick(s, 'boat', area),
+        note: BagLimits.pick(s, 'note', area), isProtected: !!s.protected, boatOpen: !!s.boatOpen,
+        closures: (s.closures || []).filter((c) => c.regions.includes(area)).map((c) => ({ where: c.where, from: parseDay(c.from), to: parseDay(c.to),
+          area: c.area || null, note: c.note || '', dates: `${dayName(parseDay(c.from))} to ${dayName(parseDay(c.to))}` })),
+        search: names.join(' ').toLowerCase().replace(/'/g, ''),
+        names: names.flatMap((n) => { const p = n.split(', '); return [plain(n), p.length === 2 ? plain(`${p[1]} ${p[0]}`) : null].filter(Boolean); }),
+      };
+    }
+    /** Everything that applies in [area], keeping species that match every word of [query]. */
+    find(area, query = '') {
+      const words = query.toLowerCase().split(/[^a-z0-9-]+/).filter(Boolean);
+      return this.root.categories.map((c) => {
+        const entries = c.species.filter((s) => !s.regions || s.regions.includes(area)).map((s) => this.entry(s, area))
+          .filter((e) => words.every((w) => e.search.includes(w)));
+        const closure = c.boatClosure && c.boatClosure.regions.includes(area) ? c.boatClosure.text : null;
+        return entries.length ? { name: c.name, total: BagLimits.pick(c, 'total', area), boatClosed: closure, note: BagLimits.pick(c, 'note', area), entries } : null;
+      }).filter(Boolean);
+    }
+    /** The species a typed name means: exact names first (all of them), else every species with all the words. */
+    lookup(area, text) {
+      const t = plain(text);
+      if (!t) return [];
+      const all = this.find(area).flatMap((g) => g.entries.map((e) => [g, e]));
+      let hit = all.filter(([, e]) => e.names.includes(t));
+      if (hit.length) return hit;
+      if (t.endsWith('s')) { hit = all.filter(([, e]) => e.names.includes(t.slice(0, -1))); if (hit.length) return hit; }
+      const words = t.split(' ');
+      return all.filter(([, e]) => words.every((w) => e.search.includes(w)));
+    }
+    /** All species names, for suggestions. */
+    names() { return [...new Set(this.root.categories.flatMap((c) => c.species.map((s) => s.name)))]; }
+  }
+  const closureOn = (c, day) => (c.from <= c.to ? day >= c.from && day <= c.to : day >= c.from || day <= c.to);
+  const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
+  const cmText = (mm) => { const v = mm / 10; return `${Number.isInteger(v) ? v : Number(v.toFixed(1))} cm`; };
+
+  /**
+   * Limits for a catch being logged and what's wrong with keeping it (mirrors CatchLimits.kt).
+   * -> { area, lines, problems }. [kept] is the rest of the catch log.
+   */
+  function checkCatch(limits, { species, count = 1, lengthCm = null, time = Date.now(), pos: p = null }, kept = []) {
+    if (!species || !species.trim()) return { area: null, lines: [], problems: [] };
+    if (!p) return { area: null, lines: ["No position, so the area's limits aren't known."], problems: [] };
+    const area = limits.areaAt(p);
+    if (!area) return { area: null, lines: ['Outside WA waters: no limits listed.'], problems: [] };
+    const found = limits.lookup(area, species), name = species.trim();
+    if (!found.length) return { area, lines: [`"${name}" isn't in the bag limits list. Any finfish not listed: bag 30. Check the name in the Limits tab.`], problems: [] };
+    if (found.length > 4) {
+      return { area, lines: [`${found.length} species match "${name}": ${found.slice(0, 6).map(([, e]) => e.name).join(', ')}${found.length > 6 ? '…' : ''}. Type the full name to see its limits.`], problems: [] };
+    }
+    const lines = [], problems = [], many = found.length > 1, day = dayOf(time);
+    const today = kept.filter((c) => !c.released && sameDay(c.time, time));
+    const same = (c, pred) => limits.lookup(area, c.species || '').some(pred);
+    for (const [g, e] of found) {
+      const who = many ? `${e.name}: ` : '';
+      if (e.isProtected) { lines.push(`${e.name}: protected, may not be taken.`); problems.push(`${who}Protected: it may not be taken. Release it.`); continue; }
+      const boatClosed = g.boatClosed !== null && !e.boatOpen;
+      lines.push(`${e.name}: ${[e.size ? `size ${e.size}` : 'no size limit', e.bag ? `bag ${e.bag}${boatClosed ? ' (shore only)' : ''}` : null, e.boat ? `boat ${e.boat}` : null].filter(Boolean).join(' · ')}`);
+      if (e.note) lines.push(`   ${e.note}`);
+      const mm = lengthCm ? lengthCm * 10 : null;
+      if (mm && e.size && !/^max/i.test(e.size)) {
+        const slot = /(\d+(?:\.\d+)?)\s*to\s*(\d+(?:\.\d+)?)/.exec(e.size);
+        const nums = (e.size.match(/\d+(\.\d+)?/g) || []).map(Number);
+        if (slot) {
+          if (mm < Number(slot[1])) problems.push(`${who}Undersize: ${cmText(mm)} is under the ${cmText(Number(slot[1]))} minimum.`);
+          if (mm > Number(slot[2])) problems.push(`${who}Oversize: ${cmText(mm)} is over the ${cmText(Number(slot[2]))} maximum.`);
+        } else if (nums.length && mm < Math.max(...nums)) {
+          problems.push(nums.length === 1 ? `${who}Undersize: ${cmText(mm)} is under the ${cmText(nums[0])} minimum.` : `${who}May be undersize: ${cmText(mm)}; the limit is ${e.size}.`);
+        }
+      }
+      for (const c of e.closures.filter((x) => closureOn(x, day))) {
+        const here = c.area !== null && limits.inside(c.area, p);
+        if (c.area !== null && !here) continue;
+        const text = ` (${c.dates}).${c.note ? ` ${c.note}` : ''}`;
+        if (here) problems.push(`${who}Closed here now${text}`); else lines.push(`   Closed now in ${c.where}${text}`);
+      }
+      if (boatClosed) problems.push(`${who}${g.boatClosed} in this area: from the shore only.`);
+      const bag = /^\d+$/.test((e.bag || '').trim()) ? Number(e.bag) : null;
+      if (bag !== null) {
+        const n = today.filter((c) => same(c, ([, x]) => x.name === e.name)).reduce((s, c) => s + (c.count || 1), 0) + count;
+        if (n > bag) problems.push(`${who}Over the bag: ${n} kept today, the bag is ${bag} per person.`);
+      }
+    }
+    for (const g of [...new Map(found.map(([x]) => [x.name, x])).values()]) {
+      const total = /^\d+$/.test((g.total || '').trim()) ? Number(g.total) : null;
+      if (total === null) continue;
+      lines.push(`${g.name}: total ${total} a day, all species combined.`);
+      const n = today.filter((c) => same(c, ([x]) => x.name === g.name)).reduce((s, c) => s + (c.count || 1), 0) + count;
+      if (n > total) problems.push(`Over the ${g.name.toLowerCase()} total: ${n} kept today, the limit is ${total} per person.`);
+      if (g.note) lines.push(`   ${g.note}`);
+    }
+    return { area, lines, problems: [...new Set(problems)] };
+  }
+
+  // ---- Catches (same JSON as Catch.toJson in Trips.kt) ---------------------------------------------------
+  const num = (v) => { const n = Number(v); return v === null || v === undefined || v === '' || !isFinite(n) ? null : n; };
+  function cleanCatch(o) {
+    const lat = num(o.lat), lon = num(o.lon);
+    const c = { id: /^[A-Za-z0-9_-]{1,64}$/.test(o.id || '') ? o.id : uuid(), time: Math.round(Number(o.time)) || Date.now(),
+      species: str(o.species, 60), count: Math.min(999, Math.max(1, Math.round(Number(o.count)) || 1)), released: !!o.released,
+      bait: str(o.bait, 100), notes: str(o.notes, 1000) };
+    if (lat !== null && lon !== null && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) { c.lat = lat; c.lon = lon; }
+    const cm = num(o.cm), kg = num(o.kg);
+    if (cm !== null && cm > 0) c.cm = cm;
+    if (kg !== null && kg > 0) c.kg = kg;
+    if (o.depth) c.depth = str(o.depth, 40);
+    if (Array.isArray(o.photos) && o.photos.length) c.photos = o.photos.map((p) => str(p, 80));
+    if (o.mark) c.mark = str(o.mark, 80);
+    return c;
+  }
+  const trimNum = (v, d = 1) => String(Number(v.toFixed(d)));
+  const catchTitle = (c) => `${c.count > 1 ? `${c.count} × ` : ''}${c.species || 'Fish'}`;
+  const catchDetails = (c) => [c.cm ? `${trimNum(c.cm)} cm` : null, c.kg ? `${trimNum(c.kg, 2)} kg` : null, c.released ? 'released' : 'kept'].filter(Boolean).join(' · ');
+  function catchesCsv(list) {
+    // Quoted, and never starting with a character a spreadsheet would treat as a formula.
+    const q = (s) => `"${(/^[=+\-@]/.test(s) ? `'${s}` : s).replace(/"/g, '""')}"`;
+    const p2 = (n) => String(n).padStart(2, '0');
+    const t = (ms) => { const d = new Date(ms); return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+    return 'time,species,count,length_cm,weight_kg,kept,latitude,longitude,depth_m,bait,notes\n' + [...list].sort((a, b) => a.time - b.time).map((c) =>
+      [t(c.time), q(c.species), c.count, c.cm ? trimNum(c.cm) : '', c.kg ? trimNum(c.kg, 2) : '', c.released ? 'released' : 'kept',
+        c.lat !== undefined ? c.lat.toFixed(6) : '', c.lon !== undefined ? c.lon.toFixed(6) : '', q(c.depth || ''), q(c.bait), q(c.notes)].join(',') + '\n').join('');
+  }
+
+  // ---- Forecasts from Open-Meteo (the app's Wind.kt, for one point) ---------------------------------------
+  /** -> { lat, lon, fetched, hours: [{ t, kn, gust, from, wave, sea, seaS, seaFrom, swell, swellS, swellFrom }] } */
+  function parseForecast(wind, marine, lat, lon, fetched) {
+    const h = wind.hourly, m = marine && marine.hourly;
+    const at = new Map();
+    if (m) m.time.forEach((t, i) => at.set(t, i));
+    const v = (a, i) => (a && i !== undefined && a[i] !== null && a[i] !== undefined ? Number(a[i]) : null);
+    return { lat, lon, fetched, hours: h.time.map((t, i) => {
+      const j = at.get(t);
+      return { t: t * 1000, kn: v(h.wind_speed_10m, i), gust: v(h.wind_gusts_10m, i), from: v(h.wind_direction_10m, i),
+        wave: v(m?.wave_height, j), sea: v(m?.wind_wave_height, j), seaS: v(m?.wind_wave_period, j), seaFrom: v(m?.wind_wave_direction, j),
+        swell: v(m?.swell_wave_height, j), swellS: v(m?.swell_wave_period, j), swellFrom: v(m?.swell_wave_direction, j) };
+    }) };
+  }
+  /** The forecast hour nearest [t], or null outside it. */
+  function forecastAt(f, t) {
+    if (!f || !f.hours.length) return null;
+    const first = f.hours[0].t, last = f.hours[f.hours.length - 1].t;
+    if (t < first - 1800000 || t > last + 1800000) return null;
+    return f.hours[Math.max(0, Math.min(f.hours.length - 1, Math.round((t - first) / 3600000)))];
+  }
+  const windText = (h) => (h && h.kn !== null ? `${Math.round(h.kn)} kn${h.gust !== null && h.gust >= h.kn ? ` gusting ${Math.round(h.gust)}` : ''}${h.from !== null ? ` from ${compass(h.from)}` : ''}` : '');
+  function wavesText(h) {
+    if (!h || h.wave === null) return '';
+    const part = (m, s, from) => (m === null ? null : `${m.toFixed(1)} m${s !== null ? ` ${Math.round(s)} s` : ''}${from !== null ? ` from ${compass(from)}` : ''}`);
+    return [part(h.swell, h.swellS, h.swellFrom) && `Swell ${part(h.swell, h.swellS, h.swellFrom)}`, part(h.sea, h.seaS, h.seaFrom) && `Sea ${part(h.sea, h.seaS, h.seaFrom)}`, `Combined ${h.wave.toFixed(1)} m`].filter(Boolean).join(' · ');
+  }
+
   return { distanceNm, bearing, routeLengthNm, segDistM, fmtNm, fmtBearing, fmtDuration, fmtDdm, fmtPos, uuid,
     emptyRoute, cleanRoute, cleanMark, parseBackup, exportBackup, exportGpx, parseGpx, mergeById, mergeMarks,
     GROUP_COLORS, groupName, cleanGroup, findGroup, ensureGroup, tidyGroups, decodeTile, ChartReader, depthText, checkRoute, pos,
-    fold, placeKind, placeZoom, searchPlaces, sourceLines };
+    fold, placeKind, placeZoom, searchPlaces, sourceLines,
+    xteNm, sogCog, compass, circle, Tides, BagLimits, LIMIT_AREAS, areaLabel, plain, dayOf, closureOn, checkCatch,
+    cleanCatch, catchTitle, catchDetails, catchesCsv, trimNum, parseForecast, forecastAt, windText, wavesText };
 })();
 if (typeof globalThis !== 'undefined') globalThis.ChompCore = Core;

@@ -17,9 +17,16 @@
     return e;
   }
 
+  /** Touch screen with no mouse (no hover readout, hold for the menu). */
+  const TOUCH = matchMedia('(hover: none) and (pointer: coarse)').matches;
+  const PHONE = matchMedia('(max-width: 700px)').matches;
+  const IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (TOUCH) document.body.classList.add('touch');
+
   // ---- State (kept in this browser) ----------------------------------------------------
   const KEY = 'chompchamp.planner.v1';
-  const state = { routes: [], plan: C.emptyRoute(), marks: [], groups: [], track: [], speed: 15, safety: 5, layers: {}, view: null, tab: 'routes' };
+  const state = { routes: [], plan: C.emptyRoute(), marks: [], groups: [], track: [], catches: [], speed: 15, safety: 5, layers: {}, view: null, tab: 'routes',
+    display: {}, recording: false, anchor: null };
   let storageOk = true;
   try {
     const s = JSON.parse(localStorage.getItem(KEY) || '{}');
@@ -27,9 +34,10 @@
     state.routes = (s.routes || []).map((r) => safe(() => C.cleanRoute(r))).filter(Boolean);
     state.marks = (s.marks || []).map((m) => safe(() => C.cleanMark(m))).filter(Boolean);
     state.groups = (s.groups || []).map((g) => safe(() => C.cleanGroup(g))).filter(Boolean);
+    state.catches = (s.catches || []).map((c) => safe(() => C.cleanCatch(c))).filter(Boolean);
     if (s.plan) state.plan = safe(() => C.cleanRoute(s.plan), state.plan);
     state.track = Array.isArray(s.track) ? s.track : [];
-    for (const k of ['speed', 'safety', 'layers', 'view', 'tab']) if (s[k] !== undefined && s[k] !== null) state[k] = s[k];
+    for (const k of ['speed', 'safety', 'layers', 'view', 'tab', 'display', 'recording', 'anchor']) if (s[k] !== undefined && s[k] !== null) state[k] = s[k];
   } catch (e) { storageOk = false; }
   C.tidyGroups(state.groups, state.marks);
   let saveTimer = 0;
@@ -135,6 +143,9 @@
       ['route', 'Route', true, [L('route-line', 'line-opacity', 1), L('route-mid', 'circle-opacity', 0.6), L('route-wpts', 'circle-opacity', 1), L('route-wpts', 'circle-stroke-opacity', 1), L('route-labels', 'text-opacity', 1)]],
       ['marks', 'Marks', true, [L('marks', 'circle-opacity', 1), L('marks', 'circle-stroke-opacity', 1), L('marks-label', 'text-opacity', 1)]],
       ['track', 'Track', true, [L('track-line', 'line-opacity', 0.75)]],
+      ['catches', 'Catches', true, [L('catches', 'circle-opacity', 1), L('catches', 'circle-stroke-opacity', 1), L('catches-label', 'text-opacity', 1)]],
+      ['boat', 'Your boat (GPS)', true, [L('boat', 'icon-opacity', 1), L('boat-acc', 'fill-opacity', 0.12)]],
+      ['nav', 'Go-to line and anchor circle', true, [L('goto-line', 'line-opacity', 1), L('anchor-fill', 'fill-opacity', 0.12), L('anchor-line', 'line-opacity', 1)]],
     ]],
   ];
   const layerState = (key, def) => ({ on: def, pct: 100, ...(state.layers[key] || {}) });
@@ -183,7 +194,7 @@
     }
     s.sources.hazards = { type: 'geojson', data: DATA.hazards, attribution: 'Marks © WA Department of Transport (CC BY 4.0), © OpenStreetMap contributors' };
     s.sources.places = { type: 'geojson', data: DATA.places, attribution: 'Places © OpenStreetMap contributors, boat ramps © WA Department of Transport (CC BY 4.0)' };
-    for (const k of ['track', 'route-line', 'route-mid', 'route-wpts', 'marks', 'issue', 'place-hit']) s.sources[k] = { type: 'geojson', data: fc([]) };
+    for (const k of ['track', 'route-line', 'route-mid', 'route-wpts', 'marks', 'issue', 'place-hit', 'catches', 'goto-line', 'anchor', 'boat', 'boat-acc']) s.sources[k] = { type: 'geojson', data: fc([]) };
     const halo = { 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 };
     const BLUE = '#1B4F72', NAVY = '#0D47A1', POINTS = ['ramp', 'harbour', 'marina', 'jetty', 'lighthouse'];
     const rank = ['to-number', ['get', 'rank']];
@@ -212,6 +223,15 @@
       { id: 'marks', type: 'circle', source: 'marks', paint: { 'circle-radius': 7, 'circle-color': ['to-color', ['get', 'color'], '#fdd835'], 'circle-stroke-color': '#4e342e', 'circle-stroke-width': 2 } },
       { id: 'marks-label', type: 'symbol', source: 'marks', layout: { 'text-field': ['get', 'name'], 'text-font': FONT, 'text-size': 11,
         'text-offset': [0, 1.5], 'text-optional': true }, paint: { 'text-color': '#4e342e', ...halo } },
+      { id: 'catches', type: 'circle', source: 'catches', paint: { 'circle-radius': 6, 'circle-color': '#FB8C00', 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 2 } },
+      { id: 'catches-label', type: 'symbol', source: 'catches', minzoom: 11, layout: { 'text-field': ['get', 'name'], 'text-font': FONT, 'text-size': 11,
+        'text-offset': [0, 1.4], 'text-optional': true }, paint: { 'text-color': '#BF360C', ...halo } },
+      { id: 'anchor-fill', type: 'fill', source: 'anchor', paint: { 'fill-color': '#1565C0', 'fill-opacity': 0.12 } },
+      { id: 'anchor-line', type: 'line', source: 'anchor', paint: { 'line-color': '#1565C0', 'line-width': 2, 'line-dasharray': [3, 2] } },
+      { id: 'goto-line', type: 'line', source: 'goto-line', paint: { 'line-color': MAGENTA, 'line-width': 2.5, 'line-dasharray': [2, 1.5] } },
+      { id: 'boat-acc', type: 'fill', source: 'boat-acc', paint: { 'fill-color': '#1565C0', 'fill-opacity': 0.12 } },
+      { id: 'boat', type: 'symbol', source: 'boat', layout: { 'icon-image': ['get', 'icon'], 'icon-rotate': ['get', 'rot'], 'icon-rotation-alignment': 'map',
+        'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-size': ['get', 'size'] } },
       { id: 'place-hit-ring', type: 'circle', source: 'place-hit', paint: { 'circle-radius': 14, 'circle-opacity': 0, 'circle-stroke-color': NAVY, 'circle-stroke-width': 3 } },
       { id: 'place-hit-label', type: 'symbol', source: 'place-hit', layout: { 'text-field': ['get', 'name'], 'text-font': FONT, 'text-size': 13,
         'text-anchor': 'top', 'text-offset': [0, 1.5], 'text-max-width': 10, 'text-allow-overlap': true, 'text-ignore-placement': true },
@@ -238,9 +258,11 @@
   map.on('styleimagemissing', (e) => {
     if (e.id.startsWith('hz-') && !map.hasImage(e.id)) map.addImage(e.id, hazardIcon(e.id.slice(3)), { pixelRatio: 2 });
     if (e.id.startsWith('pl-') && !map.hasImage(e.id)) map.addImage(e.id, placeIcon(e.id === 'pl-ramp'), { pixelRatio: 2 });
+    if (e.id.startsWith('boat-') && !map.hasImage(e.id)) map.addImage(e.id, boatIcon(e.id === 'boat-arrow'), { pixelRatio: 2 });
   });
   map.on('style.load', () => { applyLayers(); drawData(); });
   map.on('moveend', () => { const c = map.getCenter(); state.view = { lon: c.lng, lat: c.lat, zoom: map.getZoom() }; save(); });
+
   const rebuildStyle = () => map.setStyle(buildStyle(), { diff: false });
 
   function setData(id, features) { const s = map.getSource(id); if (s) s.setData(fc(features)); }
@@ -252,6 +274,11 @@
     const groups = Object.fromEntries(state.groups.map((g) => [g.name, g]));
     setData('marks', state.marks.filter((m) => groups[m.group]?.visible !== false).map((m) => point(m, { id: m.id, name: m.name, color: groups[m.group]?.color || '#FDD835' })));
     setData('track', state.track.length > 1 ? [line(state.track)] : []);
+    // A catch saved with a mark is shown by its mark.
+    const markIds = new Set(state.marks.map((m) => m.id));
+    setData('catches', state.catches.filter((c) => c.lat !== undefined && !(c.mark && markIds.has(c.mark)))
+      .map((c) => point(c, { id: c.id, name: C.catchTitle(c) })));
+    drawGps();
   }
 
   /** Boat ramp: a slope on a white disc. Harbour: an anchor-like hook on dark blue. Like Places.kt, 16 units at 2x. */
@@ -387,15 +414,16 @@
   const confirmBox = (title, text, yes = 'OK') => dialog(title, text, [['Cancel', null], [yes, true, 'primary']]);
   const askText = (title, value) => dialog(title, null, [['Cancel', null], ['OK', true, 'primary']], value);
 
+  let menuGuard = 0;   // the touch that opened the menu mustn't also pick from it
   function openMenu(x, y, heading, items) {
     const m = $('menu');
-    m.replaceChildren(el('div.muted', {}, heading), ...items.map(([label, fn]) => el('button', { role: 'menuitem', onclick: () => { m.hidden = true; fn(); } }, label)));
+    m.replaceChildren(el('div.muted', {}, heading), ...items.map(([label, fn]) => el('button', { role: 'menuitem', onclick: () => { if (Date.now() < menuGuard) return; m.hidden = true; fn(); } }, label)));
     m.hidden = false;
     m.style.left = `${Math.min(x, innerWidth - m.offsetWidth - 8)}px`;
     m.style.top = `${Math.min(y, innerHeight - m.offsetHeight - 8)}px`;
     m.querySelector('button').focus();
   }
-  addEventListener('pointerdown', (e) => { if (!$('menu').contains(e.target)) $('menu').hidden = true; }, true);
+  addEventListener('pointerdown', (e) => { if (!$('menu').contains(e.target) && Date.now() > menuGuard) $('menu').hidden = true; }, true);
 
   function pickFile(accept, fn) {
     const f = $('file');
@@ -403,7 +431,14 @@
     f.onchange = () => { if (f.files[0]) fn(f.files[0]); };
     f.click();
   }
-  function download(name, text, type) {
+  async function download(name, text, type) {
+    // On a phone, the share sheet is the way to save to Files or send it.
+    if (TOUCH && navigator.canShare) {
+      const file = new File([text], name, { type: 'text/plain' });
+      if (navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file] }); return; } catch (e) { if (e.name === 'AbortError') return; }
+      }
+    }
     const a = el('a', { href: URL.createObjectURL(new Blob([text], { type })), download: name });
     document.body.append(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 10000);
@@ -516,7 +551,8 @@
           [2, 3, 5, 10, 20].map((k) => el('option', { value: k, selected: k === state.safety }, `${k} m`)))));
       out.push(el('div.btns', {}, checking
         ? [el('span', { id: 'check-pct' }, 'Checking…'), el('button.btn', { onclick: () => { checking.stop = true; } }, 'Cancel')]
-        : el('button.primary', { id: 'check', onclick: runCheck }, 'Check route')));
+        : [el('button.primary', { id: 'check', onclick: runCheck }, 'Check route'),
+          el('button.btn', { ariaPressed: String(!!nav.route), onclick: () => (nav.route ? stopNav() : followRoute(state.plan.waypoints)) }, nav.route ? 'Stop following' : 'Follow with GPS')]));
       if (issues) {
         if (!issues.length) out.push(el('p', {}, `No land, water under ${state.safety} m, charted hazards or no-fishing zones found on the route.`));
         out.push(el('ul.issues', {}, issues.map((x) => el('li', {}, el('button', { onclick: () => { setData('issue', [point(x.at, {})]); map.easeTo({ center: [x.at.lon, x.at.lat], zoom: Math.max(map.getZoom(), 14) }); } },
@@ -551,7 +587,11 @@
     const info = [C.fmtPos(m), m.depth ? `Depth (est.): ${m.depth} m` : '', m.time ? new Date(m.time).toLocaleString() : '',
       m.photos ? `${m.photos.length} photo${m.photos.length === 1 ? '' : 's'} on the phone` : ''].filter(Boolean).join('\n');
     const grp = groupSelect(m.group, (name) => { m.group = name; marksChanged(); });
-    const a = await dialog(m.name || 'Mark', [info, el('div.row', {}, el('span', {}, 'Group'), grp)], [['Delete', 'del', 'btn danger'], ['Rename', 'ren'], ['Add to route', 'rte'], ['Close', null, 'primary']]);
+    const caught = state.catches.filter((c) => c.mark === m.id).sort((a, b) => b.time - a.time);
+    const list = caught.length ? el('div', {}, el('h3', {}, `Catches here (${caught.length})`), caught.map((c) =>
+      el('button.link', { onclick: () => { $('dialog').close(); showCatch(c); } }, `${C.catchTitle(c)} · ${C.catchDetails(c)} · ${new Date(c.time).toLocaleDateString()}`))) : null;
+    const a = await dialog(m.name || 'Mark', [info, el('div.row', {}, el('span', {}, 'Group'), grp), list], [['Delete', 'del', 'btn danger'], ['Rename', 'ren'], ['Add to route', 'rte'], ['Go to', 'go'], ['Close', null, 'primary']]);
+    if (a === 'go') goTo({ name: m.name || 'Mark', lat: m.lat, lon: m.lon });
     if (a === 'rte') { snapshot(); state.plan.waypoints.push({ lat: m.lat, lon: m.lon, name: m.name }); planChanged(); toast('Added to the route'); }
     if (a === 'ren') { const n = await askText('Rename mark', m.name); if (n) { m.name = n; save(); drawData(); renderMarks(); } }
     if (a === 'del' && await confirmBox('Delete mark', `Delete "${m.name}"?`, 'Delete')) {
@@ -686,13 +726,15 @@
         out.push(row);
       }
     }
+    out.push(...displaySettings());
     out.push(el('p.empty', {}, 'Depth, zones and the route check read the chart file, so they work even when a layer is hidden.'),
       el('button.btn', { onclick: async () => { if (await confirmBox('Reset layers', 'Put every layer back to its default?', 'Reset')) { state.layers = {}; save(); applyLayers(); renderLayers(); } } }, 'Reset layers'));
     $('pane-layers').replaceChildren(...out);
   }
 
   // ---- Data pane -----------------------------------------------------------------------------------------
-  const CHART_ACCEPT = '.pmtiles,application/octet-stream,application/vnd.pmtiles';
+  // iOS greys out files it has no type for, and it has none for .pmtiles.
+  const CHART_ACCEPT = IOS ? '' : '.pmtiles,application/octet-stream,application/vnd.pmtiles';
   const chooseChart = () => pickFile(CHART_ACCEPT, (f) => openAny(f));
   async function removeFile(kind) {
     if (!await confirmBox('Remove file', `Remove the ${kind === 'chart' ? 'chart' : 'reef relief'} from this browser? Your original file isn't touched.`, 'Remove')) return;
@@ -704,7 +746,7 @@
     const t = text.trimStart();
     const isGpx = !t.startsWith('{');
     const b = t.startsWith('{') ? C.parseBackup(t) : C.parseGpx(new DOMParser().parseFromString(t, 'application/xml'));
-    const list = [`${b.routes.length} route(s)${b.plan && b.plan.waypoints.length ? ' and the current plan' : ''}`, `${b.marks.length} mark(s)`, `${b.track.length} track point(s)`].join('\n');
+    const list = [`${b.routes.length} route(s)${b.plan && b.plan.waypoints.length ? ' and the current plan' : ''}`, `${b.marks.length} mark(s)`, `${b.catches.length} catch(es)`, `${b.track.length} track point(s)`].join('\n');
     const how = await dialog(`Import ${name}`, [list, 'Merge keeps what you have and updates routes and marks that are in both. Replace swaps your routes, marks and track for the ones in this file.'],
       [['Cancel', null], ['Replace', 'replace', 'btn danger'], ['Merge', 'merge', 'primary']]);
     if (!how) return;
@@ -727,6 +769,7 @@
     }
     state.routes = C.mergeById(replace ? [] : state.routes, b.routes);
     state.marks = C.mergeMarks(replace ? [] : state.marks, b.marks);
+    state.catches = C.mergeById(replace ? [] : state.catches, b.catches);
     if (replace && !isGpx) state.groups = [];
     for (const g of b.groups) if (!C.findGroup(state.groups, g.name)) state.groups.push(g);
     C.tidyGroups(state.groups, state.marks);
@@ -755,33 +798,43 @@
       el('div.btns', {}, el('button.btn', { onclick: chooseChart }, 'Open .pmtiles file…')),
       el('h3', {}, 'From your phone'),
       el('p.muted', {}, 'On the phone: ☰ → Data → Export backup file. Copy it here and import it.'),
-      el('div.btns', {}, el('button.btn', { onclick: () => pickFile('.json,.gpx,application/json,application/gpx+xml', openAny) }, 'Import backup or GPX…')),
+      el('div.btns', {}, el('button.btn', { onclick: () => pickFile(IOS ? '' : '.json,.gpx,application/json,application/gpx+xml', openAny) }, 'Import backup or GPX…')),
       el('h3', {}, 'To your phone'),
       el('p.muted', {}, 'Copy the backup to the phone, then ☰ → Data → Import and choose Merge. Routes and marks you deleted here stay on the phone when merging.'),
       el('div.btns', {},
         el('button.btn', { onclick: () => download(`chompchamp-planner-${stamp()}.json`, C.exportBackup(state), 'application/json') }, 'Export backup'),
         el('button.btn', { onclick: () => download(`chompchamp-${stamp()}.gpx`, C.exportGpx(state), 'application/gpx+xml') }, 'Export GPX')),
+      el('h3', {}, 'Track'),
+      el('p.muted', {}, state.track.length ? `${state.track.length} points${state.track[0].t ? ` from ${new Date(state.track[0].t).toLocaleString()}` : ''}. Recorded with ⏺ on the map, or imported from the phone.` : 'No track. Record one with ⏺ on the map (GPS), or import one from the phone.'),
+      el('div.btns', {}, el('button.btn', { disabled: !state.track.length, onclick: async () => { if (await confirmBox('Clear track', 'Delete the track? This can\'t be undone.', 'Clear')) { state.track = []; save(); drawData(); renderData(); } } }, 'Clear track')),
       el('h3', {}, 'This browser'),
-      el('p.muted', {}, 'Your routes and marks are saved in this browser only. Clearing its data deletes them, so export a backup now and then.'),
+      el('p.muted', {}, 'Your routes, marks and catches are saved in this browser only. Clearing its data deletes them, so export a backup now and then.'),
       el('div.btns', {}, el('button.btn.danger', { onclick: async () => {
-        if (!await confirmBox('Delete my data', 'Delete all routes, marks and track from the planner? The charts stay. This can\'t be undone.', 'Delete')) return;
-        Object.assign(state, { routes: [], marks: [], groups: [], track: [], plan: C.emptyRoute() }); C.tidyGroups(state.groups, []); undo.length = 0; planChanged(); renderAll();
+        if (!await confirmBox('Delete my data', 'Delete all routes, marks, catches and track from the planner? The charts stay. This can\'t be undone.', 'Delete')) return;
+        Object.assign(state, { routes: [], marks: [], groups: [], track: [], catches: [], anchor: null, plan: C.emptyRoute() }); C.tidyGroups(state.groups, []); undo.length = 0; planChanged(); renderAll();
       } }, 'Delete my data…')),
       el('h3', {}, 'About'),
       el('p.muted', {}, `Planner ${DATA.version}. Source code, data credits and licences are on GitHub.`),
       el('p', {}, el('a', { href: 'https://github.com/wufle/chompchamp', target: '_blank', rel: 'noopener noreferrer', style: 'color:var(--accent)' }, 'github.com/wufle/chompchamp')));
   }
 
-  function renderAll() { renderRoutes(); renderMarks(); renderLayers(); renderData(); $('welcome').hidden = !!files.chart; }
+  function renderAll() { renderRoutes(); renderMarks(); renderCatches(); renderWeather(); renderLimits(); renderLayers(); renderData(); $('welcome').hidden = !!files.chart; }
   function setTab(t) {
     if (!$(`pane-${t}`)) t = 'routes';
     state.tab = t; save();
-    document.querySelectorAll('nav button').forEach((b) => { const on = b.dataset.tab === t; b.setAttribute('aria-selected', on); $(`pane-${b.dataset.tab}`).hidden = !on; });
+    document.querySelectorAll('nav button').forEach((b) => { const on = b.dataset.tab === t; b.setAttribute('aria-selected', on); $(`pane-${b.dataset.tab}`).hidden = !on; if (on) b.scrollIntoView({ block: 'nearest', inline: 'nearest' }); });
+    if (t === 'weather') weatherShown();
+    if (t === 'limits') renderLimits();
+    if (t === 'catches') renderCatches();
   }
   document.querySelectorAll('nav button').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
   function collapse(on) { document.body.classList.toggle('collapsed', on); $('expand').hidden = !on; map.resize(); }
+  const openPanel = () => { if (document.body.classList.contains('collapsed')) collapse(false); };
   $('collapse').onclick = () => collapse(true);
   $('expand').onclick = () => collapse(false);
+  // On a phone the panel is a sheet over the map: half height or nearly full.
+  $('grow').onclick = () => { document.body.classList.toggle('sheet-full'); };
+  if (PHONE) collapse(true);
   $('welcome-open').onclick = chooseChart;
 
   // ---- Map interaction -----------------------------------------------------------------------------------
@@ -811,8 +864,8 @@
       return;
     }
     if (tool === 'route') map.getCanvas().style.cursor = hit(e.point, ['route-wpts', 'route-mid']) ? 'grab' : 'crosshair';
-    else if (!tool) map.getCanvas().style.cursor = hit(e.point, ['marks', 'hazards']) ? 'pointer' : '';
-    readCursor(ll(e));
+    else if (!tool) map.getCanvas().style.cursor = hit(e.point, ['marks', 'hazards', 'catches']) ? 'pointer' : '';
+    if (!TOUCH) readCursor(ll(e));
   });
   addEventListener('mouseup', () => {
     if (!drag) return;
@@ -826,22 +879,62 @@
     if (tool === 'mark') { addMark(ll(e)); return; }
     const mk = hit(e.point, ['marks']);
     if (mk) { const m = state.marks.find((x) => x.id === mk.properties.id); if (m) showMark(m); return; }
+    const ct = hit(e.point, ['catches']);
+    if (ct) { const c = state.catches.find((x) => x.id === ct.properties.id); if (c) showCatch(c); return; }
     const hz = hit(e.point, ['hazards']);
     if (hz) { showHazard(hz); return; }
     showZones(ll(e), false);
   });
-  map.on('contextmenu', (e) => {
-    e.preventDefault();
-    const p = ll(e), pos = C.fmtPos(p);
-    const wp = hit(e.point, ['route-wpts']);
+  function contextMenu(p, point, x, y) {
+    const pos = C.fmtPos(p);
+    const wp = hit(point, ['route-wpts']);
     const items = [];
     if (wp) items.push(['Delete this waypoint', () => { snapshot(); state.plan.waypoints.splice(wp.properties.i, 1); planChanged(); }]);
     items.push(['Add waypoint here', () => { addWaypoint(p); setTab('routes'); }], ['Add mark here', () => addMark(p)],
+      ['Log a catch here', () => logCatch(p, 'here')],
+      ['Go to here', () => goTo({ name: 'Point', ...p })],
       ['Zones here', () => showZones(p, true)],
-      ['Depth here and its source', () => showDepthSource(p)],
+      ['Depth, tide and source here', () => showDepthSource(p)],
+      ['Bag limits here', () => { limitsAt = p; setTab('limits'); renderLimits(); openPanel(); }],
       ['Copy position', () => navigator.clipboard.writeText(pos).then(() => toast('Position copied'), () => toast(pos))]);
-    openMenu(e.originalEvent.clientX, e.originalEvent.clientY, pos, items);
+    openMenu(x, y, pos, items);
+  }
+  map.on('contextmenu', (e) => { e.preventDefault(); contextMenu(ll(e), e.point, e.originalEvent.clientX, e.originalEvent.clientY); });
+
+  // Touch: hold for the menu (there's no right-click), and drag waypoints with a finger while drawing.
+  let press = null;
+  const endPress = () => { if (press) { clearTimeout(press.timer); press = null; } };
+  map.on('touchstart', (e) => {
+    swallowClick = false;
+    const t = e.originalEvent.touches;
+    endPress();
+    if (t.length !== 1) { if (drag) { drag = null; drawData(); } return; }
+    if (tool === 'route') {
+      const w = hit(e.point, ['route-wpts'], 18), m = w ? null : hit(e.point, ['route-mid'], 16);
+      if (w || m) { e.preventDefault(); drag = { i: w ? w.properties.i : m.properties.i + 1, insert: !w, from: e.point, moved: false }; return; }
+    }
+    const p = ll(e), x = t[0].clientX, y = t[0].clientY, from = e.point;
+    press = { from, timer: setTimeout(() => { press = null; swallowClick = true; menuGuard = Date.now() + 450; if (navigator.vibrate) navigator.vibrate(20); contextMenu(p, from, x, y); }, 550) };
   });
+  map.on('touchmove', (e) => {
+    if (press && Math.hypot(e.point.x - press.from.x, e.point.y - press.from.y) > 10) endPress();
+    if (!drag) return;
+    if (!drag.moved) {
+      if (Math.hypot(e.point.x - drag.from.x, e.point.y - drag.from.y) < 4) return;
+      snapshot(); drag.moved = true;
+      if (drag.insert) state.plan.waypoints.splice(drag.i, 0, { ...ll(e), name: '' });
+    }
+    Object.assign(state.plan.waypoints[drag.i], ll(e)); drawData();
+  });
+  const touchEnd = () => {
+    endPress();
+    if (!drag) return;
+    const moved = drag.moved; drag = null;
+    swallowClick = true;
+    if (moved) planChanged();
+  };
+  map.on('touchend', touchEnd);
+  map.on('touchcancel', touchEnd);
   addEventListener('keydown', (e) => {
     if ($('dialog').open) return;
     const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) && e.target.type !== 'range' && e.target.type !== 'checkbox';
@@ -861,6 +954,7 @@
     let r;
     try { r = await reader.at(p); } catch (e) { toast('No chart here'); return; }
     const lines = [`Depth (est.): ${C.depthText(r)}`, C.fmtPos(p)];
+    if (!r.land) { const t = tideText(p, r); if (t) lines.push(t); }
     const src = r.land ? [] : C.sourceLines(r.source);
     if (src.length) lines.push('', ...src, 'Depths are from about mean sea level: less water at low tide.');
     else if (!r.land && r.known) lines.push('', 'This chart file has no source information. Charts from app 0.17.12 on do.');
@@ -909,14 +1003,22 @@
     const f = e.dataTransfer.files[0]; if (f) openAny(f);
   });
 
+  // %%MODULES%%
+
   // ---- Start --------------------------------------------------------------------------------------------
   setTab(state.tab);
+  // With no mouse, the readout is for the cross in the middle of the map.
+  if (TOUCH) map.on('move', () => { const c = map.getCenter(); readCursor({ lat: c.lat, lon: c.lng }); });
+  // Installed from the website: work offline, and keep the chart from being cleared.
+  if ((location.protocol === 'https:' || location.hostname === 'localhost') && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   (async () => {
     for (const kind of ['chart', 'relief']) {
       try { const f = await idb.get(kind); if (f) await useFile(f.blob, f.name); } catch (e) { /* not kept, or storage is blocked */ }
     }
     if (files.chart || files.relief) rebuildStyle();
     renderAll();
+    if (files.chart && navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    resumeGps();
   })();
-  globalThis.__planner = { map, state, files, get reader() { return reader; } };   // used by the automated tests
+  globalThis.__planner = { map, state, files, renderAll, drawData, get reader() { return reader; } };   // used by the automated tests
 })();
