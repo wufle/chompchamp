@@ -97,7 +97,9 @@ name, type, speed, course and how long ago each was heard. No account or receive
 more behind, and boats without AIS or out of range of a station are missing. It is for interest, not for avoiding collisions.
 
 **Wind** (Layers → Wind, off by default): the forecast drawn as streaks drifting across the map, coloured by speed, like
-Windy. **☰ → Wind, waves & tide** has a time slider for the next 7 days, the colour key, and the wind at your boat. The forecast
+Windy. **☰ → Wind, waves & tide** has switches to show or hide wind and sea & swell on the map, week charts of wind (with
+gusts and direction) and sea & swell at your boat, and one time slider for the next 7 days that moves the map and the
+charts (or tap a chart to pick a time). The forecast
 (ECMWF 9 km, via Open-Meteo) downloads for the area on screen while you're online and is kept, so it still shows at sea:
 open the map over where you're going before you leave. Long-press shows the wind at that spot.
 
