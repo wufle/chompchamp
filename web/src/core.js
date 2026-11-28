@@ -1104,6 +1104,51 @@ const Core = (() => {
     return { px: m / metresPerPx, label: `${m} m` };
   }
 
+
+  // ---- Ais.kt: vessels from Open Waters AIS. Shown live only: never stored or exported (AISHub's terms) -------------------
+  /** The GeoJSON from /v1/vessels -> vessels. Anything malformed is skipped, and buoys (on the chart already). */
+  function parseVessels(json) {
+    if (!json || !Array.isArray(json.features)) throw new Error('unexpected answer');
+    const out = [];
+    for (const f of json.features) {
+      try {
+        const p = f.properties || {};
+        if ((p.kind || 'vessel') !== 'vessel') continue;
+        const [lon, lat] = f.geometry.coordinates.map(Number);
+        if (!(Math.abs(lat) <= 90 && Math.abs(lon) <= 180)) continue;
+        const n = (k, max) => { const v = Number(p[k]); return p[k] !== undefined && p[k] !== null && v >= 0 && v < max ? v : null; };
+        const seen = Date.parse(String(p.seen).slice(0, 19) + 'Z');
+        const mmsi = Number(p.mmsi);
+        if (!isFinite(seen) || !Number.isInteger(mmsi)) continue;
+        out.push({ mmsi, lat, lon, name: str(p.name, 40).trim(), seen, sog: n('sog', 102.3), cog: n('cog', 360), heading: n('heading', 360),
+          type: Number(p.type) || 0, navStatus: p.nav_status === undefined || p.nav_status === null ? null : Number(p.nav_status),
+          length: Number(p.length) || 0, beam: Number(p.beam) || 0, callsign: str(p.callsign, 12).trim(), flag: str(p.flag, 4),
+          destination: str(p.destination, 40).trim(), source: str(p.source, 40) });
+      } catch (e) { /* skip it */ }
+    }
+    return out;
+  }
+  const vesselLabel = (v) => v.name || `MMSI ${v.mmsi}`;
+  const vesselMoving = (v) => (v.sog || 0) >= 0.5;
+  /** AIS ship type codes (ITU-R M.1371). */
+  function vesselType(t) {
+    const named = { 30: 'Fishing vessel', 31: 'Tug', 32: 'Tug', 52: 'Tug', 33: 'Dredger', 34: 'Dive vessel', 35: 'Naval vessel', 36: 'Sailing vessel',
+      37: 'Pleasure craft', 50: 'Pilot boat', 51: 'Search and rescue', 53: 'Port tender', 55: 'Law enforcement', 58: 'Medical transport' };
+    if (named[t]) return named[t];
+    return t >= 40 && t <= 49 ? 'High-speed craft' : t >= 60 && t <= 69 ? 'Passenger vessel' : t >= 70 && t <= 79 ? 'Cargo ship' : t >= 80 && t <= 89 ? 'Tanker' : 'Vessel';
+  }
+  const vesselStatus = (s) => ({ 1: 'at anchor', 2: 'not under command', 3: 'restricted manoeuvrability', 4: 'constrained by draught', 5: 'moored', 6: 'aground', 7: 'fishing' })[s] || null;
+  /** AisBox: { s, w, n, e }. Never over 9° across (the server's limit is 100 square degrees). */
+  const AIS_MAX_DEG = 9;
+  function aisClip(b) {
+    const cLat = (b.s + b.n) / 2, cLon = (b.w + b.e) / 2;
+    const h = Math.min(AIS_MAX_DEG / 2, Math.max(0, (b.n - b.s) / 2)), v = Math.min(AIS_MAX_DEG / 2, Math.max(0, (b.e - b.w) / 2));
+    return { s: cLat - h, w: cLon - v, n: cLat + h, e: cLon + v };
+  }
+  /** Grown by a quarter on each side, then clipped. */
+  const aisPad = (b) => aisClip({ s: b.s - (b.n - b.s) / 4, w: b.w - (b.e - b.w) / 4, n: b.n + (b.n - b.s) / 4, e: b.e + (b.e - b.w) / 4 });
+  const aisContains = (o, b) => b.s >= o.s - 1e-6 && b.w >= o.w - 1e-6 && b.n <= o.n + 1e-6 && b.e <= o.e + 1e-6;
+
   return { distanceNm, bearing, routeLengthNm, segDistM, fmtNm, fmtBearing, fmtDuration, fmtDdm, fmtPos, uuid,
     emptyRoute, cleanRoute, cleanMark, parseBackup, exportBackup, exportGpx, parseGpx, mergeById, mergeMarks,
     GROUP_COLORS, groupName, cleanGroup, findGroup, ensureGroup, tidyGroups, decodeTile, ChartReader, depthText, checkRoute, pos,
@@ -1112,6 +1157,7 @@ const Core = (() => {
     cleanCatch, catchTitle, catchDetails, catchesCsv, trimNum, parseForecast, forecastAt, windText, wavesText,
     alongTrackNm, destination, fieldNm, fmtXte, fmtClock, fromBoat, Navigator, DriftTracker, TripStats, splitTrack, trackSpeeds, addTrackPoint,
     tripOf, cleanTrip, tripAvg, tripDuration, encodeTrip, decodeTrip, catchesIn, archiveTrack, tripGpx, speedCsv, dayLabel, TRACK_MAX, GAP_MS,
-    windGrid, windFits, parseWindGrid, windEnd, windCovers, windAt, wavesAt, waveFrame, windFrame, windShort, wavesShort, WAVE_KEYS, scaleBar };
+    windGrid, windFits, parseWindGrid, windEnd, windCovers, windAt, wavesAt, waveFrame, windFrame, windShort, wavesShort, WAVE_KEYS, scaleBar,
+    parseVessels, vesselLabel, vesselMoving, vesselType, vesselStatus, aisClip, aisPad, aisContains };
 })();
 if (typeof globalThis !== 'undefined') globalThis.ChompCore = Core;

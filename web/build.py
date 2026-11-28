@@ -72,7 +72,7 @@ parts = {
     }) + ";",
     "CORE_JS": script(text(WEB / "src/core.js")),
     # The feature modules share app.js's scope: they go where it says %%MODULES%%.
-    "APP_JS": script(text(WEB / "src/app.js").replace("// %%MODULES%%", "\n".join(text(WEB / f"src/{m}.js") for m in ("ui", "fields", "gps", "weather", "catches", "marks", "display")))),
+    "APP_JS": script(text(WEB / "src/app.js").replace("// %%MODULES%%", "\n".join(text(WEB / f"src/{m}.js") for m in ("ui", "fields", "gps", "weather", "ais", "catches", "marks", "display")))),
 }
 
 # Split on the placeholders once, so nothing inside a part is ever treated as a placeholder.

@@ -16,7 +16,7 @@ Bundled libraries (map data has its own licences, see the README):
 <meta name="theme-color" content="#101C2B">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' blob:; child-src blob:; style-src 'unsafe-inline'; img-src 'self' data: blob: https://ows.dea.ga.gov.au https://public-services.slip.wa.gov.au; connect-src 'self' data: blob: https://ows.dea.ga.gov.au https://public-services.slip.wa.gov.au https://api.open-meteo.com https://marine-api.open-meteo.com; worker-src 'self' blob:; manifest-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' blob:; child-src blob:; style-src 'unsafe-inline'; img-src 'self' data: blob: https://ows.dea.ga.gov.au https://public-services.slip.wa.gov.au; connect-src 'self' data: blob: https://ows.dea.ga.gov.au https://public-services.slip.wa.gov.au https://api.open-meteo.com https://marine-api.open-meteo.com https://ais.openwaters.io; worker-src 'self' blob:; manifest-src 'self'; base-uri 'none'; form-action 'none'">
 <title>ChompChamp Planner</title>
 <link rel="icon" href="data:image/svg+xml;base64,%%LOGO_B64%%">
 <style>%%VENDOR_CSS%%</style>
@@ -41,6 +41,7 @@ Bundled libraries (map data has its own licences, see the README):
   <div class="corner right"><button id="btn-locate" class="circle" type="button" aria-label="Follow boat" title="Follow boat"></button><span class="blabel" aria-hidden="true">Follow</span></div>
   <div id="scalebar" aria-hidden="true"><span></span><i></i></div>
   <button id="credit" type="button" hidden></button>
+  <button id="aislabel" type="button" hidden></button>
   <div id="cursor" hidden><span></span><span></span><span></span></div>
   <div id="panel" hidden></div>
 </div>

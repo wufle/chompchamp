@@ -138,12 +138,12 @@ chart, offline once opened. Use it on a PC to plan, or on an iPhone as a chartpl
   bearing, distance, cross-track, ETA, drift, nearest mark, trip and more), arranged and sized in **Display**.
 - ☰ menu: Search places, Wind, waves & tide, Marks, Trips & catches, Bag & size limits, Display, Settings,
   Charts & updates, Data, About. Layers and Follow at the bottom corners, as on the phone.
-- Wind streaks and sea and swell shading on the map, with week charts and the tide (worked out offline), from
+- Vessels (AIS) from Open Waters, and wind streaks and sea and swell shading on the map, with week charts and the tide (worked out offline), from
   Open-Meteo for the area on screen and kept for offline use.
 - Trips with a speed log, a catch log with bag and size limit warnings, mark groups, your choice of boat.
 - Swap routes, marks, trips, catches and the track with the phone app using backup or GPX files.
 
-Not in the planner: AIS vessels, saving satellite imagery for offline use, and photos (those stay on the phone).
+Not in the planner: saving satellite imagery for offline use, and photos (those stay on the phone).
 
 **On a PC:** download `chompchamp-planner.html` and `wa.pmtiles` from the
 [latest release](https://github.com/wufle/chompchamp/releases/latest), open the HTML file in a browser and choose
@@ -170,7 +170,7 @@ Checking for updates asks GitHub for the latest release; it only happens when yo
 automatic checks. With the AIS layer on, Open Waters also sees your IP address and the area on screen
 about once a minute; it keeps request logs for 90 days. With the wind layer on, Open-Meteo sees your IP address and
 the area on screen when a forecast downloads (at most every few hours, or when you move to a new area). Your own position is never sent.
-The planner does the same for wind and waves: it sends the points of a grid over the map, never your position.
+The planner does the same for wind and waves (it sends the points of a grid over the map, never your position) and AIS.
 
 ## Data sources and licences
 

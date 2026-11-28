@@ -15,9 +15,10 @@
     ['safety_m', 'Safety depth (route check)', [2, 3, 5, 10, 20], ['2 m', '3 m', '5 m', '10 m', '20 m'], 5],
     ['awake', 'Keep the screen on while the GPS is on', [1, 0], ['On', 'Off'], 1],
     ['sound', 'Beep with alerts', [1, 0], ['On', 'Off'], 1],
+    ['ais_age', 'Hide AIS vessels not heard for', [10, 30, 60], ['10 min', '30 min', '60 min'], 30],
   ];
   const SECTIONS = [['Navigation', ['arrival_nm', 'plan_kn', 'course_up', 'safety_m']], ['Fishing', ['fish_zoom', 'drift_window', 'drift_project', 'anchor_m']],
-    ['Trips and track', ['trip_start', 'trip_split', 'track_window', 'track_spacing']], ['This phone or computer', ['awake', 'sound']]];
+    ['Trips and track', ['trip_start', 'trip_split', 'track_window', 'track_spacing']], ['Vessels', ['ais_age']], ['This phone or computer', ['awake', 'sound']]];
   function setting(k) {
     const o = OPTIONS.find((x) => x[0] === k), v = state.settings[k];
     return o[2].includes(v) ? v : o[4];
@@ -47,7 +48,7 @@
     }, [['Done', null, 'primary']], { cls: 'tall' });
   }
   function settingsChanged() {
-    drawTrack(); drawNav(); refreshModePanel(); updateBanner(); keepAwake(gps.watch !== null);
+    drawTrack(); drawNav(); drawAis(); refreshModePanel(); updateBanner(); keepAwake(gps.watch !== null);
     if ((state.mode === 'nav' || state.mode === 'fish') && gps.follow && gps.fix) moveToBoat(state.mode === 'fish' ? setting('fish_zoom') : map.getZoom());
     if (state.mode === 'route') refreshModePanel();
   }
@@ -61,7 +62,7 @@
     updateBag(); updateRecord();
     if (map.getLayer('catches')) map.setLayoutProperty('catches', 'icon-size', L.catch_scale);
     if (map.getLayer('places')) map.setLayoutProperty('places', 'text-size', placeSize(L.place_scale));
-    updateBoatIcon();
+    updateBoatIcon(); styleAis();
     fields.style();
     refreshModePanel(); updateScaleBar();
   }
@@ -165,7 +166,7 @@
       const knob = (k) => KNOBS.find((x) => x[0] === k);
       for (const [title, items] of [['Data field style · all modes', [['field_scale', 'Size'], ['field_alpha', 'Background']]],
         ['Buttons and panels · all modes', [['control_scale', 'Size'], ['control_alpha', 'Opacity']]],
-        ['Map symbols', [['catch_scale', 'Catch size'], ['place_scale', 'Place name size'], ['boat_scale', 'Boat size'], ['boat_alpha', 'Boat opacity']]]]) {
+        ['Map symbols', [['ais_scale', 'AIS vessel size'], ['catch_scale', 'Catch size'], ['place_scale', 'Place name size'], ['boat_scale', 'Boat size'], ['boat_alpha', 'Boat opacity']]]]) {
         rows.section(title);
         for (const [k, label] of items) {
           const [, from, to] = knob(k);
@@ -174,6 +175,10 @@
       }
       rows.section('Map');
       rows.actionRow('Scale bar', L.scale_bar ? 'On' : 'Off', () => { state.look.scale_bar = !L.scale_bar; save(); applyLook(); refreshDisplayPanel(); });
+      rows.actionRow('AIS vessel colour', (AIS_COLOURS.find((c) => c[0] === L.ais_colour) || AIS_COLOURS[0])[1], async () => {
+        const i = await pickOne('AIS vessel colour', AIS_COLOURS.map((c) => c[1]), Math.max(0, AIS_COLOURS.findIndex((c) => c[0] === L.ais_colour)));
+        if (i !== null) { state.look.ais_colour = AIS_COLOURS[i][0]; save(); styleAis(); refreshDisplayPanel(); }
+      });
       rows.section('Your boat');
       const name = el('p.note', {}, (BOATS.find((b) => b[0] === L.boat_shape) || BOATS[0])[1]);
       const strip = el('div.boats', {}, BOATS.map(([k, label]) => {
@@ -213,14 +218,15 @@
         rows.section(title);
         for (const [key, label, def] of group) {
           const s = layerState(key, def);
-          const set = (patch) => { state.layers[key] = { ...layerState(key, def), ...patch }; save(); applyLayers(); if (key === 'wind' || key === 'waves') { windChanged(); fetchWindForView(); } };
+          const set = (patch) => { state.layers[key] = { ...layerState(key, def), ...patch }; save(); applyLayers(); if (key === 'wind' || key === 'waves') { windChanged(); fetchWindForView(); } if (key === 'ais') aisChanged(); };
           rows.sliderRow({ label, pct: s.pct, checked: s.on, onChecked: (on) => set({ on }), onPct: (p) => set({ pct: p }) });
         }
       }
       rows.note('Sliders set each layer\'s opacity. No-fishing alerts keep working when zones are hidden. Satellite and online reef relief need internet. ' +
-        'Wind and waves are forecasts for the area on screen from Open-Meteo, kept for when you\'re offline (☰ → Wind, waves & tide).');
+        'Wind and waves are forecasts for the area on screen from Open-Meteo, kept for when you\'re offline (☰ → Wind, waves & tide). ' +
+        'AIS asks openwaters.io for vessels in the area on screen.');
       rows.button('Reset layers', async () => {
-        if (await confirmBox(null, 'Put every layer back to its default?', 'Reset')) { state.layers = {}; save(); applyLayers(); windChanged(); showLayers(); }
+        if (await confirmBox(null, 'Put every layer back to its default?', 'Reset')) { state.layers = {}; save(); applyLayers(); windChanged(); aisChanged(); showLayers(); }
       });
     });
   }

@@ -216,4 +216,21 @@ const asset = (f) => JSON.parse(fs.readFileSync(new URL(`../android/app/src/main
   assert.ok(!C.windFits({ ...f, fetched: 0, t0: 0, hours: 200 }, 118, -32.2, 118.4, -31.9, true, 1000));
   assert.equal(C.scaleBar(20, 96).label, '1 nm'); assert.equal(C.scaleBar(15, 96).label, '0.5 nm'); near(C.scaleBar(15, 96).px, 926 / 15, 0.1); assert.equal(C.scaleBar(0.5, 96).label, '20 m');
 }
+// AIS
+{
+  const vs = C.parseVessels({ features: [
+    { geometry: { coordinates: [115.7, -32.1] }, properties: { kind: 'vessel', mmsi: 503583000, name: ' SVITZER ', seen: '2026-11-28T07:50:11Z', sog: 9.5, cog: 232.5, type: 52, length: 30, flag: 'AU' } },
+    { geometry: { coordinates: [115.7, -32.1] }, properties: { kind: 'buoy', mmsi: 1, seen: '2026-11-28T07:50:11Z' } },
+    { geometry: { coordinates: [115.7, -32.1] }, properties: { kind: 'vessel', mmsi: 2, seen: 'nonsense' } },
+    { geometry: { coordinates: [115.7, -32.1] }, properties: { mmsi: 3, seen: '2026-11-28T07:50:11Z', sog: 102.3, heading: 511 } },
+  ] });
+  assert.equal(vs.length, 2);
+  assert.equal(vs[0].name, 'SVITZER'); assert.equal(vs[0].seen, Date.UTC(2026, 10, 28, 7, 50, 11)); assert.equal(C.vesselType(vs[0].type), 'Tug');
+  assert.ok(C.vesselMoving(vs[0])); assert.equal(vs[1].sog, null); assert.equal(vs[1].heading, null); assert.equal(C.vesselLabel(vs[1]), 'MMSI 3');
+  assert.throws(() => C.parseVessels({}));
+  const big = C.aisPad({ s: -40, w: 100, n: -20, e: 130 });
+  assert.ok(big.n - big.s <= 9 + 1e-9 && big.e - big.w <= 9 + 1e-9);
+  const box = C.aisPad({ s: -32.2, w: 115.5, n: -32, e: 115.8 });
+  near(box.n - box.s, 0.3, 1e-9); assert.ok(C.aisContains(box, { s: -32.2, w: 115.5, n: -32, e: 115.8 })); assert.ok(!C.aisContains(box, { s: -33, w: 115.5, n: -32, e: 115.8 }));
+}
 console.log('planner tests passed');

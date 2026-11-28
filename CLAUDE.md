@@ -122,7 +122,8 @@ Vendored libraries are in `web/vendor`. It reuses the Android app's `chart-style
 `tides.json`, `bag_limits.json`, `limit_areas.json`, species pictures, `res/drawable` icons and logo. `src/core.js` is pure
 logic (mirrors `Geo.kt`, `Navigator.kt`, `Trips.kt`, `Wind.kt`, `Storage.kt`, `UserData.kt`, `Tides.kt`, `BagLimits.kt`,
 `CatchLimits.kt`; keep them in step) and `src/app.js` is the map and start-up. The modules `ui.js` (dialogs, popup menu,
-docked panel), `fields.js`, `gps.js` (modes, navigation, trips), `weather.js`, `catches.js`, `marks.js` and `display.js`
+docked panel), `fields.js`, `gps.js` (modes, navigation, trips), `weather.js`, `ais.js` (never stores AIS data either; a browser
+can't set the User-Agent Open Waters asks for), `catches.js`, `marks.js` and `display.js`
 are pasted into `app.js` at `// %%MODULES%%` and share its scope: anything used while the map is being made (like
 `look()`) must be defined above it in `app.js`. Depth, zones and the route check read the chart file through
 `ChartReader`, not rendered features. Saved data is in localStorage (`chompchamp.planner.v1`, trip points under

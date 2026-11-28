@@ -59,9 +59,12 @@
   C.tidyGroups(state.groups, state.marks);
   // Sizes and transparency of everything over the map (Appearance.kt); the Display panel sets them.
   const KNOBS = [['field_scale', 0.6, 2, 1], ['field_alpha', 0, 1, 0.7], ['control_scale', 0.7, 1.6, 1], ['control_alpha', 0.25, 1, 0.85],
-    ['catch_scale', 0.5, 2, 1], ['place_scale', 0.6, 2, 1], ['boat_scale', 0.5, 2.5, 1], ['boat_alpha', 0.3, 1, 1]];
-  const LOOK_DEFAULTS = { ...Object.fromEntries(KNOBS.map((k) => [k[0], k[3]])), boat_shape: 'arrow', boat_colour: 'natural', scale_bar: true, bag_button: true, rec_button: true };
+    ['ais_scale', 0.5, 2, 1], ['catch_scale', 0.5, 2, 1], ['place_scale', 0.6, 2, 1], ['boat_scale', 0.5, 2.5, 1], ['boat_alpha', 0.3, 1, 1]];
+  const LOOK_DEFAULTS = { ...Object.fromEntries(KNOBS.map((k) => [k[0], k[3]])), boat_shape: 'arrow', boat_colour: 'natural', ais_colour: 'light_green', scale_bar: true, bag_button: true, rec_button: true };
   const look = () => ({ ...LOOK_DEFAULTS, ...state.look });
+  /** AIS vessel colours the user can choose from (Display); light green is the default. */
+  const AIS_COLOURS = [['light_green', 'Light green', '#9CCC65'], ['teal', 'Teal', '#00796B'], ['light_blue', 'Light blue', '#4FC3F7']];
+  const aisColour = () => (AIS_COLOURS.find((c) => c[0] === look().ais_colour) || AIS_COLOURS[0])[2];
 
   let saveTimer = 0;
   function save() { clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 250); }
@@ -169,7 +172,8 @@
       ['catches', 'Catches', true, [L('catches', 'icon-opacity', 1)]],
       ['anchor', 'Anchor circle', true, [L('anchor-fill', 'fill-opacity', 0.12), L('anchor-line', 'line-opacity', 1)]],
     ]],
-    ['Live (needs internet)', [['wind', 'Wind (forecast)', false, []], ['waves', 'Waves (forecast)', false, []]]],
+    ['Live (needs internet)', [['wind', 'Wind (forecast)', false, []], ['waves', 'Waves (forecast)', false, []],
+      ['ais', 'Vessels (AIS)', false, [L('ais-vector', 'line-opacity', 0.8), L('ais', 'icon-opacity', 1), L('ais', 'text-opacity', 1)]]]],
   ];
   const layerState = (key, def) => ({ on: def, pct: 100, ...(state.layers[key] || {}) });
 
@@ -218,7 +222,7 @@
     }
     s.sources.hazards = { type: 'geojson', data: DATA.hazards, attribution: 'Marks © WA Department of Transport (CC BY 4.0), © OpenStreetMap contributors' };
     s.sources.places = { type: 'geojson', data: DATA.places, attribution: 'Places © OpenStreetMap contributors, boat ramps © WA Department of Transport (CC BY 4.0)' };
-    for (const k of ['track', 'trip', 'trip-dots', 'route-line', 'route-mid', 'route-wpts', 'nav-line', 'drift', 'drift-end', 'marks', 'issue', 'place-hit', 'catches', 'anchor', 'boat', 'boat-acc']) {
+    for (const k of ['track', 'trip', 'trip-dots', 'route-line', 'route-mid', 'route-wpts', 'nav-line', 'drift', 'drift-end', 'marks', 'issue', 'place-hit', 'catches', 'anchor', 'boat', 'boat-acc', 'ais', 'ais-vector']) {
       s.sources[k] = { type: 'geojson', data: fc([]) };
     }
     const halo = { 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 };
@@ -260,6 +264,11 @@
       { id: 'marks', type: 'circle', source: 'marks', paint: { 'circle-radius': 7, 'circle-color': ['to-color', ['get', 'color'], '#fdd835'], 'circle-stroke-color': '#4e342e', 'circle-stroke-width': 2 } },
       { id: 'marks-label', type: 'symbol', source: 'marks', layout: { 'text-field': ['get', 'name'], 'text-font': FONT, 'text-size': 11,
         'text-offset': [0, 1.5] }, paint: { 'text-color': '#4e342e', ...halo } },
+      { id: 'ais-vector', type: 'line', source: 'ais-vector', paint: { 'line-color': aisColour(), 'line-width': 1.5, 'line-opacity': 0.8 } },
+      { id: 'ais', type: 'symbol', source: 'ais', layout: { 'icon-image': ['get', 'icon'], 'icon-rotate': ['to-number', ['get', 'rot']], 'icon-rotation-alignment': 'map',
+        'icon-size': Lk.ais_scale, 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'text-field': ['step', ['zoom'], '', 11.5, ['get', 'name']],
+        'text-font': FONT, 'text-size': 10.5, 'text-anchor': 'top', 'text-offset': [0, 1], 'text-optional': true },
+        paint: { 'text-color': '#004d40', 'text-halo-color': '#ffffff', 'text-halo-width': 1.3 } },
       { id: 'boat-acc', type: 'fill', source: 'boat-acc', paint: { 'fill-color': '#1565C0', 'fill-opacity': 0.12 } },
       { id: 'boat', type: 'symbol', source: 'boat', layout: { 'icon-image': 'own-boat', 'icon-rotate': ['get', 'rot'], 'icon-rotation-alignment': 'map',
         'icon-allow-overlap': true, 'icon-ignore-placement': true } },
@@ -290,6 +299,7 @@
     if (e.id.startsWith('pl-')) map.addImage(e.id, placeIcon(e.id === 'pl-ramp'), { pixelRatio: 2 });
     if (e.id === 'catch') map.addImage('catch', catchIcon(), { pixelRatio: 2 });
     if (e.id === 'own-boat') updateBoatIcon();
+    if (e.id.startsWith('ais-')) addAisIcon(e.id);
   });
   map.on('style.load', () => { applyLayers(); updateBoatIcon(); drawData(); });
   map.on('moveend', () => { const c = map.getCenter(); state.view = { lon: c.lng, lat: c.lat, zoom: map.getZoom() }; save(); });
@@ -300,7 +310,7 @@
     drawRoute();
     const groups = Object.fromEntries(state.groups.map((g) => [g.name, g]));
     setData('marks', visibleMarks().map((m) => point(m, { id: m.id, name: m.name, color: groups[m.group]?.color || '#FDD835' })));
-    drawTrack(); drawCatches(); drawBoat(); drawNav();
+    drawTrack(); drawCatches(); drawBoat(); drawNav(); drawAis();
     const t = state.trips.find((x) => x.id === state.shownTrip);
     if (t) showTripOnMap(t, tripPoints(t.id), false); else if (state.shownTrip) showTripOnMap(null, [], false);
   }
@@ -654,6 +664,8 @@
     if (mk) { const m = state.marks.find((x) => x.id === mk.properties.id); if (m) { markMenu(m); return; } }
     const ct = hit(e.point, ['catches']);
     if (ct) { const c = state.catches.find((x) => x.id === ct.properties.id); if (c) { viewCatch(c); return; } }
+    const vs = hit(e.point, ['ais']);
+    if (vs) { const v = ais.all.find((x) => String(x.mmsi) === vs.properties.mmsi); if (v) { showVessel(v); return; } }
     const hz = hit(e.point, ['hazards']);
     if (hz) { showHazard(hz); return; }
     showZones(p, false);
@@ -788,6 +800,7 @@
     if (files.chart && navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     resumeGps();
     updateScaleBar();
+    aisChanged();
   })();
   globalThis.__planner = { map, state, files, drawData, setMode, fields, get reader() { return reader; } };   // used by the automated tests
 })();
