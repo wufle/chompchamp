@@ -1073,7 +1073,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
         override fun askText(title: String, initial: String, onOk: (String) -> Unit) = this@MainActivity.askText(title, initial, onOk)
     })
 
+    private val catchLimits by lazy { CatchLimits(BagLimits(this)) }
+
     private fun createCatchDialogs() = CatchDialogs(this, look, tripLog, photos, object : CatchDialogs.Host {
+        override fun limits() = catchLimits
+        override fun here() = lastPos() ?: map?.cameraPosition?.target?.let { LatLon(it.latitude, it.longitude) }
         override fun changed() { showCatchesOnMap(); showMarks(); tripsPanel.refresh() }
         override fun goTo(p: LatLon) {
             map?.locationComponent?.takeIf { locationActive }?.cameraMode = CameraMode.NONE

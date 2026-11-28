@@ -45,6 +45,8 @@ class BagLimits(private val ctx: Context) {
         /** Stays open to boats while the rest of its group is closed to them. */
         val boatOpen: Boolean,
         private val search: String,
+        /** The name and other names, simplified with [plain], and "West Australian dhufish" for "Dhufish, West Australian". */
+        val names: List<String> = emptyList(),
     ) {
         fun matches(words: List<String>) = words.all { it in search }
     }
@@ -136,7 +138,25 @@ class BagLimits(private val ctx: Context) {
         boatOpen = s.optBoolean("boatOpen"),
         search = (listOf(s.getString("name")) + s.optJSONArray("aka")?.objects<String>().orEmpty()).joinToString(" ")
             .lowercase().replace("'", ""),
+        names = (listOf(s.getString("name")) + s.optJSONArray("aka")?.objects<String>().orEmpty()).flatMap { n ->
+            listOfNotNull(plain(n), n.split(", ").takeIf { it.size == 2 }?.let { plain(it[1] + " " + it[0]) })
+        },
     )
+
+    /**
+     * The species a typed name means in [area]: an exact name or other name if there is one (all of them, as
+     * "bluebone" is several fish), otherwise every species with all the typed words. Empty for blank text.
+     */
+    fun lookup(area: LimitArea, text: String): List<Pair<Group, Entry>> {
+        val t = plain(text)
+        if (t.isEmpty()) return emptyList()
+        val all = find(area, "").flatMap { g -> g.entries.map { g to it } }
+        all.filter { t in it.second.names }.takeIf { it.isNotEmpty() }?.let { return it }
+        // Without the plural "s" ("Tailors", "Flatheads"), then by words.
+        if (t.endsWith("s")) all.filter { t.dropLast(1) in it.second.names }.takeIf { it.isNotEmpty() }?.let { return it }
+        val words = t.split(' ')
+        return all.filter { it.second.matches(words) }
+    }
 
     /** A plain value, or one per area with "other" / "*" for the areas not named. */
     private fun pick(o: JSONObject, key: String, area: LimitArea): String? {
@@ -152,6 +172,12 @@ class BagLimits(private val ctx: Context) {
 
         private fun day(s: String) = s.substringBefore('-').toInt() * 100 + s.substringAfter('-').toInt()
         private fun dayName(d: Int) = "${d % 100} ${MONTHS[d / 100 - 1]}"
+
+        /** Lower case letters and digits, single spaces, no apostrophes or brackets. */
+        fun plain(s: String) = s.lowercase().replace("'", "").replace(Regex("[^a-z0-9]+"), " ").trim()
+
+        /** The month * 100 + day of [t], as closures use. */
+        fun dayOf(t: Long): Int = Calendar.getInstance().let { it.timeInMillis = t; (it[Calendar.MONTH] + 1) * 100 + it[Calendar.DAY_OF_MONTH] }
 
         fun today(): Int = Calendar.getInstance().let { (it[Calendar.MONTH] + 1) * 100 + it[Calendar.DAY_OF_MONTH] }
 

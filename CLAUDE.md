@@ -61,7 +61,7 @@ user which they need. The style must also cope with older charts that lack a new
 | `NavOverlays.kt` | Track, route, drift, marks, anchor (drawn in code) |
 | `MarkGroups.kt`, `MarksPanel.kt` | Mark groups: storage; show/hide panel and bulk edits. Group "" = Ungrouped |
 | `Trips.kt`, `TripsPanel.kt`, `SpeedChartView.kt` | Trips, stats, catch log storage and export; docked panel; speed chart |
-| `CatchDialogs.kt`, `TrackService.kt` | Catch entry and viewing; foreground service for recording with the screen off |
+| `CatchDialogs.kt`, `CatchLimits.kt`, `TrackService.kt` | Catch entry and viewing; bag/size checks for a catch (warns before keeping); foreground service for recording with the screen off |
 | `Ais.kt` | Vessels from Open Waters AIS (polling, parsing, map layers). Never store or export its data (AISHub terms). Its User-Agent carries the repo link, which the owner approved and Open Waters requires from 2027 |
 | `BagLimits.kt`, `BagLimitsPanel.kt` | Bag and size limits: data and area lookup; docked searchable panel |
 | `OfflineAreas.kt`, `OfflinePanel.kt` | Save online imagery (satellite, reef relief) for a box as MBTiles, one file per area and layer, never written after; docked panel |

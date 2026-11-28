@@ -48,6 +48,10 @@ class CatchDialogs(
         fun deleteMark(m: Mark)
         fun exportText(fileName: String, csv: Boolean, text: String)
         fun confirm(message: String, onYes: () -> Unit)
+        /** Bag and size limits to check a catch against. */
+        fun limits(): CatchLimits
+        /** Where a catch with no position is: the boat or the map centre. */
+        fun here(): LatLon?
     }
 
     private val dp = ctx.resources.displayMetrics.density
@@ -121,6 +125,45 @@ class CatchDialogs(
             setTextColor(look.onSurface)
         }
         box.addView(released)
+
+        // Bag and size limits for what's typed, with anything that makes keeping it illegal in red.
+        val limitsText = TextView(ctx).apply {
+            textSize = 12.5f
+            setTextColor(look.muted)
+            setPadding(px(4), px(8), 0, px(4))
+        }
+        box.addView(limitsText)
+        fun check() = host.limits().check(species.text.toString(), count.text.toString().trim().toIntOrNull() ?: 1,
+            length.text.toString().trim().replace(',', '.').toDoubleOrNull(), whenMs, c.pos ?: host.here(),
+            log.catches.filter { it.id != c.id })
+        fun showLimits() {
+            val r = check()
+            if (r.lines.isEmpty()) { limitsText.visibility = android.view.View.GONE; return }
+            limitsText.visibility = android.view.View.VISIBLE
+            val sb = android.text.SpannableStringBuilder()
+            sb.append("BAG & SIZE LIMITS" + (r.area?.let { " · ${it.label}" } ?: "") + "\n")
+            sb.append(r.lines.joinToString("\n"))
+            for (p in r.problems) {
+                val start = sb.length
+                sb.append("\n⚠ ").append(p)
+                val colour = if (released.isChecked) look.muted else look.danger
+                sb.setSpan(android.text.style.ForegroundColorSpan(colour), start, sb.length, 0)
+                sb.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), start, sb.length, 0)
+            }
+            if (r.problems.isNotEmpty() && released.isChecked) sb.append("\nReleased, so that's fine.")
+            sb.append("\nFrom DPIRD's guide, entered by hand. Always check the current rules.")
+            limitsText.text = sb
+        }
+        val watcher = object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, d: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, d: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) = showLimits()
+        }
+        species.addTextChangedListener(watcher)
+        count.addTextChangedListener(watcher)
+        length.addTextChangedListener(watcher)
+        released.setOnCheckedChangeListener { _, _ -> showLimits() }
+        showLimits()
         val timeButton = button(box, time(whenMs)) {}
         timeButton.setOnClickListener {
             val cal = Calendar.getInstance().apply { timeInMillis = whenMs }
@@ -129,6 +172,7 @@ class CatchDialogs(
                     cal.set(y, mo, d, h, mi)
                     whenMs = cal.timeInMillis
                     timeButton.text = time(whenMs)
+                    showLimits()
                 }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), true).show()
             }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
         }
@@ -158,11 +202,25 @@ class CatchDialogs(
         val b = MaterialAlertDialogBuilder(ctx)
             .setTitle(if (isNew) "Mark" else "Edit catch")
             .setView(ScrollView(ctx).apply { addView(box) })
-            .setPositiveButton("Save") { _, _ -> save(false) }
+            .setPositiveButton("Save", null)
             .setNegativeButton(android.R.string.cancel, null)
         // The spot was taken when the button was pressed: a stray tap outside mustn't lose it.
-        if (isNew) b.setNeutralButton("📷 Save & photo") { _, _ -> save(true) }.setCancelable(false)
-        b.show()
+        if (isNew) b.setNeutralButton("📷 Save & photo", null).setCancelable(false)
+        val dialog = b.show()
+        // Keeping a fish that's protected, closed, out of size or over the bag: say so first, and offer to release it.
+        fun attempt(photo: Boolean) {
+            val problems = if (released.isChecked) emptyList() else check().problems
+            if (problems.isEmpty()) { dialog.dismiss(); save(photo); return }
+            MaterialAlertDialogBuilder(ctx)
+                .setTitle("Check before you keep it")
+                .setMessage(problems.joinToString("\n\n") + "\n\nLimits are per person, from DPIRD's guide. Check the current rules.")
+                .setPositiveButton("Release it") { _, _ -> released.isChecked = true; dialog.dismiss(); save(photo) }
+                .setNeutralButton("Keep anyway") { _, _ -> dialog.dismiss(); save(photo) }
+                .setNegativeButton("Back", null)
+                .show()
+        }
+        dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).setOnClickListener { attempt(false) }
+        if (isNew) dialog.getButton(android.content.DialogInterface.BUTTON_NEUTRAL).setOnClickListener { attempt(true) }
     }
 
     private fun button(parent: LinearLayout, label: String, danger: Boolean = false, onClick: () -> Unit) =
@@ -192,6 +250,22 @@ class CatchDialogs(
             ).joinToString("\n")
             textSize = 14f
             setTextColor(look.muted)
+        })
+        // Its limits, and (if kept) anything wrong with that.
+        val r = host.limits().check(c.species, c.count, c.lengthCm, c.time, c.pos ?: host.here(), log.catches.filter { it.id != c.id })
+        if (r.lines.isNotEmpty()) body.addView(TextView(ctx).apply {
+            val sb = android.text.SpannableStringBuilder("BAG & SIZE LIMITS" + (r.area?.let { " · ${it.label}" } ?: "") + "\n")
+            sb.append(r.lines.joinToString("\n"))
+            if (!c.released) for (p in r.problems) {
+                val start = sb.length
+                sb.append("\n⚠ ").append(p)
+                sb.setSpan(android.text.style.ForegroundColorSpan(look.danger), start, sb.length, 0)
+                sb.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), start, sb.length, 0)
+            }
+            text = sb
+            textSize = 12.5f
+            setTextColor(look.muted)
+            setPadding(0, px(10), 0, 0)
         })
         lateinit var dialog: androidx.appcompat.app.AlertDialog
         if (c.photos.isNotEmpty()) {
